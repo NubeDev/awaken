@@ -104,7 +104,13 @@ Current configurable plugin sections exposed by the starter runtime:
 Controls context window management and auto-compaction.
 
 ```rust,no_run
-# #[derive(Default)] pub enum ContextCompactionMode { #[default] KeepRecentRawSuffix, CompactToSafeFrontier }
+#[derive(Default)]
+pub enum ContextCompactionMode {
+    #[default]
+    KeepRecentRawSuffix,
+    CompactToSafeFrontier,
+}
+
 pub struct ContextWindowPolicy {
     pub max_context_tokens: usize,          // default: 200_000
     pub max_output_tokens: usize,           // default: 16_384
@@ -136,7 +142,15 @@ provider. They do not re-resolve `AgentSpec.model_id` and do not switch provider
 See [Provider and Model Configuration](./provider-model-config.md).
 
 ```rust,no_run
-# pub enum ReasoningEffort { None, Low, Medium, High, Max, Budget(u32) }
+pub enum ReasoningEffort {
+    None,
+    Low,
+    Medium,
+    High,
+    Max,
+    Budget(u32),
+}
+
 pub struct InferenceOverride {
     pub upstream_model: Option<String>,      // upstream model name
     pub fallback_upstream_models: Option<Vec<String>>, // upstream model names

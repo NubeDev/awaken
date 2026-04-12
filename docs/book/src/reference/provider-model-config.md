@@ -33,24 +33,29 @@ The important distinction is:
 
 Use this path when the application owns provider construction in code.
 
-```rust,ignore
+```rust,no_run
 use std::sync::Arc;
 use awaken::engine::GenaiExecutor;
 use awaken::registry::ModelBinding;
 use awaken::{AgentRuntimeBuilder, AgentSpec};
 
-let agent = AgentSpec::new("assistant")
-    .with_model_id("default")
-    .with_system_prompt("You are helpful.");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let agent = AgentSpec::new("assistant")
+        .with_model_id("default")
+        .with_system_prompt("You are helpful.");
 
-let runtime = AgentRuntimeBuilder::new()
-    .with_provider("openai", Arc::new(GenaiExecutor::new()))
-    .with_model_binding("default", ModelBinding {
-        provider_id: "openai".into(),
-        upstream_model: "gpt-4o-mini".into(),
-    })
-    .with_agent_spec(agent)
-    .build()?;
+    let runtime = AgentRuntimeBuilder::new()
+        .with_provider("openai", Arc::new(GenaiExecutor::new()))
+        .with_model_binding("default", ModelBinding {
+            provider_id: "openai".into(),
+            upstream_model: "gpt-4o-mini".into(),
+        })
+        .with_agent_spec(agent)
+        .build()?;
+
+    let _runtime = runtime;
+    Ok(())
+}
 ```
 
 `build()` validates every registered agent by resolving its model id and provider id. Missing models, providers, or plugins fail at startup.
@@ -161,7 +166,7 @@ At execution time the primary override is applied to `InferenceRequest.upstream_
 
 Use model overrides for same-provider model changes:
 
-```rust,ignore
+```rust
 use awaken::contract::inference::InferenceOverride;
 
 let overrides = InferenceOverride {

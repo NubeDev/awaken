@@ -12,6 +12,7 @@
 //!   - LLM directly calls "dangerous_tool" without skill activation
 //!   - "dangerous_tool" is blocked by permission
 
+use awaken_runtime::loop_runner::CommitWiring;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -302,7 +303,6 @@ fn make_agent_spec_deny_all_with_extra_allowed_tools(extra_allowed_tools: &[&str
 async fn skill_activation_elevates_permission_for_dangerous_tool() {
     let registry = make_skill_registry();
     let discovery_plugin = SkillDiscoveryPlugin::new(registry.clone());
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         // Step 1: LLM calls "skill" tool to activate "power-skill"
         tool_step(vec![ToolCall::new(
@@ -329,7 +329,6 @@ async fn skill_activation_elevates_permission_for_dangerous_tool() {
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
     let sink = Arc::new(VecEventSink::new());
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -344,6 +343,7 @@ async fn skill_activation_elevates_permission_for_dangerous_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -416,7 +416,6 @@ async fn skill_activation_elevates_permission_for_dangerous_tool() {
 async fn dangerous_tool_blocked_without_skill_activation() {
     let registry = make_skill_registry();
     let discovery_plugin = SkillDiscoveryPlugin::new(registry);
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         // LLM directly calls "dangerous_tool" without skill activation
         tool_step(vec![ToolCall::new("c1", "dangerous_tool", json!({}))]),
@@ -428,13 +427,11 @@ async fn dangerous_tool_blocked_without_skill_activation() {
     let mut agent = ResolvedAgent::new("test", "m", "sys", llm);
     agent.spec = Arc::new(spec);
     let agent = agent.with_tool(Arc::new(DangerousTool));
-
     let rt = make_runtime();
     let plugins: Vec<Arc<dyn Plugin>> =
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
     let sink = Arc::new(VecEventSink::new());
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -449,6 +446,7 @@ async fn dangerous_tool_blocked_without_skill_activation() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -500,7 +498,6 @@ async fn dangerous_tool_blocked_without_skill_activation() {
 async fn permission_elevation_persists_across_steps_within_run() {
     let registry = make_skill_registry();
     let discovery_plugin = SkillDiscoveryPlugin::new(registry.clone());
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         // Step 1: LLM calls "skill" to activate "power-skill"
         tool_step(vec![ToolCall::new(
@@ -528,7 +525,6 @@ async fn permission_elevation_persists_across_steps_within_run() {
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
     let sink = Arc::new(VecEventSink::new());
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -543,6 +539,7 @@ async fn permission_elevation_persists_across_steps_within_run() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -613,7 +610,6 @@ async fn same_step_skill_activation_unlocks_guarded_tool() {
     let registry = make_skill_registry();
     let discovery_plugin = SkillDiscoveryPlugin::new(registry.clone());
     let dangerous_calls = Arc::new(AtomicUsize::new(0));
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         tool_step(vec![
             ToolCall::new("c1", "skill", json!({"skill": "power-skill"})),
@@ -637,7 +633,6 @@ async fn same_step_skill_activation_unlocks_guarded_tool() {
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
     let sink = Arc::new(VecEventSink::new());
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -652,6 +647,7 @@ async fn same_step_skill_activation_unlocks_guarded_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -694,7 +690,6 @@ async fn same_step_skill_activation_unlocks_guarded_tool_with_sequential_executo
     let registry = make_skill_registry();
     let discovery_plugin = SkillDiscoveryPlugin::new(registry.clone());
     let dangerous_calls = Arc::new(AtomicUsize::new(0));
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         tool_step(vec![
             ToolCall::new("c1", "skill", json!({"skill": "power-skill"})),
@@ -716,7 +711,6 @@ async fn same_step_skill_activation_unlocks_guarded_tool_with_sequential_executo
     let plugins: Vec<Arc<dyn Plugin>> =
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -731,6 +725,7 @@ async fn same_step_skill_activation_unlocks_guarded_tool_with_sequential_executo
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -755,7 +750,6 @@ async fn same_step_skill_activation_preserves_other_parallel_tools() {
     let discovery_plugin = SkillDiscoveryPlugin::new(registry.clone());
     let dangerous_calls = Arc::new(AtomicUsize::new(0));
     let weather_calls = Arc::new(AtomicUsize::new(0));
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         tool_step(vec![
             ToolCall::new("c1", "skill", json!({"skill": "power-skill"})),
@@ -783,7 +777,6 @@ async fn same_step_skill_activation_preserves_other_parallel_tools() {
         vec![Arc::new(discovery_plugin), Arc::new(PermissionPlugin)];
     let resolver = FixedResolver::with_plugins(agent, plugins);
     let sink = Arc::new(VecEventSink::new());
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -798,6 +791,7 @@ async fn same_step_skill_activation_preserves_other_parallel_tools() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -880,6 +874,7 @@ async fn same_step_skill_activation_allows_multiple_guarded_tools() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -961,6 +956,7 @@ async fn same_step_skill_activation_preserves_allowed_tool_before_skill() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1039,6 +1035,7 @@ async fn guarded_tool_before_skill_blocks_same_step_activation_attempt() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1123,6 +1120,7 @@ async fn allowed_prefix_commits_before_later_guarded_tool_blocks() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1210,6 +1208,7 @@ async fn standalone_skill_activation_advances_to_next_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1283,6 +1282,7 @@ async fn standalone_skill_activation_injects_active_instructions_on_next_inferen
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await

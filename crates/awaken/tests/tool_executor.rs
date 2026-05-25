@@ -2,7 +2,6 @@
 //! Comprehensive tool executor and agent loop tests ported from uncarve.
 //! Covers: sequential/parallel execution, suspension, state machine transitions,
 //! cross-hook state visibility, stop conditions, and phase interaction.
-
 use async_trait::async_trait;
 use awaken::agent::state::{RunLifecycle, SetInferenceOverride, ToolCallStates};
 use awaken::contract::content::ContentBlock;
@@ -22,18 +21,16 @@ use awaken::loop_runner::{AgentLoopParams, build_agent_env, run_agent_loop};
 use awaken::registry::AgentSpec;
 use awaken::*;
 use awaken::{AgentResolver, ExecutionEnv, ResolvedAgent, RuntimeError};
+use awaken_runtime::loop_runner::CommitWiring;
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-
 // ---------------------------------------------------------------------------
 // Mock LLM
 // ---------------------------------------------------------------------------
-
 struct ScriptedLlm {
     responses: Mutex<Vec<StreamResult>>,
 }
-
 impl ScriptedLlm {
     fn new(responses: Vec<StreamResult>) -> Self {
         Self {
@@ -41,7 +38,6 @@ impl ScriptedLlm {
         }
     }
 }
-
 #[async_trait]
 impl LlmExecutor for ScriptedLlm {
     async fn execute(
@@ -65,11 +61,9 @@ impl LlmExecutor for ScriptedLlm {
         "scripted"
     }
 }
-
 // ---------------------------------------------------------------------------
 // Mock Tools
 // ---------------------------------------------------------------------------
-
 struct EchoTool;
 #[async_trait]
 impl Tool for EchoTool {
@@ -85,7 +79,6 @@ impl Tool for EchoTool {
         Ok(ToolResult::success_with_message("echo", args, msg).into())
     }
 }
-
 struct FailingTool;
 #[async_trait]
 impl Tool for FailingTool {
@@ -96,7 +89,6 @@ impl Tool for FailingTool {
         Err(ToolError::ExecutionFailed("intentional failure".into()))
     }
 }
-
 struct SuspendingTool;
 #[async_trait]
 impl Tool for SuspendingTool {
@@ -229,6 +221,7 @@ async fn sequential_partial_failure_both_produce_results() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -277,6 +270,7 @@ async fn sequential_stops_after_first_suspension_in_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -340,6 +334,7 @@ async fn parallel_both_tools_execute() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -384,6 +379,7 @@ async fn parallel_partial_failure() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -434,6 +430,7 @@ async fn parallel_does_not_stop_on_suspension() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -484,6 +481,7 @@ async fn suspension_sets_run_to_waiting() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -519,6 +517,7 @@ async fn suspension_tool_call_state_is_suspended() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -620,6 +619,7 @@ async fn hook_state_mutation_is_not_visible_to_sibling_hook() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -666,6 +666,7 @@ async fn max_rounds_precise_count() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -715,7 +716,6 @@ async fn terminate_via_state_in_after_inference_hook() {
     ]));
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(TermHookPlugin)];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
@@ -733,6 +733,7 @@ async fn terminate_via_state_in_after_inference_hook() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -780,7 +781,6 @@ async fn phase_sequence_with_tool_call() {
     ]));
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(LogPlugin(phases.clone()))];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
@@ -798,6 +798,7 @@ async fn phase_sequence_with_tool_call() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -851,7 +852,6 @@ async fn phase_sequence_on_suspension() {
     )])]));
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(LogPlugin(phases.clone()))];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
@@ -869,6 +869,7 @@ async fn phase_sequence_on_suspension() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -924,7 +925,6 @@ async fn profile_sections_available_in_loop_hooks() {
     }
 
     let rt = make_runtime();
-
     let cfg_plugin = Arc::new(CfgPlugin(observed.clone()));
     let env =
         ExecutionEnv::from_plugins(&[cfg_plugin as Arc<dyn Plugin>], &Default::default()).unwrap();
@@ -975,6 +975,7 @@ async fn empty_tool_calls_treated_as_natural_end() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1017,6 +1018,7 @@ async fn multiple_steps_accumulate_messages() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1057,6 +1059,7 @@ async fn run_lifecycle_run_id_matches_identity() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1098,6 +1101,7 @@ async fn batch_approval_both_tools_execute_in_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1142,6 +1146,7 @@ async fn batch_approval_suspension_still_executes_all() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1189,6 +1194,7 @@ async fn streaming_partial_failure_in_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1278,7 +1284,6 @@ async fn before_inference_hook_override_reaches_request() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone());
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(OverridePlugin)];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
@@ -1296,6 +1301,7 @@ async fn before_inference_hook_override_reaches_request() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1397,11 +1403,9 @@ async fn multiple_hooks_merge_inference_overrides_last_wins() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone());
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> =
         vec![Arc::new(OverridePluginA), Arc::new(OverridePluginB)];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
-
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -1416,6 +1420,7 @@ async fn multiple_hooks_merge_inference_overrides_last_wins() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1467,10 +1472,8 @@ async fn no_override_hook_leaves_overrides_none() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone());
     let rt = make_runtime();
-
     // No override plugins
     let resolver = FixedResolver::new(agent);
-
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -1485,6 +1488,7 @@ async fn no_override_hook_leaves_overrides_none() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1578,13 +1582,11 @@ async fn override_consumed_each_step_not_leaked() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone()).with_tool(Arc::new(EchoTool));
     let rt = make_runtime();
-
     let emitted = Arc::new(AtomicUsize::new(0));
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(OnceOverridePlugin {
         emitted: emitted.clone(),
     })];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
-
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -1599,6 +1601,7 @@ async fn override_consumed_each_step_not_leaked() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1685,10 +1688,8 @@ async fn context_message_injected_into_request() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone());
     let rt = make_runtime();
-
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(ContextPlugin)];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
-
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -1703,6 +1704,7 @@ async fn context_message_injected_into_request() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1711,7 +1713,6 @@ async fn context_message_injected_into_request() {
     let captured = llm.captured.lock().unwrap();
     assert_eq!(captured.len(), 1);
     let msgs = &captured[0];
-
     // Expected order:
     // [0] system prompt ("sys" from ResolvedAgent)
     // [1] system context message ("You are a helpful assistant") — System target, after base
@@ -1821,13 +1822,11 @@ async fn context_messages_not_leaked_to_next_step() {
     });
     let agent = ResolvedAgent::new("test", "m", "sys", llm.clone()).with_tool(Arc::new(EchoTool));
     let rt = make_runtime();
-
     let emitted = Arc::new(AtomicUsize::new(0));
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![Arc::new(OnceContextPlugin {
         emitted: emitted.clone(),
     })];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
-
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -1842,6 +1841,7 @@ async fn context_messages_not_leaked_to_next_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await

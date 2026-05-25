@@ -20,6 +20,7 @@ use awaken::contract::tool_intercept::ToolInterceptPayload;
 use awaken::loop_runner::{AgentLoopParams, build_agent_env, prepare_resume, run_agent_loop};
 use awaken::*;
 use awaken::{AgentResolver, ResolvedAgent};
+use awaken_runtime::loop_runner::CommitWiring;
 use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
 
@@ -206,7 +207,6 @@ async fn single_step_natural_end() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "You are helpful.", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -222,6 +222,7 @@ async fn single_step_natural_end() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -275,7 +276,6 @@ async fn run_level_model_override_selects_upstream_model() {
     let agent = ResolvedAgent::new("test", "base-upstream-model", "sys", llm.clone());
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -293,6 +293,7 @@ async fn run_level_model_override_selects_upstream_model() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -328,7 +329,6 @@ async fn tool_call_then_response() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -344,6 +344,7 @@ async fn tool_call_then_response() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -378,7 +379,6 @@ async fn tool_call_state_machine_transitions() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -394,6 +394,7 @@ async fn tool_call_state_machine_transitions() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -433,7 +434,6 @@ async fn multiple_tool_calls_in_one_step() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -449,6 +449,7 @@ async fn multiple_tool_calls_in_one_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -486,7 +487,6 @@ async fn max_rounds_exceeded() {
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -502,6 +502,7 @@ async fn max_rounds_exceeded() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -545,7 +546,6 @@ async fn unknown_tool_returns_error_result_not_crash() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -561,6 +561,7 @@ async fn unknown_tool_returns_error_result_not_crash() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -605,7 +606,6 @@ async fn failing_tool_produces_error_result_continues_loop() {
         ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(FailingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -621,6 +621,7 @@ async fn failing_tool_produces_error_result_continues_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -643,7 +644,6 @@ async fn events_have_correct_sequence_for_single_step() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -659,6 +659,7 @@ async fn events_have_correct_sequence_for_single_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -720,7 +721,6 @@ async fn events_have_correct_sequence_with_tool_call() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let _result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -736,6 +736,7 @@ async fn events_have_correct_sequence_with_tool_call() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -789,7 +790,6 @@ async fn lifecycle_state_reflects_custom_run_id() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let identity = RunIdentity::new(
         "t-custom".into(),
         None,
@@ -814,6 +814,7 @@ async fn lifecycle_state_reflects_custom_run_id() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -826,7 +827,6 @@ async fn lifecycle_state_reflects_custom_run_id() {
 #[tokio::test]
 async fn phase_hooks_fire_during_loop() {
     let hook_phases = Arc::new(Mutex::new(Vec::<Phase>::new()));
-
     struct PhaseTracker(Arc<Mutex<Vec<Phase>>>);
     #[async_trait]
     impl PhaseHook for PhaseTracker {
@@ -863,11 +863,9 @@ async fn phase_hooks_fire_during_loop() {
 
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
-
     let tracker_plugin = Arc::new(TrackerPlugin(Arc::clone(&hook_phases)));
     let user_plugins: Vec<Arc<dyn Plugin>> = vec![tracker_plugin];
     let resolver = FixedResolver::with_plugins(agent, user_plugins);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -883,6 +881,7 @@ async fn phase_hooks_fire_during_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -973,7 +972,6 @@ async fn tool_suspension_transitions_run_to_waiting() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -989,6 +987,7 @@ async fn tool_suspension_transitions_run_to_waiting() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1016,7 +1015,6 @@ async fn resume_with_use_decision_as_tool_result() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     // Run until suspension
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
@@ -1033,6 +1031,7 @@ async fn resume_with_use_decision_as_tool_result() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1084,6 +1083,7 @@ async fn resume_with_use_decision_as_tool_result() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1111,7 +1111,6 @@ async fn resume_with_cancel_marks_tool_cancelled() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     // Run until suspension
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
@@ -1128,6 +1127,7 @@ async fn resume_with_cancel_marks_tool_cancelled() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1178,6 +1178,7 @@ async fn resume_with_cancel_marks_tool_cancelled() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1203,7 +1204,6 @@ async fn resume_with_replay_tool_call() {
         .with_tool(Arc::new(EchoTool)); // echo registered for replay
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     // Run until suspension
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
@@ -1220,6 +1220,7 @@ async fn resume_with_replay_tool_call() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1246,7 +1247,6 @@ async fn resume_with_replay_tool_call() {
     let llm2 = Arc::new(ScriptedLlm::new(vec![]));
     let agent2 = ResolvedAgent::new("test", "m", "sys", llm2).with_tool(Arc::new(DangerousEcho));
     let resolver2 = FixedResolver::new(agent2);
-
     let messages = vec![
         Message::user("do it"),
         Message::assistant_with_tool_calls(
@@ -1290,6 +1290,7 @@ async fn resume_with_replay_tool_call() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1309,7 +1310,6 @@ async fn resume_with_pass_decision_to_tool() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     // Hack: register passthrough as "dangerous" initially for suspension
     // Actually, let's use a different approach: SuspendingTool is "dangerous"
     // but we need passthrough for resume. Let's use a tool that suspends first.
@@ -1331,6 +1331,7 @@ async fn resume_with_pass_decision_to_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await;
@@ -1347,7 +1348,6 @@ async fn resume_with_pass_decision_to_tool() {
     )]));
     let agent2 = ResolvedAgent::new("test", "m", "sys", llm2).with_tool(Arc::new(SuspendingTool));
     let resolver2 = FixedResolver::new(agent2);
-
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver2,
         agent_id: "test",
@@ -1362,6 +1362,7 @@ async fn resume_with_pass_decision_to_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1393,7 +1394,6 @@ async fn resume_with_pass_decision_to_tool() {
     let agent3 =
         ResolvedAgent::new("test", "m", "sys", llm3).with_tool(Arc::new(DangerousPassthrough));
     let resolver3 = FixedResolver::new(agent3);
-
     let messages = vec![
         Message::user("do it"),
         Message::assistant_with_tool_calls(
@@ -1433,6 +1433,7 @@ async fn resume_with_pass_decision_to_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1447,7 +1448,6 @@ async fn resume_rejects_non_waiting_run() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     // Run to completion (not suspended)
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
@@ -1464,6 +1464,7 @@ async fn resume_rejects_non_waiting_run() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1501,7 +1502,6 @@ async fn resume_rejects_unknown_call_id() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -1517,6 +1517,7 @@ async fn resume_rejects_unknown_call_id() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1630,7 +1631,6 @@ async fn cancel_during_streaming_terminates_run() {
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let token = CancellationToken::new();
     let token_clone = token.clone();
-
     // Cancel after 100ms — mid-stream (after ~2 of 10 deltas)
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -1651,6 +1651,7 @@ async fn cancel_during_streaming_terminates_run() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1673,7 +1674,6 @@ async fn cancel_before_inference_terminates_immediately() {
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
-
     let token = CancellationToken::new();
     token.cancel();
 
@@ -1691,6 +1691,7 @@ async fn cancel_before_inference_terminates_immediately() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1731,7 +1732,6 @@ async fn state_snapshot_emitted_after_phase() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -1747,6 +1747,7 @@ async fn state_snapshot_emitted_after_phase() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -1755,7 +1756,6 @@ async fn state_snapshot_emitted_after_phase() {
     assert_eq!(result.termination, TerminationReason::NaturalEnd);
 
     let events = sink.take();
-
     // Collect all StateSnapshot events
     let snapshots: Vec<&Value> = events
         .iter()
@@ -1940,7 +1940,6 @@ async fn frontend_tool_intercept_suspend_and_resume() {
     }
 
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(AskUserTool));
-
     let frontend_plugin = Arc::new(FrontendToolInterceptPluginWrapper {
         plugin: FrontendToolInterceptPlugin {
             frontend_tool_ids: vec!["ask_user".into()],
@@ -1949,7 +1948,6 @@ async fn frontend_tool_intercept_suspend_and_resume() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![frontend_plugin]);
-
     // Run until suspension
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
@@ -1966,6 +1964,7 @@ async fn frontend_tool_intercept_suspend_and_resume() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2043,6 +2042,7 @@ async fn frontend_tool_intercept_suspend_and_resume() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2073,7 +2073,6 @@ async fn injected_frontend_tool_uses_suspension_id_resume_chain() {
     let resolver = FixedResolver::new(agent);
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let frontend_tool = ToolDescriptor::new("ask_user", "ask_user", "Ask the user a question");
-
     let suspended = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
         agent_id: "test",
@@ -2088,6 +2087,7 @@ async fn injected_frontend_tool_uses_suspension_id_resume_chain() {
         frontend_tools: vec![frontend_tool.clone()],
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2143,6 +2143,7 @@ async fn injected_frontend_tool_uses_suspension_id_resume_chain() {
         frontend_tools: vec![frontend_tool],
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2222,7 +2223,6 @@ async fn tool_intercept_block_terminates_run() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![blocking_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2238,6 +2238,7 @@ async fn tool_intercept_block_terminates_run() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2354,7 +2355,6 @@ async fn tool_intercept_set_result_skips_execution() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![set_result_plugin]);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2370,6 +2370,7 @@ async fn tool_intercept_set_result_skips_execution() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2402,7 +2403,6 @@ async fn suspended_tool_preserves_state_across_resume() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2418,6 +2418,7 @@ async fn suspended_tool_preserves_state_across_resume() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2480,6 +2481,7 @@ async fn suspended_tool_preserves_state_across_resume() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2520,9 +2522,7 @@ async fn decision_channel_resume_resolves_suspended_call() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(DangerousApproved));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let (tx, rx) = mpsc::unbounded::<Vec<(String, ToolCallResume)>>();
-
     // Send the decision after a short delay so the loop picks it up
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -2554,6 +2554,7 @@ async fn decision_channel_resume_resolves_suspended_call() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2582,9 +2583,7 @@ async fn cancel_decision_marks_tool_cancelled() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let (tx, rx) = mpsc::unbounded::<Vec<(String, ToolCallResume)>>();
-
     // Send a Cancel decision after a short delay
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -2616,6 +2615,7 @@ async fn cancel_decision_marks_tool_cancelled() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2646,7 +2646,6 @@ async fn permission_hook_blocks_denied_tool() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![permission_plugin]);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2662,6 +2661,7 @@ async fn permission_hook_blocks_denied_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2729,7 +2729,6 @@ async fn intercept_suspend_preserves_ticket_resume_mode() {
     }
 
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(FrontendTool));
-
     let frontend_plugin = Arc::new(FrontendToolInterceptPluginWrapper {
         plugin: FrontendToolInterceptPlugin {
             frontend_tool_ids: vec!["ask_user".into()],
@@ -2738,7 +2737,6 @@ async fn intercept_suspend_preserves_ticket_resume_mode() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![frontend_plugin]);
-
     // Run until suspension
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
@@ -2755,6 +2753,7 @@ async fn intercept_suspend_preserves_ticket_resume_mode() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2827,6 +2826,7 @@ async fn intercept_suspend_preserves_ticket_resume_mode() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2867,7 +2867,6 @@ async fn multiple_tool_calls_partial_intercept() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![blocking_plugin]);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2883,6 +2882,7 @@ async fn multiple_tool_calls_partial_intercept() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2939,7 +2939,6 @@ async fn intercept_set_result_emits_tool_call_done_event() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![set_result_plugin]);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -2955,6 +2954,7 @@ async fn intercept_set_result_emits_tool_call_done_event() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -2963,7 +2963,6 @@ async fn intercept_set_result_emits_tool_call_done_event() {
     assert_eq!(result.termination, TerminationReason::NaturalEnd);
 
     let events = sink.take();
-
     // Find ToolCallDone events
     let tool_done_events: Vec<_> = events
         .iter()
@@ -3010,7 +3009,6 @@ async fn prepare_resume_preserves_arguments_and_records_decision_payload() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3026,6 +3024,7 @@ async fn prepare_resume_preserves_arguments_and_records_decision_payload() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3073,7 +3072,6 @@ async fn prepare_resume_preserves_arguments_and_records_decision_payload() {
     )]));
     let agent2 = ResolvedAgent::new("test", "m", "sys", llm2).with_tool(Arc::new(SuspendingTool));
     let resolver2 = FixedResolver::new(agent2);
-
     let result2 = run_agent_loop(AgentLoopParams {
         resolver: &resolver2,
         agent_id: "test",
@@ -3088,6 +3086,7 @@ async fn prepare_resume_preserves_arguments_and_records_decision_payload() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3202,9 +3201,7 @@ async fn concurrent_suspend_and_resume_via_channel() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(SuspendAllPluginWrapper)]);
-
     let (tx, rx) = mpsc::unbounded::<Vec<(String, ToolCallResume)>>();
-
     // Send decisions for both suspended tools after a short delay
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -3248,6 +3245,7 @@ async fn concurrent_suspend_and_resume_via_channel() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3357,7 +3355,6 @@ async fn single_tool_call_can_suspend_multiple_times_via_decision_channel() {
     let resolver = FixedResolver::new(agent);
     let (tx, rx) = mpsc::unbounded::<Vec<(String, ToolCallResume)>>();
     let sink = Arc::new(VecEventSink::new());
-
     let sender = async {
         let first_suspension_id = wait_for_suspension_id(&runtime, "c1", None).await;
         tx.unbounded_send(vec![(
@@ -3402,6 +3399,7 @@ async fn single_tool_call_can_suspend_multiple_times_via_decision_channel() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     });
 
@@ -3466,7 +3464,6 @@ async fn tool_call_lifecycle_complete_transitions_in_loop() {
         .with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3482,6 +3479,7 @@ async fn tool_call_lifecycle_complete_transitions_in_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3554,6 +3552,7 @@ async fn tool_call_lifecycle_complete_transitions_in_loop() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3600,7 +3599,6 @@ async fn parallel_tools_one_fails_other_succeeds() {
         .with_tool(Arc::new(FailingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3616,6 +3614,7 @@ async fn parallel_tools_one_fails_other_succeeds() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3665,7 +3664,6 @@ async fn sequential_tools_stop_after_first_suspension() {
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3681,6 +3679,7 @@ async fn sequential_tools_stop_after_first_suspension() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3732,7 +3731,6 @@ async fn stop_policy_max_rounds_terminates() {
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3748,6 +3746,7 @@ async fn stop_policy_max_rounds_terminates() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3797,10 +3796,8 @@ async fn cancel_during_tool_execution() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(SlowTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let token = CancellationToken::new();
     let token_clone = token.clone();
-
     // Cancel after 10ms while the tool is sleeping for 100ms
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -3822,6 +3819,7 @@ async fn cancel_during_tool_execution() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3852,7 +3850,6 @@ async fn empty_tool_calls_natural_end() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(EchoTool)); // Tools registered but not used
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3868,6 +3865,7 @@ async fn empty_tool_calls_natural_end() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -3960,11 +3958,9 @@ async fn context_message_injected_before_inference() {
 
     let llm = Arc::new(RecordingLlm::new());
     let llm_clone = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(ContextInjectorPlugin)]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -3980,6 +3976,7 @@ async fn context_message_injected_before_inference() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4053,7 +4050,6 @@ async fn tool_execution_preserves_arguments() {
         ResolvedAgent::new("test", "gpt-4o", "helpful", llm).with_tool(Arc::new(ArgReturningTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4069,6 +4065,7 @@ async fn tool_execution_preserves_arguments() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4208,7 +4205,6 @@ async fn retry_startup_error_propagates() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4224,6 +4220,7 @@ async fn retry_startup_error_propagates() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await;
@@ -4250,11 +4247,9 @@ async fn inference_request_uses_configured_upstream_model() {
         has_incomplete_tool_calls: false,
     }]));
     let llm_clone = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "claude-3-opus", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4270,6 +4265,7 @@ async fn inference_request_uses_configured_upstream_model() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4314,7 +4310,6 @@ async fn truncation_with_tool_calls_no_retry() {
         .with_max_continuation_retries(2);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4330,6 +4325,7 @@ async fn truncation_with_tool_calls_no_retry() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4421,7 +4417,6 @@ async fn truncation_recovery_exhausts_retries() {
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4437,6 +4432,7 @@ async fn truncation_recovery_exhausts_retries() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4546,13 +4542,11 @@ async fn truncation_recovery_preserves_truncated_text() {
 
     let llm = Arc::new(TruncationStreamLlm::new());
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm)
         .with_max_continuation_retries(2)
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4568,6 +4562,7 @@ async fn truncation_recovery_preserves_truncated_text() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4621,7 +4616,6 @@ async fn run_finish_has_matching_thread_id() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let identity = RunIdentity::new(
         "thread-42".into(),
         None,
@@ -4646,13 +4640,13 @@ async fn run_finish_has_matching_thread_id() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
     .unwrap();
 
     let events = sink.take();
-
     let run_start = events.iter().find_map(|e| match e {
         AgentEvent::RunStart {
             thread_id, run_id, ..
@@ -4668,7 +4662,6 @@ async fn run_finish_has_matching_thread_id() {
 
     let (start_tid, start_rid) = run_start.expect("should have RunStart event");
     let (finish_tid, finish_rid) = run_finish.expect("should have RunFinish event");
-
     assert_eq!(start_tid, "thread-42");
     assert_eq!(start_rid, "run-99");
     assert_eq!(
@@ -4749,7 +4742,6 @@ async fn all_tools_suspended_pauses_run() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(SuspendAllWrapper)]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4765,6 +4757,7 @@ async fn all_tools_suspended_pauses_run() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4811,7 +4804,6 @@ async fn completed_tool_round_clears_state_at_next_step() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4827,6 +4819,7 @@ async fn completed_tool_round_clears_state_at_next_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4892,7 +4885,6 @@ async fn after_inference_stop_prevents_tool_execution() {
     let stop_plugin = Arc::new(StopConditionPlugin::new(vec![Arc::new(AlwaysStopPolicy)]));
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![stop_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4908,6 +4900,7 @@ async fn after_inference_stop_prevents_tool_execution() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4942,7 +4935,6 @@ async fn natural_end_no_tools_completes_immediately() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -4958,6 +4950,7 @@ async fn natural_end_no_tools_completes_immediately() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -4968,7 +4961,6 @@ async fn natural_end_no_tools_completes_immediately() {
     assert_eq!(result.response, "Hello!");
 
     let events = sink.take();
-
     // Should have no ToolCallStart/ToolCallDone events
     let tool_events = events
         .iter()
@@ -5028,7 +5020,6 @@ async fn unknown_tool_in_multi_call_doesnt_crash() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5044,6 +5035,7 @@ async fn unknown_tool_in_multi_call_doesnt_crash() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5132,7 +5124,6 @@ async fn permission_denied_does_not_replay_tool() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![blocking_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5148,6 +5139,7 @@ async fn permission_denied_does_not_replay_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5178,7 +5170,6 @@ async fn decision_for_unknown_call_id_returns_error() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5194,6 +5185,7 @@ async fn decision_for_unknown_call_id_returns_error() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5258,7 +5250,6 @@ async fn decision_channel_rejects_illegal_transition() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5274,6 +5265,7 @@ async fn decision_channel_rejects_illegal_transition() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5325,7 +5317,6 @@ async fn mixed_suspended_and_completed_tools() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5341,6 +5332,7 @@ async fn mixed_suspended_and_completed_tools() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5355,7 +5347,6 @@ async fn mixed_suspended_and_completed_tools() {
     );
 
     let tc_states = runtime.store().read::<ToolCallStates>().unwrap();
-
     // echo (c1) should have succeeded
     assert_eq!(
         tc_states.calls["c1"].status,
@@ -5449,7 +5440,6 @@ async fn agent_config_with_tools_batch() {
         Arc::new(FailingTool),
     ];
     let config = ResolvedAgent::new("test", "m", "s", llm).with_tools(tools);
-
     assert_eq!(config.tools.len(), 3);
     assert!(config.tools.contains_key("echo"));
     assert!(config.tools.contains_key("calc"));
@@ -5529,7 +5519,6 @@ async fn parallel_tools_all_succeed() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5545,6 +5534,7 @@ async fn parallel_tools_all_succeed() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5602,7 +5592,6 @@ async fn parallel_tools_mixed_outcomes_preserve_results() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5618,6 +5607,7 @@ async fn parallel_tools_mixed_outcomes_preserve_results() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5710,11 +5700,9 @@ async fn system_prompt_included_in_inference_request() {
 
     let llm = Arc::new(SystemPromptRecordingLlm::new());
     let llm_clone = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "gpt-4o", "You are a helpful assistant.", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5730,6 +5718,7 @@ async fn system_prompt_included_in_inference_request() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5787,11 +5776,9 @@ async fn message_ordering_preserved_in_inference_request() {
         requests: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5810,6 +5797,7 @@ async fn message_ordering_preserved_in_inference_request() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5864,13 +5852,11 @@ async fn tool_descriptors_sent_to_llm() {
         tool_ids: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm)
         .with_tool(Arc::new(EchoTool))
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -5886,6 +5872,7 @@ async fn tool_descriptors_sent_to_llm() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -5921,7 +5908,6 @@ async fn run_identity_fields_propagate_to_lifecycle() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let identity = RunIdentity::new(
         "thread-abc".into(),
         Some("parent-thread".into()),
@@ -5946,6 +5932,7 @@ async fn run_identity_fields_propagate_to_lifecycle() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6028,11 +6015,9 @@ async fn context_message_suffix_system_injected() {
         requests: Mutex::new(Vec::new()),
     });
     let llm_clone = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "gpt-4o", "helpful", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(SuffixInjectorPlugin)]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6048,6 +6033,7 @@ async fn context_message_suffix_system_injected() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6142,11 +6128,9 @@ async fn multiple_context_messages_injected() {
         requests: Mutex::new(Vec::new()),
     });
     let llm_clone = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(MultiContextPlugin)]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6162,6 +6146,7 @@ async fn multiple_context_messages_injected() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6186,7 +6171,6 @@ async fn multiple_context_messages_injected() {
 #[tokio::test]
 async fn phase_hooks_fire_with_tool_call_phases() {
     let recorded_phases = Arc::new(Mutex::new(Vec::<Phase>::new()));
-
     struct DetailedPhaseTracker(Arc<Mutex<Vec<Phase>>>);
     #[async_trait]
     impl PhaseHook for DetailedPhaseTracker {
@@ -6237,10 +6221,8 @@ async fn phase_hooks_fire_with_tool_call_phases() {
 
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
-
     let tracker = Arc::new(DetailedTrackerPlugin(Arc::clone(&recorded_phases)));
     let resolver = FixedResolver::with_plugins(agent, vec![tracker]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6256,6 +6238,7 @@ async fn phase_hooks_fire_with_tool_call_phases() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6312,7 +6295,6 @@ async fn step_count_increments_with_tool_calls() {
     let agent = ResolvedAgent::new("test", "gpt-4o", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6328,6 +6310,7 @@ async fn step_count_increments_with_tool_calls() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6362,7 +6345,6 @@ async fn token_usage_reported_in_inference_events() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6378,6 +6360,7 @@ async fn token_usage_reported_in_inference_events() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6426,7 +6409,6 @@ async fn blocking_plugin_allows_non_targeted_tool() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![blocking_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6442,6 +6424,7 @@ async fn blocking_plugin_allows_non_targeted_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6462,7 +6445,6 @@ async fn blocking_plugin_allows_non_targeted_tool() {
 #[tokio::test]
 async fn set_result_intercept_on_specific_tool_only() {
     let tool_executed = Arc::new(Mutex::new(Vec::<String>::new()));
-
     struct TrackingCalcTool2(Arc<Mutex<Vec<String>>>);
     #[async_trait]
     impl Tool for TrackingCalcTool2 {
@@ -6532,7 +6514,6 @@ async fn set_result_intercept_on_specific_tool_only() {
 
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![set_result_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6548,6 +6529,7 @@ async fn set_result_intercept_on_specific_tool_only() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6574,7 +6556,6 @@ async fn set_result_intercept_on_specific_tool_only() {
 async fn phase_hook_receives_tool_context() {
     let observed_tool_names = Arc::new(Mutex::new(Vec::<String>::new()));
     let observed_call_ids = Arc::new(Mutex::new(Vec::<String>::new()));
-
     struct ToolContextObserver {
         tool_names: Arc<Mutex<Vec<String>>>,
         call_ids: Arc<Mutex<Vec<String>>>,
@@ -6651,7 +6632,6 @@ async fn phase_hook_receives_tool_context() {
         },
     });
     let resolver = FixedResolver::with_plugins(agent, vec![observer_plugin]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6667,6 +6647,7 @@ async fn phase_hook_receives_tool_context() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6674,7 +6655,6 @@ async fn phase_hook_receives_tool_context() {
 
     let names = observed_tool_names.lock().unwrap();
     let ids = observed_call_ids.lock().unwrap();
-
     assert!(
         names.contains(&"echo".to_string()),
         "should see tool name 'echo'"
@@ -6726,7 +6706,6 @@ async fn llm_error_on_second_step_propagates() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6742,6 +6721,7 @@ async fn llm_error_on_second_step_propagates() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await;
@@ -6761,7 +6741,6 @@ async fn llm_error_on_second_step_propagates() {
 #[tokio::test]
 async fn after_inference_hook_sees_llm_response() {
     let saw_response = Arc::new(Mutex::new(false));
-
     struct AfterInferenceObserver(Arc<Mutex<bool>>);
 
     impl Clone for AfterInferenceObserver {
@@ -6832,6 +6811,7 @@ async fn after_inference_hook_sees_llm_response() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6850,7 +6830,6 @@ async fn after_inference_hook_sees_llm_response() {
 #[tokio::test]
 async fn after_tool_execute_hook_sees_tool_result() {
     let tool_results_observed = Arc::new(Mutex::new(Vec::<ToolResult>::new()));
-
     struct AfterToolObserver(Arc<Mutex<Vec<ToolResult>>>);
 
     impl Clone for AfterToolObserver {
@@ -6930,6 +6909,7 @@ async fn after_tool_execute_hook_sees_tool_result() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -6967,7 +6947,6 @@ async fn max_rounds_two_stops_after_two_tool_steps() {
         .with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -6983,6 +6962,7 @@ async fn max_rounds_two_stops_after_two_tool_steps() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7024,7 +7004,6 @@ async fn step_start_events_contain_step_number() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7040,6 +7019,7 @@ async fn step_start_events_contain_step_number() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7072,7 +7052,6 @@ async fn suspension_preserves_original_arguments() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7088,6 +7067,7 @@ async fn suspension_preserves_original_arguments() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7109,7 +7089,6 @@ async fn suspension_preserves_original_arguments() {
 #[tokio::test]
 async fn second_tool_not_executed_after_first_suspends() {
     let tool_executed = Arc::new(Mutex::new(Vec::<String>::new()));
-
     struct TrackingEchoTool2(Arc<Mutex<Vec<String>>>);
     #[async_trait]
     impl Tool for TrackingEchoTool2 {
@@ -7143,7 +7122,6 @@ async fn second_tool_not_executed_after_first_suspends() {
         .with_tool(Arc::new(TrackingEchoTool2(executed)));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7159,6 +7137,7 @@ async fn second_tool_not_executed_after_first_suspends() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7190,7 +7169,6 @@ async fn run_start_event_emitted_first() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7206,6 +7184,7 @@ async fn run_start_event_emitted_first() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7237,7 +7216,6 @@ async fn run_finish_event_emitted_last() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7253,6 +7231,7 @@ async fn run_finish_event_emitted_last() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7297,7 +7276,6 @@ async fn tool_call_events_contain_correct_metadata() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7313,13 +7291,13 @@ async fn tool_call_events_contain_correct_metadata() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
     .unwrap();
 
     let events = sink.take();
-
     let start_events: Vec<_> = events
         .iter()
         .filter_map(|e| match e {
@@ -7381,7 +7359,6 @@ async fn three_step_loop_tool_tool_response() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7397,6 +7374,7 @@ async fn three_step_loop_tool_tool_response() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7437,7 +7415,6 @@ async fn lifecycle_transitions_running_to_done() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7453,6 +7430,7 @@ async fn lifecycle_transitions_running_to_done() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7478,7 +7456,6 @@ async fn lifecycle_transitions_running_to_waiting() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7494,6 +7471,7 @@ async fn lifecycle_transitions_running_to_waiting() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7516,7 +7494,6 @@ async fn lifecycle_transitions_running_to_done_on_cancel() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let token = CancellationToken::new();
     token.cancel();
 
@@ -7535,6 +7512,7 @@ async fn lifecycle_transitions_running_to_done_on_cancel() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7569,7 +7547,6 @@ async fn text_delta_events_emitted_for_text_response() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7585,6 +7562,7 @@ async fn text_delta_events_emitted_for_text_response() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7633,7 +7611,6 @@ async fn parallel_tools_have_independent_state_entries() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7649,6 +7626,7 @@ async fn parallel_tools_have_independent_state_entries() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7689,7 +7667,6 @@ async fn parallel_tools_succeed_and_suspend_independent_states() {
         .with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7705,6 +7682,7 @@ async fn parallel_tools_succeed_and_suspend_independent_states() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7743,7 +7721,6 @@ async fn parallel_tools_both_fail_independently() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(FailingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7759,6 +7736,7 @@ async fn parallel_tools_both_fail_independently() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7806,7 +7784,6 @@ async fn parallel_same_tool_distinct_results() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7822,6 +7799,7 @@ async fn parallel_same_tool_distinct_results() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7874,7 +7852,6 @@ async fn sequential_steps_see_fresh_tool_state() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7890,6 +7867,7 @@ async fn sequential_steps_see_fresh_tool_state() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7930,7 +7908,6 @@ async fn state_snapshot_revision_increases_across_steps() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -7946,6 +7923,7 @@ async fn state_snapshot_revision_increases_across_steps() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -7990,7 +7968,6 @@ async fn state_snapshot_contains_extensions_with_lifecycle() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8006,6 +7983,7 @@ async fn state_snapshot_contains_extensions_with_lifecycle() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8057,7 +8035,6 @@ async fn state_snapshot_count_matches_steps_plus_finish() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8073,6 +8050,7 @@ async fn state_snapshot_count_matches_steps_plus_finish() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8107,7 +8085,6 @@ async fn state_snapshot_at_suspension_includes_waiting_status() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(SuspendingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8123,6 +8100,7 @@ async fn state_snapshot_at_suspension_includes_waiting_status() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8163,7 +8141,6 @@ async fn export_persisted_after_run_has_positive_revision() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8179,6 +8156,7 @@ async fn export_persisted_after_run_has_positive_revision() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8211,9 +8189,8 @@ async fn checkpoint_store_receives_data() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
-
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8229,6 +8206,7 @@ async fn checkpoint_store_receives_data() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8270,9 +8248,8 @@ async fn checkpoint_includes_correct_step_count() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
-
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8288,6 +8265,7 @@ async fn checkpoint_includes_correct_step_count() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8314,9 +8292,8 @@ async fn checkpoint_contains_state_blob() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
-
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8332,6 +8309,7 @@ async fn checkpoint_contains_state_blob() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8361,9 +8339,8 @@ async fn checkpoint_stores_thread_messages() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
-
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8379,6 +8356,7 @@ async fn checkpoint_stores_thread_messages() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8449,7 +8427,7 @@ async fn checkpoint_output_supports_child_result_lookup_after_tool_messages() {
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
     let checkpoint = Arc::new(InMemoryStore::new());
-
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8465,6 +8443,7 @@ async fn checkpoint_output_supports_child_result_lookup_after_tool_messages() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8544,6 +8523,7 @@ async fn checkpoint_stores_blocked_tool_batch_consistently() {
     );
 
     let checkpoint = Arc::new(InMemoryStore::new());
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8559,6 +8539,7 @@ async fn checkpoint_stores_blocked_tool_batch_consistently() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8611,8 +8592,8 @@ async fn checkpoint_stores_suspended_tool_batch_consistently() {
         .with_tool(Arc::new(CalcTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8628,6 +8609,7 @@ async fn checkpoint_stores_suspended_tool_batch_consistently() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8673,8 +8655,8 @@ async fn checkpoint_records_agent_id() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let checkpoint = Arc::new(InMemoryStore::new());
+    let __coord = awaken_stores::MemoryCommitCoordinator::wrap(checkpoint.clone());
     let identity = RunIdentity::new(
         "t-1".into(),
         None,
@@ -8699,6 +8681,7 @@ async fn checkpoint_records_agent_id() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: awaken_runtime::loop_runner::CommitWiring::new(Some(&*__coord), None),
         initial_state_seed: None,
     })
     .await
@@ -8745,11 +8728,9 @@ async fn llm_receives_all_user_messages() {
         message_counts: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8769,6 +8750,7 @@ async fn llm_receives_all_user_messages() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8829,11 +8811,9 @@ async fn tool_results_visible_in_next_step_messages() {
         call_count: Mutex::new(0),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8849,6 +8829,7 @@ async fn tool_results_visible_in_next_step_messages() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -8935,11 +8916,9 @@ async fn context_injection_additive_not_destructive() {
         requests: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "Original system prompt", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(AdditivePlugin)]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -8955,6 +8934,7 @@ async fn context_injection_additive_not_destructive() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9005,7 +8985,6 @@ async fn token_usage_accumulates_across_steps() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink = Arc::new(VecEventSink::new());
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -9021,6 +9000,7 @@ async fn token_usage_accumulates_across_steps() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9069,14 +9049,12 @@ async fn tool_descriptors_present_even_when_unused() {
         tool_counts: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm)
         .with_tool(Arc::new(EchoTool))
         .with_tool(Arc::new(CalcTool))
         .with_tool(Arc::new(FailingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -9092,6 +9070,7 @@ async fn tool_descriptors_present_even_when_unused() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9113,7 +9092,6 @@ async fn tool_descriptors_present_even_when_unused() {
 async fn run_start_and_run_end_hooks_fire_exactly_once() {
     let run_start_count = Arc::new(Mutex::new(0u32));
     let run_end_count = Arc::new(Mutex::new(0u32));
-
     struct RunBoundaryCounter {
         start: Arc<Mutex<u32>>,
         end: Arc<Mutex<u32>>,
@@ -9182,7 +9160,6 @@ async fn run_start_and_run_end_hooks_fire_exactly_once() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(RunBoundaryPlugin(counter))]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -9198,6 +9175,7 @@ async fn run_start_and_run_end_hooks_fire_exactly_once() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9219,7 +9197,6 @@ async fn run_start_and_run_end_hooks_fire_exactly_once() {
 #[tokio::test]
 async fn step_start_fires_per_step() {
     let step_start_count = Arc::new(Mutex::new(0u32));
-
     struct StepCounter(Arc<Mutex<u32>>);
     impl Clone for StepCounter {
         fn clone(&self) -> Self {
@@ -9252,7 +9229,6 @@ async fn step_start_fires_per_step() {
     }
 
     let counter = StepCounter(Arc::clone(&step_start_count));
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         StreamResult {
             content: vec![],
@@ -9280,7 +9256,6 @@ async fn step_start_fires_per_step() {
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(agent, vec![Arc::new(StepCounterPlugin(counter))]);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     let result = run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -9296,6 +9271,7 @@ async fn step_start_fires_per_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9313,7 +9289,6 @@ async fn step_start_fires_per_step() {
 #[tokio::test]
 async fn before_inference_hook_sees_step_count() {
     let step_counts_at_inference = Arc::new(Mutex::new(Vec::<u32>::new()));
-
     struct StepCountObserver(Arc<Mutex<Vec<u32>>>);
     impl Clone for StepCountObserver {
         fn clone(&self) -> Self {
@@ -9352,7 +9327,6 @@ async fn before_inference_hook_sees_step_count() {
     }
 
     let observer = StepCountObserver(Arc::clone(&step_counts_at_inference));
-
     let llm = Arc::new(ScriptedLlm::new(vec![
         StreamResult {
             content: vec![],
@@ -9390,6 +9364,7 @@ async fn before_inference_hook_sees_step_count() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9473,7 +9448,6 @@ async fn plugin_context_mutation_visible_in_same_step() {
         requests: Mutex::new(Vec::new()),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm);
     let runtime = make_runtime();
     let resolver = FixedResolver::with_plugins(
@@ -9496,6 +9470,7 @@ async fn plugin_context_mutation_visible_in_same_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9516,7 +9491,6 @@ async fn plugin_context_mutation_visible_in_same_step() {
 async fn multiple_plugins_same_phase_both_fire() {
     let count_a = Arc::new(Mutex::new(0u32));
     let count_b = Arc::new(Mutex::new(0u32));
-
     struct SimpleCounter(Arc<Mutex<u32>>);
     #[async_trait]
     impl PhaseHook for SimpleCounter {
@@ -9592,6 +9566,7 @@ async fn multiple_plugins_same_phase_both_fire() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9656,11 +9631,9 @@ async fn tool_result_message_contains_output() {
         call_count: Mutex::new(0),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(EchoTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
-
     let sink: Arc<dyn awaken::contract::event_sink::EventSink> = Arc::new(NullEventSink);
     run_agent_loop(AgentLoopParams {
         resolver: &resolver,
@@ -9676,6 +9649,7 @@ async fn tool_result_message_contains_output() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9739,7 +9713,6 @@ async fn failed_tool_result_message_indicates_error() {
         call_count: Mutex::new(0),
     });
     let llm_ref = Arc::clone(&llm);
-
     let agent = ResolvedAgent::new("test", "m", "sys", llm).with_tool(Arc::new(FailingTool));
     let runtime = make_runtime();
     let resolver = FixedResolver::new(agent);
@@ -9759,6 +9732,7 @@ async fn failed_tool_result_message_indicates_error() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9844,6 +9818,7 @@ async fn unknown_tool_result_indicates_not_found() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9901,6 +9876,7 @@ async fn tool_call_start_emitted_before_done() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -9965,6 +9941,7 @@ async fn multiple_tools_each_get_start_done_pair() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10044,6 +10021,7 @@ async fn replay_tool_call_executes_original_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10101,6 +10079,7 @@ async fn replay_tool_call_executes_original_tool() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10143,6 +10122,7 @@ async fn use_decision_records_decision_payload_without_rewriting_arguments() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10209,6 +10189,7 @@ async fn pass_decision_records_decision_payload_without_rewriting_arguments() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10275,6 +10256,7 @@ async fn cancel_resume_transitions_to_cancelled_status() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10332,6 +10314,7 @@ async fn resume_with_empty_decision_result_succeeds() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10413,6 +10396,7 @@ async fn three_step_events_have_correct_overall_sequence() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10487,6 +10471,7 @@ async fn suspend_on_step_two_preserves_first_step_context() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10571,6 +10556,7 @@ async fn error_on_third_step_after_two_successful_steps() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await;
@@ -10635,6 +10621,7 @@ async fn mixed_tool_counts_per_step() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10682,6 +10669,7 @@ async fn full_suspend_resume_complete_lifecycle() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10737,6 +10725,7 @@ async fn full_suspend_resume_complete_lifecycle() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -10791,6 +10780,7 @@ async fn inference_error_produces_error_termination() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await;
@@ -10877,6 +10867,7 @@ async fn token_usage_values_accumulated_across_steps() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11078,6 +11069,7 @@ async fn awaiting_tasks_prevents_done_when_tasks_running() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11149,6 +11141,7 @@ async fn natural_end_without_tasks_completes_normally() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11219,6 +11212,7 @@ async fn awaiting_tasks_preserves_step_count() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11292,6 +11286,7 @@ async fn awaiting_tasks_final_step_should_complete_once() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11423,6 +11418,7 @@ async fn inbox_messages_injected_before_natural_end() {
         frontend_tools: Vec::new(),
         inbox: Some(inbox_rx),
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11566,6 +11562,7 @@ async fn mid_stream_r2_recovery_injects_cancelled_tool_hint_into_next_turn() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11694,6 +11691,7 @@ async fn mid_stream_recovery_without_parallel_tools_does_not_inject_hint() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11821,6 +11819,7 @@ async fn malformed_tool_args_on_end_turn_injects_user_hint_for_next_turn() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await
@@ -11893,6 +11892,7 @@ async fn malformed_tool_args_hint_absent_when_all_tools_have_valid_json() {
         frontend_tools: Vec::new(),
         inbox: None,
         is_continuation: false,
+        commit: CommitWiring::default(),
         initial_state_seed: None,
     })
     .await

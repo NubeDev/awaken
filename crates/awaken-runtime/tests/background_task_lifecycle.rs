@@ -27,12 +27,10 @@ use awaken_runtime::backend::{
 use awaken_runtime::extensions::background::{
     BackgroundTaskManager, BackgroundTaskPlugin, TaskParentContext, TaskResult as BgTaskResult,
 };
-use awaken_runtime::loop_runner::{AgentLoopParams, build_agent_env, run_agent_loop};
+use awaken_runtime::loop_runner::{AgentLoopParams, CommitWiring, build_agent_env, run_agent_loop};
 use awaken_runtime::phase::PhaseRuntime;
 use awaken_runtime::plugins::Plugin;
-use awaken_runtime::registry::{
-    AgentResolver, ExecutionResolver, ResolvedAgent, ResolvedExecution,
-};
+use awaken_runtime::registry::{AgentResolver, ResolvedAgent};
 use awaken_runtime::state::StateStore;
 use awaken_runtime::{RuntimeError, inbox};
 
@@ -186,14 +184,8 @@ impl AgentResolver for FixedResolver {
     }
 }
 
-impl ExecutionResolver for FixedResolver {
-    fn resolve_execution(&self, agent_id: &str) -> Result<ResolvedExecution, RuntimeError> {
-        self.resolve(agent_id).map(ResolvedExecution::local)
-    }
-}
-
 fn local_delegate_request<'a>(
-    resolver: &'a dyn ExecutionResolver,
+    resolver: &'a dyn AgentResolver,
     agent_id: &'a str,
     messages: Vec<Message>,
     sink: Arc<dyn EventSink>,
@@ -257,7 +249,6 @@ fn make_text_response(text: &str) -> StreamResult {
 #[tokio::test]
 async fn agent_with_running_task_enters_awaiting_tasks() {
     let (runtime, store, manager, bg_plugins) = make_bg_runtime();
-
     let tool: Arc<dyn Tool> = Arc::new(SpawnTaskTool {
         manager: manager.clone(),
     });
@@ -288,6 +279,7 @@ async fn agent_with_running_task_enters_awaiting_tasks() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -315,7 +307,6 @@ async fn agent_with_running_task_enters_awaiting_tasks() {
 #[tokio::test]
 async fn agent_without_tasks_completes_normally() {
     let (runtime, store, _manager, bg_plugins) = make_bg_runtime();
-
     let llm = Arc::new(ScriptedLlm::new(vec![make_text_response(
         "Hello, no tasks needed.",
     )]));
@@ -341,6 +332,7 @@ async fn agent_without_tasks_completes_normally() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -374,7 +366,6 @@ async fn task_event_injected_into_conversation() {
         .install_plugin(BackgroundTaskPlugin::new(manager.clone()))
         .unwrap();
     let runtime = PhaseRuntime::new(store.clone()).unwrap();
-
     let tool: Arc<dyn Tool> = Arc::new(SpawnEmitterTool {
         manager: manager.clone(),
     });
@@ -405,6 +396,7 @@ async fn task_event_injected_into_conversation() {
         inbox: Some(inbox_rx),
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -671,7 +663,6 @@ async fn local_backend_sub_agent_receives_bg_task_events() {
     // Track how many times the LLM is called — if inbox drain injects events,
     // the LLM gets called extra times (loop continues instead of NaturalEnd).
     let call_count = Arc::new(AtomicUsize::new(0));
-
     struct CountingLlm {
         counter: Arc<AtomicUsize>,
     }
@@ -710,7 +701,6 @@ async fn local_backend_sub_agent_receives_bg_task_events() {
     });
 
     let backend = LocalBackend::new();
-
     let result = backend
         .execute_delegate(local_delegate_request(
             resolver.as_ref(),
@@ -743,7 +733,6 @@ async fn multi_level_bg_task_event_reaches_sub_agent() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     let call_count = Arc::new(AtomicUsize::new(0));
-
     /// LLM that:
     /// - Turn 1: calls "spawn_bg" tool
     /// - Turn 2+: returns text (NaturalEnd)
@@ -815,13 +804,11 @@ async fn multi_level_bg_task_event_reaches_sub_agent() {
     });
     let tool: Arc<dyn Tool> = Arc::new(SpawnBgTool);
     let agent = ResolvedAgent::new("sub", "m", "You are a sub-agent.", llm).with_tool(tool);
-
     let resolver = Arc::new(FixedResolver {
         agent,
         plugins: vec![],
     });
     let backend = LocalBackend::new();
-
     let result = backend
         .execute_delegate(local_delegate_request(
             resolver.as_ref(),
@@ -981,6 +968,7 @@ async fn sub_agent_waits_for_bg_task_completion_before_returning() {
         inbox: Some(inbox_receiver),
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -1150,6 +1138,7 @@ async fn run_finish_signals_awaiting_tasks_in_result() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -1204,6 +1193,7 @@ async fn run_finish_normal_end_no_awaiting_flag() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -1347,6 +1337,7 @@ async fn run_finish_cancelled_has_done_status() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();
@@ -1424,6 +1415,7 @@ async fn run_finish_suspended_has_waiting_status() {
         inbox: None,
         is_continuation: false,
         initial_state_seed: None,
+        commit: CommitWiring::default(),
     })
     .await
     .unwrap();

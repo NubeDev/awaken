@@ -122,11 +122,22 @@ struct StaticRemoteBackend;
 
 #[async_trait]
 impl AgentBackend for StaticRemoteBackend {
-    fn capabilities(&self) -> awaken_runtime::BackendCapabilities {
-        let mut caps = awaken_runtime::BackendCapabilities::remote_stateless_text();
-        caps.cancellation = awaken_runtime::BackendCancellationCapability::RemoteAbort;
-        caps.output = awaken_runtime::BackendOutputCapability::TextAndArtifacts;
-        caps
+    fn capabilities(&self) -> awaken_runtime::resolution::BackendProfile {
+        use awaken_runtime::resolution::{
+            BackendProfile, DecisionCapability, FrontendToolCapability, OverrideCapability,
+            PersistenceCapability,
+        };
+        BackendProfile {
+            cancellation: awaken_runtime::BackendCancellationCapability::RemoteAbort,
+            continuation: awaken_runtime::BackendContinuationCapability::None,
+            decisions: DecisionCapability::None,
+            overrides: OverrideCapability::None,
+            frontend_tools: FrontendToolCapability::None,
+            persistence: PersistenceCapability::Ephemeral,
+            waits: awaken_runtime::BackendWaitCapability::None,
+            transcript: awaken_runtime::BackendTranscriptCapability::SinglePrompt,
+            output: awaken_runtime::BackendOutputCapability::TextAndArtifacts,
+        }
     }
 
     async fn execute_root(
@@ -235,7 +246,7 @@ fn make_test_app_with_executor(
                 max_rounds: 0,
                 ..Default::default()
             })
-            .with_thread_run_store(store.clone())
+            .with_in_memory_thread_run_store(store.clone())
             .build()
             .expect("build runtime"),
     );
@@ -266,7 +277,7 @@ fn make_test_app_with_remote_root_agent() -> TestApp {
                 ..Default::default()
             })
             .with_agent_backend_factory(Arc::new(StaticRemoteBackendFactory))
-            .with_thread_run_store(store.clone())
+            .with_in_memory_thread_run_store(store.clone())
             .build()
             .expect("build runtime with remote root agent"),
     );
@@ -822,7 +833,7 @@ async fn ai_sdk_agent_preview_requires_admin_token_when_configured() {
                 max_rounds: 0,
                 ..Default::default()
             })
-            .with_thread_run_store(store.clone())
+            .with_in_memory_thread_run_store(store.clone())
             .build()
             .expect("build runtime"),
     );

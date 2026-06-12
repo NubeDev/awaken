@@ -4,7 +4,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use rubix_query::QueryEngine;
+use rubix_query::{HisTier, QueryEngine};
 use rubix_server::bus::ZenohBus;
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
@@ -37,6 +37,7 @@ impl TestApp {
             store,
             bus: None,
             query: None,
+            his_tier: None,
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
@@ -55,6 +56,7 @@ impl TestApp {
             store,
             bus: None,
             query: None,
+            his_tier: None,
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
@@ -75,6 +77,7 @@ impl TestApp {
             store,
             bus: Some(bus.clone()),
             query: None,
+            his_tier: None,
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
@@ -97,6 +100,34 @@ impl TestApp {
             store,
             bus: None,
             query: Some(query),
+            his_tier: None,
+            agent: None,
+            ai_min_priority: 13,
+            ai_escalation_floor: 1,
+        };
+        Self {
+            router: app(state),
+            _dir: dir,
+        }
+    }
+
+    /// Build with both a query engine and a Parquet `his` cold tier over the
+    /// same store, so `/his/flush` ages rows into Parquet and `/query` reads
+    /// them back across the tier boundary.
+    pub async fn with_query_tier() -> Self {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().join("test.db");
+        let store = Store::open(&db).expect("open store");
+        let tier = HisTier::open_local(&dir.path().join("his-parquet")).expect("open tier");
+        let query = QueryEngine::open(&db)
+            .await
+            .expect("open query engine")
+            .with_his_tier(tier.clone());
+        let state = AppState {
+            store,
+            bus: None,
+            query: Some(query),
+            his_tier: Some(tier),
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
@@ -114,6 +145,7 @@ impl TestApp {
             store,
             bus,
             query: None,
+            his_tier: None,
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,

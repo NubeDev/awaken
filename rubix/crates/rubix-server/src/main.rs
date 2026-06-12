@@ -1,4 +1,4 @@
-use rubix_query::QueryEngine;
+use rubix_query::{HisTier, QueryEngine};
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
 use rubix_server::store::Store;
@@ -61,11 +61,29 @@ async fn main() -> anyhow::Result<()> {
         Some(bus)
     };
 
+    // Open the Parquet `his` cold tier when configured. When present, `his`
+    // queries union the SQLite recent tier with the Parquet partitions and
+    // `/his/flush` ages rows out of SQLite. Absent, `his` stays SQLite-only.
+    let his_tier = match std::env::var("RUBIX_HIS_PARQUET") {
+        Ok(root) if !root.is_empty() => {
+            let tier = HisTier::open_local(std::path::Path::new(&root))?;
+            tracing::info!(root = %root, "his parquet cold tier up: POST /api/v1/his/flush");
+            Some(tier)
+        }
+        _ => {
+            tracing::info!("his parquet tier disabled (RUBIX_HIS_PARQUET unset); SQLite-only his");
+            None
+        }
+    };
+
     let query = if env_or("RUBIX_QUERY", "1") == "0" {
         tracing::info!("query engine disabled (RUBIX_QUERY=0)");
         None
     } else {
-        let engine = QueryEngine::open(std::path::Path::new(&db_path)).await?;
+        let mut engine = QueryEngine::open(std::path::Path::new(&db_path)).await?;
+        if let Some(tier) = &his_tier {
+            engine = engine.with_his_tier(tier.clone());
+        }
         tracing::info!("datafusion query surface up: POST /api/v1/query");
         Some(engine)
     };
@@ -74,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
         store,
         bus,
         query,
+        his_tier,
         agent: None,
         ai_min_priority,
         ai_escalation_floor,

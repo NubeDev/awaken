@@ -37,6 +37,7 @@ use super::{
         his::query::query_his,
         his::insert::insert_his,
         his::rollup::rollup_his,
+        his::flush::flush_his,
         sparks::create::create_spark,
         sparks::list::list_sparks,
         sparks::ack::ack_spark,

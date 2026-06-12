@@ -7,6 +7,7 @@ mod command;
 mod equips;
 mod error;
 mod his;
+mod his_flush;
 mod keyexpr;
 mod open;
 mod point_row;

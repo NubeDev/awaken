@@ -20,6 +20,24 @@ pub enum ApiError {
     Internal(#[from] anyhow::Error),
 }
 
+/// A `his` hot→cold flush failure: a store read/delete or a Parquet write.
+#[derive(Debug, thiserror::Error)]
+pub enum FlushError {
+    #[error(transparent)]
+    Store(#[from] crate::store::StoreError),
+    #[error("parquet cold tier: {0}")]
+    Tier(#[from] rubix_query::QueryError),
+}
+
+impl From<FlushError> for ApiError {
+    fn from(err: FlushError) -> Self {
+        match err {
+            FlushError::Store(e) => e.into(),
+            FlushError::Tier(e) => ApiError::Internal(anyhow::anyhow!(e)),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ErrorBody {
     pub error: String,

@@ -10,6 +10,7 @@ pub mod bus;
 pub mod dispatch;
 pub mod error;
 pub mod flow;
+pub mod his;
 pub mod scheduler;
 pub mod store;
 pub mod supervisor;
@@ -21,7 +22,7 @@ use axum::Router;
 use tower_http::trace::TraceLayer;
 
 use awaken_runtime::AgentRuntime;
-use rubix_query::QueryEngine;
+use rubix_query::{HisTier, QueryEngine};
 
 use crate::bus::ZenohBus;
 use crate::store::Store;
@@ -35,6 +36,10 @@ pub struct AppState {
     /// DataFusion SQL surface over the store. `None` in HTTP-only/test modes;
     /// the `/query` route returns 503 when absent.
     pub query: Option<QueryEngine>,
+    /// Parquet `his` cold tier (`object_store`). `None` keeps `his` SQLite-only;
+    /// when present, `his` queries union both tiers and `/his/flush` ages rows
+    /// out of SQLite into Parquet partitions.
+    pub his_tier: Option<HisTier>,
     /// Embedded awaken agent runtime over the BMS tools. `None` unless
     /// `RUBIX_AI=1`; the `/agent/chat` route returns 503 when absent.
     pub agent: Option<Arc<AgentRuntime>>,

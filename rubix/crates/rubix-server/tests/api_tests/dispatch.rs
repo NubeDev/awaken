@@ -30,6 +30,7 @@ async fn published_spark_activates_an_agent_run() {
         store: store.clone(),
         bus: Some(bus.clone()),
         query: None,
+        his_tier: None,
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,

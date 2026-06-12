@@ -1,5 +1,6 @@
 //! History routes — wiring only.
 
+pub(crate) mod flush;
 pub(crate) mod insert;
 pub(crate) mod query;
 pub(crate) mod rollup;
@@ -16,4 +17,5 @@ pub(super) fn router() -> Router<AppState> {
             get(query::query_his).post(insert::insert_his),
         )
         .route("/api/v1/his/rollup", post(rollup::rollup_his))
+        .route("/api/v1/his/flush", post(flush::flush_his))
 }

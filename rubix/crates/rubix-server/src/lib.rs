@@ -53,9 +53,15 @@ pub struct AppState {
     /// when present, `his` queries union both tiers and `/his/flush` ages rows
     /// out of SQLite into Parquet partitions.
     pub his_tier: Option<HisTier>,
-    /// Embedded awaken agent runtime over the BMS tools. `None` unless
-    /// `RUBIX_AI=1`; the `/agent/chat` route returns 503 when absent.
+    /// Embedded awaken agent runtime over the BMS tools, unscoped (every site
+    /// reachable). `None` unless `RUBIX_AI=1`; the `/agent/chat` route returns
+    /// 503 when absent. Used directly for runs that carry no tenant scope.
     pub agent: Option<Arc<AgentRuntime>>,
+    /// The inputs to rebuild a runtime whose tools are confined to a tenant
+    /// `{org}/{site}`. `Some` whenever `agent` is, so a chat run for a scoped
+    /// principal or a dispatch run for a scoped spark gets a tenant-confined
+    /// tool set. See [`agent::build_scoped_runtime`].
+    pub agent_blueprint: Option<agent::RuntimeBlueprint>,
     /// Priority level AI/agent writes are clamped to (1..=16); writes from
     /// agents may not command above (numerically below) this level outright —
     /// they escalate for human approval instead.

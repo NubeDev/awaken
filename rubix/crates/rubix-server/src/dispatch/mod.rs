@@ -12,14 +12,11 @@ mod job;
 mod run;
 mod subscribe;
 
-use std::sync::Arc;
-
-use awaken_runtime::AgentRuntime;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::bus::ZenohBus;
-use crate::store::Store;
+use crate::AppState;
 
 /// Owns the dispatch loop and the signal that stops it.
 pub struct Dispatcher {
@@ -28,14 +25,16 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
-    /// Launch the spark-dispatch loop on the bus, activating `runtime` per
-    /// finding. Each run is persisted to `store` so a finding that suspends in
-    /// the escalation band lands on the operator surface. Returns a handle whose
-    /// [`Dispatcher::shutdown`] stops it.
-    pub fn launch(bus: ZenohBus, runtime: Arc<AgentRuntime>, store: Store) -> Self {
+    /// Launch the spark-dispatch loop on the bus. Each finding activates an agent
+    /// run confined to the spark's `{org}/{site}` tenant (resolved from `state`),
+    /// so a dispatched run cannot read or command another tenant's points. Each
+    /// run is persisted so a finding that suspends in the escalation band lands
+    /// on the operator surface. Returns a handle whose [`Dispatcher::shutdown`]
+    /// stops it.
+    pub fn launch(bus: ZenohBus, state: AppState) -> Self {
         let (shutdown, rx) = watch::channel(false);
-        let handle = tokio::spawn(subscribe::run_dispatch(bus, runtime, store, rx));
-        tracing::info!("spark dispatcher launched: **/spark/** -> agent runs");
+        let handle = tokio::spawn(subscribe::run_dispatch(bus, state, rx));
+        tracing::info!("spark dispatcher launched: **/spark/** -> tenant-scoped agent runs");
         Self { shutdown, handle }
     }
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use awaken_runtime::engine::{ProviderScriptEvent, ScriptedLlmExecutor};
-use rubix_server::agent::build_runtime_with_executor;
+use rubix_server::agent::RuntimeBlueprint;
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
 use rubix_server::profile::{Profile, ProfileKind};
@@ -25,19 +25,15 @@ async fn published_spark_activates_an_agent_run() {
     let bus = ZenohBus::open(store.clone()).await.expect("bus");
     bus.serve().await.expect("serve");
 
-    // Build an agent whose single scripted turn commands a fan at priority 14
-    // (at/below the agent ceiling 13 → allowed, completes without suspending).
-    let state = AppState {
-        profile: Profile::defaults(ProfileKind::Edge),
-        store: store.clone(),
-        bus: Some(bus.clone()),
-        query: None,
-        his_tier: None,
-        agent: None,
-        ai_min_priority: 13,
-        ai_escalation_floor: 1,
-        authenticator: None,
-    };
+    // Provision the site/equip/point the agent will command, over the same store.
+    let app = TestApp::with_store_at(store.clone());
+    let site = app.create_site_with("disp", "s1").await;
+    let equip = app.create_equip(&site).await;
+    let fan = app.create_point(&equip, "cmd", "fan").await;
+
+    // An agent whose single scripted turn commands a fan at priority 14 (at/below
+    // the agent ceiling 13 → allowed, completes without suspending). The blueprint
+    // lets the dispatcher build a runtime confined to the spark's `disp/s1` tenant.
     let script = [ProviderScriptEvent::ToolCall {
         id: "c1".into(),
         name: "rubix_write_point".into(),
@@ -47,19 +43,26 @@ async fn published_spark_activates_an_agent_run() {
         tokens: Default::default(),
     }];
     let executor = Arc::new(ScriptedLlmExecutor::new(script));
-    let runtime = Arc::new(
-        build_runtime_with_executor(&state, "scripted", "test-model", "test-model", 4, executor)
-            .expect("runtime"),
-    );
-
-    // Provision the site/equip/point the agent will command, over the same store.
-    let app = TestApp::with_store_at(store.clone());
-    let site = app.create_site_with("disp", "s1").await;
-    let equip = app.create_equip(&site).await;
-    let fan = app.create_point(&equip, "cmd", "fan").await;
+    let blueprint =
+        RuntimeBlueprint::with_executor("scripted", "test-model", "test-model", 4, executor);
+    let mut state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
+        store: store.clone(),
+        bus: Some(bus.clone()),
+        query: None,
+        his_tier: None,
+        agent: None,
+        agent_blueprint: Some(blueprint.clone()),
+        ai_min_priority: 13,
+        ai_escalation_floor: 1,
+        authenticator: None,
+    };
+    state.agent = Some(Arc::new(
+        rubix_server::agent::build_scoped_runtime(&state, &blueprint, None).expect("runtime"),
+    ));
 
     // Launch dispatch, then publish a finding as a second peer would.
-    let dispatcher = Dispatcher::launch(bus.clone(), runtime, store.clone());
+    let dispatcher = Dispatcher::launch(bus.clone(), state.clone());
     tokio::time::sleep(Duration::from_millis(500)).await; // let the subscriber attach
 
     let spark = json!({

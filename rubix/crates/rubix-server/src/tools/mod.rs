@@ -8,5 +8,5 @@ mod widget_access;
 
 pub use board_access::StoreBoardAccess;
 pub use query_access::EngineQueryAccess;
-pub use registry::build_tools;
+pub use registry::{build_tools, build_tools_scoped};
 pub use widget_access::StoreWidgetAccess;

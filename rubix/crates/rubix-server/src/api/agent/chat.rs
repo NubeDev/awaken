@@ -9,10 +9,12 @@ use awaken_runtime::run::RunActivation;
 use awaken_runtime_contract::contract::message::Message;
 use axum::extract::State;
 use axum::Json;
+use rubix_tools::TenantScope;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::agent::{run_and_persist, RunOrigin, RunStatus, AGENT_ID};
+use crate::agent::{run_and_persist, runtime_for_scope, RunOrigin, RunStatus, AGENT_ID};
+use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
 
@@ -50,6 +52,16 @@ pub enum ChatStatus {
     AwaitingApproval,
 }
 
+/// The tenant a chat run is confined to: the principal's site when it is pinned
+/// to one (`{org}/{site}`), else `None` — a broader principal already passed
+/// RBAC for its whole scope, and an edge request has no principal at all.
+fn principal_scope(principal: &RequestPrincipal) -> Option<TenantScope> {
+    let p = principal.0.as_ref()?;
+    let org = p.scope.org.as_deref()?;
+    let site = p.scope.site.as_deref()?;
+    Some(TenantScope::new(org, site))
+}
+
 #[utoipa::path(post, path = "/api/v1/agent/chat", tag = "agent",
     request_body = ChatRequest,
     responses(
@@ -58,16 +70,20 @@ pub enum ChatStatus {
         (status = 503, body = ErrorBody)))]
 pub(crate) async fn chat(
     State(state): State<AppState>,
+    principal: RequestPrincipal,
     Json(req): Json<ChatRequest>,
 ) -> Result<Json<ChatResponse>, ApiError> {
-    let runtime = state
-        .agent
-        .as_ref()
+    // A site-pinned principal confines the run to its tenant; a broader (org or
+    // global) principal — or no principal on edge — runs unscoped, already
+    // authorized for its full scope by the middleware.
+    let scope = principal_scope(&principal);
+    let runtime = runtime_for_scope(&state, scope)
+        .map_err(|e| ApiError::BadRequest(format!("build scoped agent: {e}")))?
         .ok_or(ApiError::Unavailable("agent runtime not enabled"))?;
 
     let activation =
         RunActivation::new(req.thread_id, vec![Message::user(req.message)]).with_agent_id(AGENT_ID);
-    let record = run_and_persist(runtime, &state.store, RunOrigin::Chat, activation)
+    let record = run_and_persist(&runtime, &state.store, RunOrigin::Chat, activation)
         .await
         .map_err(|e| ApiError::BadRequest(format!("agent run failed: {e}")))?;
 

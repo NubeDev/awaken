@@ -152,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         query,
         his_tier,
         agent: None,
+        agent_blueprint: None,
         ai_min_priority,
         ai_escalation_floor,
         authenticator,
@@ -171,6 +172,11 @@ async fn main() -> anyhow::Result<()> {
             &state, &provider, &model_id, &upstream, max_rounds,
         )?;
         state.agent = Some(std::sync::Arc::new(runtime));
+        // Keep the blueprint so chat/dispatch can rebuild a tenant-scoped runtime
+        // per run (the shared `agent` runtime above is the unscoped fallback).
+        state.agent_blueprint = Some(rubix_server::agent::RuntimeBlueprint::genai(
+            &provider, &model_id, &upstream, max_rounds,
+        ));
         tracing::info!(
             provider = %provider,
             model = %model_id,
@@ -211,10 +217,8 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("spark dispatch disabled (RUBIX_AI_DISPATCH=0)");
         None
     } else {
-        match (state.bus.clone(), state.agent.clone()) {
-            (Some(bus), Some(runtime)) => {
-                Some(Dispatcher::launch(bus, runtime, state.store.clone()))
-            }
+        match (state.bus.clone(), state.agent.is_some()) {
+            (Some(bus), true) => Some(Dispatcher::launch(bus, state.clone())),
             _ => {
                 tracing::info!("spark dispatch idle: needs both zenoh and the agent");
                 None

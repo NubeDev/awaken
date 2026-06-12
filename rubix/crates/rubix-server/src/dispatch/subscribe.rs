@@ -4,15 +4,12 @@
 //! dispatch favors ordered, bounded execution over throughput (a building's
 //! finding rate is low and runs command real points).
 
-use std::sync::Arc;
-
-use awaken_runtime::AgentRuntime;
 use futures::StreamExt;
 use tokio::sync::watch;
 
 use super::run::dispatch_spark;
 use crate::bus::ZenohBus;
-use crate::store::Store;
+use crate::AppState;
 
 /// The keyexpr every site's spark publications fall under
 /// (`{org}/{site}/spark/{rule}/{id}`).
@@ -23,8 +20,7 @@ const SPARK_KEY: &str = "**/spark/**";
 /// surfaced in the log, rather than crashing the server).
 pub(super) async fn run_dispatch(
     bus: ZenohBus,
-    runtime: Arc<AgentRuntime>,
-    store: Store,
+    state: AppState,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let subscriber = match bus.session_clone().declare_subscriber(SPARK_KEY).await {
@@ -40,7 +36,7 @@ pub(super) async fn run_dispatch(
             sample = stream.next() => {
                 match sample {
                     Some(sample) => {
-                        dispatch_spark(&sample.payload().to_bytes(), &runtime, &store).await;
+                        dispatch_spark(&sample.payload().to_bytes(), &state).await;
                     }
                     None => {
                         tracing::debug!("dispatch: spark stream closed");

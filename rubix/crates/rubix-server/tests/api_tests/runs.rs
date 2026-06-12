@@ -31,6 +31,7 @@ fn app_with_write(priority: u8) -> (Router, tempfile::TempDir) {
         query: None,
         his_tier: None,
         agent: None,
+        agent_blueprint: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,

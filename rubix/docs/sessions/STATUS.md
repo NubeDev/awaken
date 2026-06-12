@@ -20,7 +20,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ✅ | 2026-06-12T12:30:31Z | 2026-06-12T13:21:00Z | 385f0e1d |
 | WS-08 | Outbound MCP adapter (BMS tools to external agents) | ✅ | 2026-06-12T13:30:10Z | 2026-06-12T14:05:00Z | 9e8be915 |
 | WS-09 | Scoped zenoh session per driver + reference driver binary | ✅ | 2026-06-12T13:50:12Z | 2026-06-12T14:20:00Z | 08217e33 |
-| WS-10 | Write ack/backpressure protocol + bounded buffers | ⬜ | | | |
+| WS-10 | Write ack/backpressure protocol + bounded buffers | 🔵 | 2026-06-12T14:00:23Z | | |
 
 ## Dependency notes
 - **WS-02** lands the persistent run store the HITL resume endpoint needs (STATUS.md flags this as
@@ -51,3 +51,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T13:30:10Z spawned WS-08 → returned Done and self-gated ✅ (9e8be915; outbound MCP adapter at POST /api/v1/mcp dispatches gated BMS tools to external agents — priority-array gating, tenant scope, and HITL escalation reuse build_tools_scoped and the runs registry; cargo test --workspace green on edge, mcp suite green on cloud, clippy clean both)
 - 2026-06-12T13:50:12Z spawned WS-09 (scoped zenoh session per driver + reference driver binary; first pending in queue order, WS-01..08 all ✅)
 - 2026-06-12T14:20:00Z gated WS-09 ✅ (ScopedSession wrapper confines the sim's zenoh session to its CapabilitySet — publish/subscribe outside the grant refused locally before the bus; live supervisor-spawn out-of-grant-publish refusal test closes the prior known gap; cargo test --workspace green, clippy clean)
+- 2026-06-12T14:00:23Z spawned WS-10 (write ack/backpressure protocol + bounded buffers; first pending in queue order, WS-01..09 all ✅; builds on WS-09's per-driver session)

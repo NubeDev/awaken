@@ -9,6 +9,10 @@ pub enum QueryError {
     #[error("open sqlite pool: {0}")]
     Pool(String),
 
+    /// A SQLite read (schema or rows) failed.
+    #[error("sqlite backend: {0}")]
+    Backend(String),
+
     /// A canonical table could not be built into a provider.
     #[error("build provider for `{table}`: {message}")]
     Provider {

@@ -90,3 +90,42 @@ async fn empty_result_is_empty_vec() {
 
     assert!(rows.is_empty());
 }
+
+#[tokio::test]
+async fn resolves_columns_of_an_empty_table() {
+    // Schema is read live per query, so an empty table still exposes its
+    // columns by name — regression guard for data-driven schema inference.
+    let (_dir, path) = seed_db();
+    let engine = QueryEngine::open(&path).await.expect("open engine");
+
+    let rows = engine
+        .query("SELECT severity, message FROM sparks WHERE severity = 'critical'")
+        .await
+        .expect("query");
+
+    assert!(rows.is_empty());
+}
+
+#[tokio::test]
+async fn sees_rows_inserted_after_open() {
+    // The engine opens before this row exists; a later insert must be visible
+    // (live read, not an open-time snapshot).
+    let (_dir, path) = seed_db();
+    let engine = QueryEngine::open(&path).await.expect("open engine");
+
+    let conn = Connection::open(&path).expect("open");
+    conn.execute(
+        "INSERT INTO sites (id, org, slug, display_name, tags, created_at) \
+         VALUES ('s2', 'beta', 'lab', 'Lab', '{}', '2026-02-01T00:00:00Z')",
+        [],
+    )
+    .expect("insert");
+
+    let rows = engine
+        .query("SELECT slug FROM sites WHERE org = 'beta'")
+        .await
+        .expect("query");
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["slug"], "lab");
+}

@@ -1,11 +1,14 @@
 //! DataFusion SQL surface over the rubix store.
 //!
-//! One `SessionContext` registers the canonical tables (`sites`, `equips`,
-//! `points`, `his`, `sparks`) from the SQLite database. The same context is
-//! the single query surface for dashboards, reflow actors, and awaken tools.
+//! A `SessionContext` registers the canonical tables (`sites`, `equips`,
+//! `points`, `his`, `sparks`) from the SQLite database via a custom read-only
+//! `TableProvider` that reads schema from `PRAGMA table_info` (so empty tables
+//! still resolve their columns) and rows live per scan. The same surface
+//! serves dashboards, reflow actors, and awaken tools.
 
 mod context;
 mod error;
+mod provider;
 mod sql;
 
 pub use context::QueryEngine;

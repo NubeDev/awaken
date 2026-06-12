@@ -13,6 +13,8 @@ path = "src/main.rs"
 [dependencies]
 rubix-core.workspace = true
 rubix-driver.workspace = true
+rubix-flow.workspace = true
+rubix-query.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

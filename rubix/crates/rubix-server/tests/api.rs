@@ -5,8 +5,10 @@ mod api_tests {
 
     mod bus;
     mod command;
+    mod flow;
     mod his;
     mod points;
+    mod query;
     mod sites;
     mod sparks;
 }

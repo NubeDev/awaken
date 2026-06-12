@@ -14,6 +14,8 @@ pub enum ApiError {
     Conflict(String),
     #[error("{0}")]
     Forbidden(String),
+    #[error("{0}")]
+    Unavailable(&'static str),
     #[error("internal error")]
     Internal(#[from] anyhow::Error),
 }
@@ -30,6 +32,7 @@ impl ApiError {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApiError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

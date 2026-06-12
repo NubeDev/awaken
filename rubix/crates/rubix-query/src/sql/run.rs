@@ -13,7 +13,8 @@ impl QueryEngine {
     /// registered canonical tables. Result batches are encoded column-wise by
     /// `arrow-json`, preserving nulls and nested types.
     pub async fn query(&self, sql: &str) -> Result<QueryRows, QueryError> {
-        let df = self.context().sql(sql).await?;
+        let ctx = self.session()?;
+        let df = ctx.sql(sql).await?;
         let batches = df.collect().await?;
 
         let mut buf = Vec::new();

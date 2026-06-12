@@ -1,3 +1,4 @@
+use rubix_query::QueryEngine;
 use rubix_server::bus::ZenohBus;
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
@@ -36,9 +37,19 @@ async fn main() -> anyhow::Result<()> {
         Some(bus)
     };
 
+    let query = if env_or("RUBIX_QUERY", "1") == "0" {
+        tracing::info!("query engine disabled (RUBIX_QUERY=0)");
+        None
+    } else {
+        let engine = QueryEngine::open(std::path::Path::new(&db_path)).await?;
+        tracing::info!("datafusion query surface up: POST /api/v1/query");
+        Some(engine)
+    };
+
     let state = AppState {
         store,
         bus,
+        query,
         ai_min_priority,
     };
 

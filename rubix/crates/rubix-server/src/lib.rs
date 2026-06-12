@@ -7,11 +7,14 @@
 pub mod api;
 pub mod bus;
 pub mod error;
+pub mod flow;
 pub mod store;
 pub mod supervisor;
 
 use axum::Router;
 use tower_http::trace::TraceLayer;
+
+use rubix_query::QueryEngine;
 
 use crate::bus::ZenohBus;
 use crate::store::Store;
@@ -22,6 +25,9 @@ pub struct AppState {
     /// Zenoh data plane. `None` when the server runs without transport (tests,
     /// HTTP-only mode); handlers publish `cur` through it when present.
     pub bus: Option<ZenohBus>,
+    /// DataFusion SQL surface over the store. `None` in HTTP-only/test modes;
+    /// the `/query` route returns 503 when absent.
+    pub query: Option<QueryEngine>,
     /// Priority level AI/agent writes are clamped to (1..=16); writes from
     /// agents may not command above (numerically below) this level.
     pub ai_min_priority: u8,

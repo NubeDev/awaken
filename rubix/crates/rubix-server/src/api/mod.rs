@@ -7,6 +7,7 @@ mod health;
 mod his;
 mod openapi;
 mod points;
+mod query;
 mod sites;
 mod sparks;
 mod tag_query;
@@ -28,5 +29,6 @@ pub fn router(state: AppState) -> Router {
         .merge(command::router())
         .merge(his::router())
         .merge(sparks::router())
+        .merge(query::router())
         .with_state(state)
 }

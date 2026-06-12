@@ -1,25 +1,19 @@
-//! The query engine: a `SessionContext` with the canonical tables registered.
+//! The query engine: a SQLite connection pool that builds a fresh DataFusion
+//! `SessionContext` per query, so registered tables always reflect the live
+//! schema and committed data (an empty table still resolves its columns).
 
 mod open;
+mod register;
 mod tables;
 
-use std::sync::Arc;
-
-use datafusion::prelude::SessionContext;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 
 /// A DataFusion SQL surface over the rubix store.
 ///
-/// Cheap to clone (the context is reference-counted). Built once per process
-/// from the same SQLite database the HTTP store writes to.
+/// Cheap to clone (the underlying connection pool is reference-counted). Built
+/// once per process from the same SQLite database the HTTP store writes to.
 #[derive(Clone)]
 pub struct QueryEngine {
-    ctx: Arc<SessionContext>,
-}
-
-impl QueryEngine {
-    /// Borrow the underlying DataFusion context for advanced use (e.g.
-    /// registering further providers or UDFs).
-    pub fn context(&self) -> &SessionContext {
-        &self.ctx
-    }
+    pool: Pool<SqliteConnectionManager>,
 }

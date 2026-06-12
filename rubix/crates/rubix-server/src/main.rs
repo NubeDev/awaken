@@ -79,6 +79,21 @@ async fn main() -> anyhow::Result<()> {
 
     let store = Store::connect(&db_path)?;
 
+    // Dev seed: populate the store with the demo portfolio as real rows through
+    // the store layer. Dev-gated by `--seed-dev` (never the default) and
+    // idempotent. See docs/sessions/ui/UI-02.md.
+    if std::env::args().any(|a| a == "--seed-dev") {
+        let report = rubix_server::seed::seed_portfolio(&store)?;
+        tracing::info!(
+            sites = report.sites,
+            equips = report.equips,
+            points = report.points,
+            his_samples = report.his_samples,
+            sparks = report.sparks,
+            "dev portfolio seeded"
+        );
+    }
+
     let mut supervisor: Option<Supervisor> = None;
     let bus = if env_or("RUBIX_ZENOH", "1") == "0" {
         tracing::info!("zenoh disabled (RUBIX_ZENOH=0); HTTP-only mode");

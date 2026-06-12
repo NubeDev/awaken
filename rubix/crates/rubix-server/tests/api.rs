@@ -17,6 +17,7 @@ mod api_tests {
     mod query;
     mod rollup;
     mod runs;
+    mod seed;
     mod sites;
     mod sparks;
     mod tenancy;

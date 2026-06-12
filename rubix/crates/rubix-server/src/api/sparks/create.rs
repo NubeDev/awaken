@@ -43,6 +43,16 @@ pub(crate) async fn create_spark(
         acknowledged: false,
     };
     let stored = spark.clone();
-    blocking(move || Ok(state.store.create_spark(&stored)?)).await?;
+    let store = state.store.clone();
+    // Persist the spark and resolve the owning site's org/slug for the keyexpr
+    // in one blocking hop.
+    let site = blocking(move || {
+        store.create_spark(&stored)?;
+        Ok(store.get_site(stored.site_id)?)
+    })
+    .await?;
+    if let Some(bus) = &state.bus {
+        bus.publish_spark(&site.org, &site.slug, &spark).await;
+    }
     Ok((StatusCode::CREATED, Json(spark)))
 }

@@ -99,6 +99,48 @@ async fn write_queryable_commands_priority_array() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn spark_create_publishes_on_zenoh() {
+    let (app, _bus) = TestApp::with_bus().await;
+    let site = app.create_site_with("bus5", "s5").await;
+
+    let client = client_session().await;
+    let sub = client
+        .declare_subscriber("bus5/s5/spark/**")
+        .await
+        .expect("subscribe");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            "/api/v1/sparks",
+            Some(json!({
+                "site_id": site,
+                "rule": "simultaneous-heat-cool",
+                "severity": "warning",
+                "message": "AHU-3 heating and cooling at once",
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let sample = tokio::time::timeout(Duration::from_secs(3), sub.recv_async())
+        .await
+        .expect("spark within timeout")
+        .expect("sample");
+    // The finding lands on `{org}/{site}/spark/{rule}/{id}`.
+    let key = sample.key_expr().as_str();
+    assert!(
+        key.starts_with("bus5/s5/spark/simultaneous-heat-cool/"),
+        "unexpected key {key}"
+    );
+    let published: Value =
+        serde_json::from_slice(&sample.payload().to_bytes()).expect("decode spark payload");
+    assert_eq!(published["rule"], json!("simultaneous-heat-cool"));
+    assert_eq!(published["id"], body["id"]);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn his_queryable_serves_history() {
     let (app, _bus) = TestApp::with_bus().await;
     let site = app.create_site_with("bus3", "s3").await;

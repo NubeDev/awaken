@@ -5,6 +5,7 @@
 
 mod open;
 mod publish_cur;
+mod publish_spark;
 mod serve;
 
 use std::sync::Arc;

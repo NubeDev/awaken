@@ -1,16 +1,18 @@
 //! Agent run rows: persist a run on creation, update its status, and read it
 //! back for the operator surface. A suspended run carries the [`PendingWrite`]
 //! the `write_point` tool held for approval (JSON in `pending_write`); resume
-//! and cancel transition the row out of `suspended`.
+//! and cancel transition the row out of `suspended`. Backend dispatch; SQLite
+//! body inline, Postgres body in [`super::postgres::runs`].
 
 use rusqlite::{params, OptionalExtension, Row};
 
 use crate::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
 
+use super::backend::Backend;
 use super::codec::{json_of, json_to, ts_of, ts_to};
 use super::{Result, Store, StoreError};
 
-const RUN_COLS: &str =
+pub(crate) const RUN_COLS: &str =
     "id, thread_id, origin, status, response, steps, pending_write, created_at, updated_at";
 
 fn row_run(row: &Row<'_>) -> rusqlite::Result<RunRecord> {
@@ -50,7 +52,15 @@ impl Store {
     /// Persist a freshly-finished run. `pending_write` is set only for a run
     /// that suspended in the escalation band.
     pub fn create_run(&self, run: &RunRecord) -> Result<()> {
-        self.conn()?.execute(
+        match &self.backend {
+            Backend::Sqlite(_) => self.create_run_sqlite(run),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::runs::create_run(self, run),
+        }
+    }
+
+    fn create_run_sqlite(&self, run: &RunRecord) -> Result<()> {
+        self.sqlite_conn()?.execute(
             "INSERT INTO runs (id, thread_id, origin, status, response, steps, pending_write, \
              created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
@@ -70,7 +80,15 @@ impl Store {
 
     /// All runs, newest first, optionally filtered by status.
     pub fn list_runs(&self, status: Option<RunStatus>) -> Result<Vec<RunRecord>> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_runs_sqlite(status),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::runs::list_runs(self, status),
+        }
+    }
+
+    fn list_runs_sqlite(&self, status: Option<RunStatus>) -> Result<Vec<RunRecord>> {
+        let conn = self.sqlite_conn()?;
         let mut stmt = conn.prepare(&format!(
             "SELECT {RUN_COLS} FROM runs WHERE (?1 IS NULL OR status = ?1) \
              ORDER BY created_at DESC"
@@ -81,7 +99,15 @@ impl Store {
 
     /// One run by id.
     pub fn get_run(&self, id: &str) -> Result<RunRecord> {
-        self.conn()?
+        match &self.backend {
+            Backend::Sqlite(_) => self.get_run_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::runs::get_run(self, id),
+        }
+    }
+
+    fn get_run_sqlite(&self, id: &str) -> Result<RunRecord> {
+        self.sqlite_conn()?
             .query_row(
                 &format!("SELECT {RUN_COLS} FROM runs WHERE id = ?1"),
                 params![id],
@@ -96,7 +122,15 @@ impl Store {
     /// write). Fails if the run is absent or no longer suspended, so a
     /// double-resume cannot apply the held write twice.
     pub fn settle_suspended_run(&self, id: &str, status: RunStatus) -> Result<RunRecord> {
-        let mut conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.settle_suspended_run_sqlite(id, status),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::runs::settle_suspended_run(self, id, status),
+        }
+    }
+
+    fn settle_suspended_run_sqlite(&self, id: &str, status: RunStatus) -> Result<RunRecord> {
+        let mut conn = self.sqlite_conn()?;
         let tx = conn.transaction()?;
         let run: RunRecord = tx
             .query_row(
@@ -106,12 +140,7 @@ impl Store {
             )
             .optional()?
             .ok_or(StoreError::NotFound("run"))?;
-        if run.status != RunStatus::Suspended {
-            return Err(StoreError::Conflict(format!(
-                "run `{id}` is `{}`, not suspended",
-                run.status
-            )));
-        }
+        ensure_suspended(id, &run)?;
         tx.execute(
             "UPDATE runs SET status = ?2, pending_write = NULL, updated_at = ?3 WHERE id = ?1",
             params![id, status.to_string(), ts_of(&chrono::Utc::now())],
@@ -119,4 +148,15 @@ impl Store {
         tx.commit()?;
         Ok(run)
     }
+}
+
+/// Guard a settle against a run that is no longer suspended. Shared by backends.
+pub(crate) fn ensure_suspended(id: &str, run: &RunRecord) -> Result<()> {
+    if run.status != RunStatus::Suspended {
+        return Err(StoreError::Conflict(format!(
+            "run `{id}` is `{}`, not suspended",
+            run.status
+        )));
+    }
+    Ok(())
 }

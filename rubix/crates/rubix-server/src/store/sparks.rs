@@ -1,15 +1,25 @@
-//! Spark finding rows: create, list, acknowledge.
+//! Spark finding rows: create, list, acknowledge. Backend dispatch; SQLite body
+//! inline, Postgres body in [`super::postgres::sparks`].
 
 use rubix_core::{Spark, SparkSeverity};
 use rusqlite::params;
 use uuid::Uuid;
 
+use super::backend::Backend;
 use super::codec::{json_of, json_to, ts_of, ts_to};
 use super::{Result, Store, StoreError};
 
 impl Store {
     pub fn create_spark(&self, spark: &Spark) -> Result<()> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.create_spark_sqlite(spark),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sparks::create_spark(self, spark),
+        }
+    }
+
+    fn create_spark_sqlite(&self, spark: &Spark) -> Result<()> {
+        let conn = self.sqlite_conn()?;
         Self::require_site(&conn, spark.site_id)?;
         let severity = json_of(&spark.severity);
         conn.execute(
@@ -35,7 +45,22 @@ impl Store {
         rule: Option<&str>,
         acknowledged: Option<bool>,
     ) -> Result<Vec<Spark>> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_sparks_sqlite(site_id, rule, acknowledged),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::sparks::list_sparks(self, site_id, rule, acknowledged)
+            }
+        }
+    }
+
+    fn list_sparks_sqlite(
+        &self,
+        site_id: Option<Uuid>,
+        rule: Option<&str>,
+        acknowledged: Option<bool>,
+    ) -> Result<Vec<Spark>> {
+        let conn = self.sqlite_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, site_id, rule, severity, message, point_ids, ts, acknowledged \
              FROM sparks WHERE (?1 IS NULL OR site_id = ?1) AND (?2 IS NULL OR rule = ?2) \
@@ -57,13 +82,19 @@ impl Store {
     }
 
     pub fn ack_spark(&self, id: Uuid) -> Result<()> {
-        let n = self.conn()?.execute(
-            "UPDATE sparks SET acknowledged = 1 WHERE id = ?1",
-            params![id],
-        )?;
-        if n == 0 {
-            return Err(StoreError::NotFound("spark"));
+        match &self.backend {
+            Backend::Sqlite(_) => {
+                let n = self.sqlite_conn()?.execute(
+                    "UPDATE sparks SET acknowledged = 1 WHERE id = ?1",
+                    params![id],
+                )?;
+                if n == 0 {
+                    return Err(StoreError::NotFound("spark"));
+                }
+                Ok(())
+            }
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sparks::ack_spark(self, id),
         }
-        Ok(())
     }
 }

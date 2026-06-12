@@ -1,15 +1,25 @@
-//! Pinned dashboard widget rows: create and list.
+//! Pinned dashboard widget rows: create and list. Backend dispatch; SQLite body
+//! inline, Postgres body in [`super::postgres::widgets`].
 
 use rubix_core::{Widget, WidgetKind};
 use rusqlite::params;
 use uuid::Uuid;
 
+use super::backend::Backend;
 use super::codec::{json_to, ts_of, ts_to};
 use super::{Result, Store};
 
 impl Store {
     pub fn create_widget(&self, widget: &Widget) -> Result<()> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.create_widget_sqlite(widget),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::widgets::create_widget(self, widget),
+        }
+    }
+
+    fn create_widget_sqlite(&self, widget: &Widget) -> Result<()> {
+        let conn = self.sqlite_conn()?;
         Self::require_site(&conn, widget.site_id)?;
         conn.execute(
             "INSERT INTO widgets (id, site_id, kind, title, target, created_at) \
@@ -27,7 +37,15 @@ impl Store {
     }
 
     pub fn list_widgets(&self, site_id: Option<Uuid>) -> Result<Vec<Widget>> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_widgets_sqlite(site_id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::widgets::list_widgets(self, site_id),
+        }
+    }
+
+    fn list_widgets_sqlite(&self, site_id: Option<Uuid>) -> Result<Vec<Widget>> {
+        let conn = self.sqlite_conn()?;
         let mut stmt = conn.prepare(
             "SELECT id, site_id, kind, title, target, created_at FROM widgets \
              WHERE (?1 IS NULL OR site_id = ?1) ORDER BY created_at DESC",
@@ -47,7 +65,7 @@ impl Store {
 }
 
 /// Bare snake_case token for the `kind` column (the serde repr without quotes).
-fn kind_token(kind: WidgetKind) -> String {
+pub(crate) fn kind_token(kind: WidgetKind) -> String {
     serde_json::to_string(&kind)
         .expect("WidgetKind serializes")
         .trim_matches('"')

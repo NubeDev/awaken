@@ -26,20 +26,23 @@ async fn main() -> anyhow::Result<()> {
     let profile = profile::select()?;
     tracing::info!(profile = %profile.kind, "deployment profile selected");
 
-    // The relational store backends the profile may want. SQLite exists today;
-    // a Postgres backend attaches behind this seam later, so a profile that
-    // defaults to it fails closed here rather than silently downgrading to
-    // SQLite.
-    match profile.store {
-        StoreKind::Sqlite => {}
-        StoreKind::Postgres => anyhow::bail!(
-            "profile {} defaults to a Postgres store, which is not available in this build yet; \
-             run with RUBIX_PROFILE=edge for the SQLite backend",
-            profile.kind
-        ),
+    // The relational store the profile expects. SQLite is the edge default;
+    // the cloud profile defaults to Postgres, selected at runtime by a
+    // `postgres://` RUBIX_DB url (STACK-DEISGN.md "Postgres (cloud), SQLite
+    // (edge)"). The Postgres backend is compiled in only under the cloud
+    // feature; selecting it without that feature fails closed in
+    // `Store::connect`.
+    let default_db = match profile.store {
+        StoreKind::Sqlite => "rubix.db",
+        StoreKind::Postgres => "postgres://localhost/rubix",
+    };
+    let db_path = env_or("RUBIX_DB", default_db);
+    if profile.store == StoreKind::Postgres && !Store::is_postgres_target(&db_path) {
+        tracing::warn!(
+            db = %db_path,
+            "cloud profile expects a postgres:// RUBIX_DB url; using the given target as a SQLite path"
+        );
     }
-
-    let db_path = env_or("RUBIX_DB", "rubix.db");
     let addr = env_or("RUBIX_ADDR", "0.0.0.0:8080");
     let ai_min_priority: u8 = env_or("RUBIX_AI_MIN_PRIORITY", "13")
         .parse()
@@ -56,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    let store = Store::open(std::path::Path::new(&db_path))?;
+    let store = Store::connect(&db_path)?;
 
     let mut supervisor: Option<Supervisor> = None;
     let bus = if env_or("RUBIX_ZENOH", "1") == "0" {
@@ -104,6 +107,12 @@ async fn main() -> anyhow::Result<()> {
 
     let query = if env_or("RUBIX_QUERY", "1") == "0" {
         tracing::info!("query engine disabled (RUBIX_QUERY=0)");
+        None
+    } else if Store::is_postgres_target(&db_path) {
+        // The DataFusion surface is SQLite-backed; Postgres federation is a
+        // separate workstream. Under a Postgres store the query engine stays
+        // off rather than reading a stale SQLite file.
+        tracing::info!("query engine off: datafusion has no postgres provider yet");
         None
     } else {
         let mut engine = QueryEngine::open(std::path::Path::new(&db_path)).await?;

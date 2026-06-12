@@ -41,3 +41,19 @@ impl From<r2d2::Error> for StoreError {
         StoreError::Db(err.into())
     }
 }
+
+#[cfg(feature = "cloud")]
+impl From<postgres::Error> for StoreError {
+    fn from(err: postgres::Error) -> Self {
+        // A unique/foreign-key violation surfaces as a conflict, mirroring the
+        // SQLite constraint mapping above; everything else is an internal error.
+        if let Some(db) = err.as_db_error() {
+            if db.code() == &postgres::error::SqlState::UNIQUE_VIOLATION
+                || db.code() == &postgres::error::SqlState::FOREIGN_KEY_VIOLATION
+            {
+                return StoreError::Conflict(db.message().to_string());
+            }
+        }
+        StoreError::Db(err.into())
+    }
+}

@@ -16,7 +16,9 @@ path = "src/main.rs"
 # is the default build (SQLite, on-box drivers, no auth — today's behavior).
 default = ["edge"]
 edge = []
-cloud = []
+# The cloud profile adds the Postgres store backend (STACK-DEISGN.md "Postgres
+# (cloud), SQLite (edge)"). The edge build never compiles the Postgres client.
+cloud = ["dep:postgres", "dep:r2d2_postgres"]
 
 [dependencies]
 rubix-core.workspace = true
@@ -40,6 +42,8 @@ utoipa.workspace = true
 rusqlite.workspace = true
 r2d2.workspace = true
 r2d2_sqlite.workspace = true
+postgres = { workspace = true, optional = true }
+r2d2_postgres = { workspace = true, optional = true }
 anyhow.workspace = true
 async-trait.workspace = true
 zenoh.workspace = true

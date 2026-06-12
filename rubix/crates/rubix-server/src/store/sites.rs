@@ -1,9 +1,11 @@
-//! Site rows: create, list, get, delete.
+//! Site rows: create, list, get, delete. Backend dispatch lives here; the
+//! SQLite body is inline, the Postgres body in [`super::postgres::sites`].
 
 use rubix_core::Site;
 use rusqlite::{params, OptionalExtension, Row};
 use uuid::Uuid;
 
+use super::backend::Backend;
 use super::codec::{json_of, json_to, ts_of, ts_to};
 use super::{Result, Store, StoreError};
 
@@ -18,11 +20,19 @@ fn row_site(row: &Row<'_>) -> rusqlite::Result<Site> {
     })
 }
 
-const SITE_COLS: &str = "id, org, slug, display_name, tags, created_at";
+pub(crate) const SITE_COLS: &str = "id, org, slug, display_name, tags, created_at";
 
 impl Store {
     pub fn create_site(&self, site: &Site) -> Result<()> {
-        self.conn()?.execute(
+        match &self.backend {
+            Backend::Sqlite(_) => self.create_site_sqlite(site),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sites::create_site(self, site),
+        }
+    }
+
+    fn create_site_sqlite(&self, site: &Site) -> Result<()> {
+        self.sqlite_conn()?.execute(
             "INSERT INTO sites (id, org, slug, display_name, tags, created_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
@@ -38,7 +48,15 @@ impl Store {
     }
 
     pub fn list_sites(&self, org: Option<&str>) -> Result<Vec<Site>> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_sites_sqlite(org),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sites::list_sites(self, org),
+        }
+    }
+
+    fn list_sites_sqlite(&self, org: Option<&str>) -> Result<Vec<Site>> {
+        let conn = self.sqlite_conn()?;
         let mut stmt = conn.prepare(&format!(
             "SELECT {SITE_COLS} FROM sites WHERE (?1 IS NULL OR org = ?1) ORDER BY org, slug"
         ))?;
@@ -47,7 +65,15 @@ impl Store {
     }
 
     pub fn get_site(&self, id: Uuid) -> Result<Site> {
-        self.conn()?
+        match &self.backend {
+            Backend::Sqlite(_) => self.get_site_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sites::get_site(self, id),
+        }
+    }
+
+    fn get_site_sqlite(&self, id: Uuid) -> Result<Site> {
+        self.sqlite_conn()?
             .query_row(
                 &format!("SELECT {SITE_COLS} FROM sites WHERE id = ?1"),
                 params![id],
@@ -58,8 +84,16 @@ impl Store {
     }
 
     pub fn delete_site(&self, id: Uuid) -> Result<()> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.delete_site_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::sites::delete_site(self, id),
+        }
+    }
+
+    fn delete_site_sqlite(&self, id: Uuid) -> Result<()> {
         let n = self
-            .conn()?
+            .sqlite_conn()?
             .execute("DELETE FROM sites WHERE id = ?1", params![id])?;
         if n == 0 {
             return Err(StoreError::NotFound("site"));

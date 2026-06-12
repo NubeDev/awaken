@@ -1,16 +1,26 @@
-//! Point rows: create, list, get, delete, keyexpr lookup.
+//! Point rows: create, list, get, delete, keyexpr lookup. Backend dispatch;
+//! SQLite body inline, Postgres body in [`super::postgres::points`].
 
 use rubix_core::Point;
 use rusqlite::{params, OptionalExtension};
 use uuid::Uuid;
 
+use super::backend::Backend;
 use super::codec::{filter_tags, json_of, ts_of};
 use super::point_row::{kind_str, row_point, POINT_COLS};
 use super::{Result, Store, StoreError};
 
 impl Store {
     pub fn create_point(&self, point: &Point) -> Result<()> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.create_point_sqlite(point),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::points::create_point(self, point),
+        }
+    }
+
+    fn create_point_sqlite(&self, point: &Point) -> Result<()> {
+        let conn = self.sqlite_conn()?;
         Self::require_equip(&conn, point.equip_id)?;
         conn.execute(
             &format!(
@@ -39,7 +49,22 @@ impl Store {
         site_id: Option<Uuid>,
         tags: &[String],
     ) -> Result<Vec<Point>> {
-        let conn = self.conn()?;
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_points_sqlite(equip_id, site_id, tags),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::points::list_points(self, equip_id, site_id, tags)
+            }
+        }
+    }
+
+    fn list_points_sqlite(
+        &self,
+        equip_id: Option<Uuid>,
+        site_id: Option<Uuid>,
+        tags: &[String],
+    ) -> Result<Vec<Point>> {
+        let conn = self.sqlite_conn()?;
         let mut stmt = conn.prepare(&format!(
             "SELECT {POINT_COLS} FROM points \
              WHERE (?1 IS NULL OR equip_id = ?1) \
@@ -52,7 +77,15 @@ impl Store {
     }
 
     pub fn get_point(&self, id: Uuid) -> Result<Point> {
-        self.conn()?
+        match &self.backend {
+            Backend::Sqlite(_) => self.get_point_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::points::get_point(self, id),
+        }
+    }
+
+    fn get_point_sqlite(&self, id: Uuid) -> Result<Point> {
+        self.sqlite_conn()?
             .query_row(
                 &format!("SELECT {POINT_COLS} FROM points WHERE id = ?1"),
                 params![id],
@@ -63,8 +96,16 @@ impl Store {
     }
 
     pub fn delete_point(&self, id: Uuid) -> Result<()> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.delete_point_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::points::delete_point(self, id),
+        }
+    }
+
+    fn delete_point_sqlite(&self, id: Uuid) -> Result<()> {
         let n = self
-            .conn()?
+            .sqlite_conn()?
             .execute("DELETE FROM points WHERE id = ?1", params![id])?;
         if n == 0 {
             return Err(StoreError::NotFound("point"));
@@ -74,7 +115,15 @@ impl Store {
 
     /// `{org}/{site}/{equip-path}/{point}` identity for a point.
     pub fn point_keyexpr(&self, id: Uuid) -> Result<String> {
-        self.conn()?
+        match &self.backend {
+            Backend::Sqlite(_) => self.point_keyexpr_sqlite(id),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => super::postgres::points::point_keyexpr(self, id),
+        }
+    }
+
+    fn point_keyexpr_sqlite(&self, id: Uuid) -> Result<String> {
+        self.sqlite_conn()?
             .query_row(
                 "SELECT s.org, s.slug, e.path, p.slug FROM points p \
                  JOIN equips e ON e.id = p.equip_id JOIN sites s ON s.id = e.site_id \

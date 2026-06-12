@@ -82,7 +82,8 @@ async fn main() -> anyhow::Result<()> {
     // Dev seed: populate the store with the demo portfolio as real rows through
     // the store layer. Dev-gated by `--seed-dev` (never the default) and
     // idempotent. See docs/sessions/ui/UI-02.md.
-    if std::env::args().any(|a| a == "--seed-dev") {
+    let seed_dev = std::env::args().any(|a| a == "--seed-dev");
+    if seed_dev {
         let report = rubix_server::seed::seed_portfolio(&store)?;
         tracing::info!(
             sites = report.sites,
@@ -257,11 +258,32 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // Dev live values: when seeded in dev, tick seeded sensors through the real
+    // ingest path so the UI stays live without fake data. Dev-gated with the
+    // seed; publishes on the bus when present. See docs/sessions/ui/UI-02.md.
+    let dev_ticker = if seed_dev {
+        match rubix_server::seed::spawn_dev_ticker(state.store.clone(), state.bus.clone()) {
+            Some(ticker) => {
+                tracing::info!("dev cur ticker running for seeded sensor points");
+                Some(ticker)
+            }
+            None => None,
+        }
+    } else {
+        None
+    };
+
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path, "rubix server listening");
     axum::serve(listener, app(state))
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+
+    // Stop the dev cur ticker first so it stops ingesting during teardown.
+    if let Some(ticker) = dev_ticker {
+        tracing::info!("stopping dev cur ticker");
+        ticker.shutdown().await;
+    }
 
     // Stop the spark dispatcher first so no new agent runs start during teardown.
     if let Some(dispatcher) = dispatcher {

@@ -10,8 +10,10 @@
 mod curves;
 mod portfolio;
 mod tags;
+mod ticker;
 mod write;
 
+pub use ticker::{spawn as spawn_dev_ticker, DevTicker};
 pub use write::{seed_portfolio, SeedReport};
 
 use crate::store::StoreError;

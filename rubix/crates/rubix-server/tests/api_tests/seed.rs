@@ -3,7 +3,7 @@
 //! idempotent.
 
 use rubix_core::{PointKind, PointValue};
-use rubix_server::seed::seed_portfolio;
+use rubix_server::seed::{seed_portfolio, spawn_dev_ticker};
 use rubix_server::store::Store;
 
 fn fresh_store() -> (Store, tempfile::TempDir) {
@@ -130,4 +130,37 @@ fn sparks_preserve_acknowledged_state() {
     assert_eq!(acked.len(), 2);
     let open = store.list_sparks(Some(hq.id), None, Some(false)).unwrap();
     assert_eq!(open.len(), 5);
+}
+
+#[tokio::test]
+async fn dev_ticker_ingests_fresh_cur_for_seeded_sensors() {
+    let (store, _dir) = fresh_store();
+    seed_portfolio(&store).expect("seed");
+
+    let hq = store
+        .list_sites(Some("acme"))
+        .unwrap()
+        .into_iter()
+        .find(|s| s.slug == "hq-tower")
+        .unwrap();
+    let temp = store
+        .list_points(None, Some(hq.id), &[])
+        .unwrap()
+        .into_iter()
+        .find(|p| p.slug == "discharge-temp" && p.kind == PointKind::Sensor)
+        .unwrap();
+    let before = store.his_query(temp.id, None, None, 100_000).unwrap().len();
+
+    // No bus in tests; the ticker ingests through the store either way.
+    let ticker = spawn_dev_ticker(store.clone(), None).expect("tickable sensors");
+    // The interval fires immediately on the first tick.
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    ticker.shutdown().await;
+
+    let after = store.his_query(temp.id, None, None, 100_000).unwrap().len();
+    assert!(after > before, "ticker should add at least one fresh sample");
+
+    // The point still carries a numeric live value.
+    let point = store.get_point(temp.id).unwrap();
+    assert!(matches!(point.cur_value, Some(PointValue::Number(_))));
 }

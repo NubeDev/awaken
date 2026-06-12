@@ -18,6 +18,7 @@ mod api_tests {
     mod runs;
     mod sites;
     mod sparks;
+    mod tenancy;
     mod tools;
     mod widgets;
 }

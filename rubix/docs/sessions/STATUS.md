@@ -47,3 +47,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T12:55:00Z gated WS-05 ✅ (200269f6; synchronous Postgres Backend behind the cloud feature, shared store_suite green on both SQLite and a live Postgres; DataFusion-Postgres federation logged to TODOs.md)
 - 2026-06-12T12:10:30Z spawned WS-06
 - 2026-06-12T13:40:00Z gated WS-06 ✅ (b7ec6d06; OIDC-JWT + PAT bearer auth and org→team→site RBAC behind the cloud profile seam, edge unchanged; tests green on edge & cloud features, clippy clean both; per-route scope gating beyond the site routes logged as a follow-up)
+- 2026-06-12T12:30:31Z spawned WS-07 → returned Done and self-gated ✅ (385f0e1d; org/site→ScopeId mapping enforced at the tool boundary on both chat and dispatch paths, site-A run refused a site-B write; cargo test --workspace green, clippy clean; concurrent-session SQL query-scope subsystem reconciled, prior fail-closed TODO resolved)

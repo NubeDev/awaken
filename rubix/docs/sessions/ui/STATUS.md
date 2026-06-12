@@ -38,7 +38,7 @@ What does NOT count as fake (allowed to stay):
 | UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | ✅ | 2026-06-12T22:29:06Z | 2026-06-12T22:39:09Z | f3af3bc5 |
 | UI-02 | Dev seed: the demo building as real store rows + live sim | ✅ | 2026-06-12T22:45:13Z | 2026-06-13T01:10:00Z | d5c349f8 |
 | UI-03 | Delete the demo layer; UI reads the network only | ✅ | 2026-06-12T23:05:15Z | 2026-06-12T23:12:00Z | 3bf7f5b1 |
-| UI-04 | Flows on stored boards (`/api/v1/boards`) | ⬜ | | | |
+| UI-04 | Flows on stored boards (`/api/v1/boards`) | ✅ | 2026-06-12T23:15:14Z | 2026-06-13T06:25:00Z | 5c28d145 |
 | UI-05 | Agent surface: runs, resume/cancel, diagnose, HITL UX | ⬜ | | | |
 | UI-06 | Dashboard Builder MVP on `/api/v1/widgets` | ⬜ | | | |
 | UI-07 | Cleanup & hardening: template leftovers, auth header, tests, lint | ⬜ | | | |
@@ -97,3 +97,4 @@ Before marking any UI-xx ✅:
 - 2026-06-13T01:10:00Z gate ✅ — UI-02: subagent returned Done; DONE GATE green (pnpm build ✓, test:unit 18/18 ✓, cargo test --workspace ✓, clippy clean ✓, 4 reference screenshots in ui/docs/reference/ ✓; commits `UI-02:`-prefixed, head d5c349f8); row → ✅. Next pending: UI-03.
 - 2026-06-12T23:05:15Z spawn — UI-03: no WS 🔵, UI-01/UI-02 ✅, first pending row → spawn fresh UI-03 subagent (delete demo layer; grep gate goes live).
 - 2026-06-12T23:12:57Z gate ✅ — UI-03: subagent returned Done (UI-03.md Status: Done); DONE GATE green (pnpm build ✓, test:unit 18/18 ✓, grep gate ✓ — only `sample-board` hit is flows/index.tsx, owned by UI-04 & excluded per spec exception; look-freeze verified by subagent; commits `UI-03:`-prefixed, head ce45ebfd); row → ✅. Next pending: UI-04.
+- 2026-06-12T23:15:14Z spawn — UI-04: no WS 🔵, UI-01/02/03 ✅, first pending row → spawn fresh UI-04 subagent (flows on stored `/api/v1/boards`; delete sample-board.ts; grep gate now covers it).

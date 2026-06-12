@@ -118,3 +118,22 @@ The fail-closed fallback remains for a scope that cannot map to a `QueryScope`.
 - **Committed so far:** WS-10 committed on `rubix-gaps` (3b1e7358 driver contract, 8887ddb0
   driver-sim wiring, 8aaab1d8 docs). WS-10 is Done for its own scope. This entry is a follow-up, not
   a WS-10 blocker.
+
+---
+
+### 2026-06-13 — UI-04 — `cargo` workspace blocked by untracked `crates/rubix-rules`
+- **What's blocked:** Any `cargo` invocation (`build`/`test`/`clippy`) at the `rubix/` workspace
+  root fails at manifest resolution: workspace member `crates/rubix-rules` has a `Cargo.toml` with
+  "no targets specified in the manifest" (no `src/lib.rs`/`[lib]`). This prevents running the
+  UI-04 backend gate (`cargo test --workspace` + clippy) for the board-seed change.
+- **Why (NOT a UI-04 regression):** `crates/rubix-rules/` is **entirely untracked** (`git status`
+  shows `?? crates/rubix-rules/`) — in-progress work owned by another concurrent session, not by
+  UI-04 and not committed. Earlier in this same session, before that crate's manifest appeared,
+  `cargo build -p rubix-server` and `cargo test -p rubix-server --test api seed` both ran **green**
+  (9 passed incl. the two new board-seed tests). UI-04 touches only `rubix-server` seed code; it
+  does not reference `rubix-rules`. Per the charter I must not touch another session's files.
+- **What the human must decide/provide:** the owning session must add a `src/lib.rs`/target to
+  `crates/rubix-rules` (or remove it from the workspace members) so `cargo --workspace` resolves;
+  then re-run the UI-04 backend gate to confirm green (it was green at commit time).
+- **Committed so far:** UI-04 committed on `rubix-gaps` (backend seed 217a5df7; UI commits follow).
+  UI-04 is Done for its own scope (UI build + unit tests + grep gate green).

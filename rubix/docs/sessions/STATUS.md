@@ -57,3 +57,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T15:00:30Z idle — wake observed all rows ✅ and no unblockable ⛔; run already complete, nothing to spawn/gate, no reschedule.
 - 2026-06-12T15:05:19Z idle — wake confirms all rows ✅ (WS-01..WS-10), no ⛔ blocked/unblockable rows; run complete, loop STOPPED, no reschedule.
 - 2026-06-12T15:10:11Z idle — wake re-confirms all rows ✅ (WS-01..WS-10), no ⛔ rows; run complete, loop STOPPED, no reschedule.
+- 2026-06-12T22:00:10Z idle — wake re-confirms all rows ✅ (WS-01..WS-10), no ⛔ blocked/unblockable rows; run complete, loop STOPPED, no reschedule.

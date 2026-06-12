@@ -10,6 +10,14 @@ rust-version.workspace = true
 name = "rubix"
 path = "src/main.rs"
 
+[features]
+# Single binary, two profiles (STACK-DEISGN.md). A feature decides what is
+# compilable; RUBIX_PROFILE selects among the compiled profiles at boot. `edge`
+# is the default build (SQLite, on-box drivers, no auth — today's behavior).
+default = ["edge"]
+edge = []
+cloud = []
+
 [dependencies]
 rubix-core.workspace = true
 rubix-driver.workspace = true

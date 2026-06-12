@@ -12,6 +12,7 @@ use awaken_runtime_contract::contract::inference::StopReason;
 use rubix_flow::{AgentRequest, PointAccess, COMPONENTS};
 use rubix_server::agent::build_runtime_with_executor;
 use rubix_server::flow::StorePointAccess;
+use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use axum::body::Body;
@@ -48,6 +49,7 @@ async fn agent_call_board_activates_an_agent_run() {
 
     // Scripted agent: its one turn commands a fan at priority 14 (allowed).
     let mut state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store: store.clone(),
         bus: None,
         query: None,
@@ -120,6 +122,7 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
     // Scripted agent: one turn commands the fan at priority 14 (allowed), then
     // its final response is what the awaited node surfaces downstream.
     let mut state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store: store.clone(),
         bus: None,
         query: None,

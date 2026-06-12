@@ -4,6 +4,12 @@
 //! supervisory backend from STACK-DEISGN.md; zenoh transport, reflow engine,
 //! and DataFusion query layers attach to the same store later.
 
+#[cfg(not(any(feature = "edge", feature = "cloud")))]
+compile_error!(
+    "rubix-server needs at least one deployment profile feature: \
+     build with --features edge (default) and/or --features cloud"
+);
+
 pub mod agent;
 pub mod api;
 pub mod bus;
@@ -11,6 +17,7 @@ pub mod dispatch;
 pub mod error;
 pub mod flow;
 pub mod his;
+pub mod profile;
 pub mod scheduler;
 pub mod store;
 pub mod supervisor;
@@ -25,10 +32,14 @@ use awaken_runtime::AgentRuntime;
 use rubix_query::{HisTier, QueryEngine};
 
 use crate::bus::ZenohBus;
+use crate::profile::Profile;
 use crate::store::Store;
 
 #[derive(Clone)]
 pub struct AppState {
+    /// The deployment profile this node runs as (edge/cloud), resolved once at
+    /// boot. Carries the per-profile defaults later layers attach to.
+    pub profile: Profile,
     pub store: Store,
     /// Zenoh data plane. `None` when the server runs without transport (tests,
     /// HTTP-only mode); handlers publish `cur` through it when present.

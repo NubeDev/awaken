@@ -12,6 +12,7 @@ use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
 use rubix_server::agent::build_runtime_with_executor;
+use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use serde_json::{json, Value};
@@ -24,6 +25,7 @@ fn app_with_write(priority: u8) -> (Router, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("tempdir");
     let store = Store::open(&dir.path().join("runs.db")).expect("open store");
     let mut state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store,
         bus: None,
         query: None,

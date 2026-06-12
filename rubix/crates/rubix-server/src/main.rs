@@ -1,6 +1,7 @@
 use rubix_query::{HisTier, QueryEngine};
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
+use rubix_server::profile::{self, StoreKind};
 use rubix_server::store::Store;
 use rubix_server::scheduler::Scheduler;
 use rubix_server::supervisor::{load_manifests, Supervisor};
@@ -18,6 +19,25 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|_| "info,tower_http=debug".into()),
         )
         .init();
+
+    // Resolve the deployment profile first: it gates which backends boot. The
+    // cargo feature decides what is compilable, RUBIX_PROFILE selects among the
+    // compiled profiles (STACK-DEISGN.md "Single binary, two profiles").
+    let profile = profile::select()?;
+    tracing::info!(profile = %profile.kind, "deployment profile selected");
+
+    // The relational store backends the profile may want. SQLite exists today;
+    // a Postgres backend attaches behind this seam later, so a profile that
+    // defaults to it fails closed here rather than silently downgrading to
+    // SQLite.
+    match profile.store {
+        StoreKind::Sqlite => {}
+        StoreKind::Postgres => anyhow::bail!(
+            "profile {} defaults to a Postgres store, which is not available in this build yet; \
+             run with RUBIX_PROFILE=edge for the SQLite backend",
+            profile.kind
+        ),
+    }
 
     let db_path = env_or("RUBIX_DB", "rubix.db");
     let addr = env_or("RUBIX_ADDR", "0.0.0.0:8080");
@@ -49,14 +69,20 @@ async fn main() -> anyhow::Result<()> {
 
         // Spawn manifest-described drivers on the same mesh. The supervisor
         // watches their liveliness tokens, so it must share the bus session.
-        let drivers_path = env_or("RUBIX_DRIVERS", "drivers.json");
-        let manifests = load_manifests(std::path::Path::new(&drivers_path))?;
-        if manifests.is_empty() {
-            tracing::info!(path = %drivers_path, "no driver manifests; supervisor idle");
+        // Only profiles that supervise on-box drivers (edge) launch it; the
+        // cloud profile leaves driver supervision to edge stations.
+        if !profile.supervise_drivers {
+            tracing::info!(profile = %profile.kind, "driver supervision off for this profile");
         } else {
-            let names: Vec<_> = manifests.iter().map(|m| m.identity.name.clone()).collect();
-            supervisor = Some(Supervisor::launch(bus.session_clone(), manifests)?);
-            tracing::info!(drivers = ?names, "driver supervisor launched");
+            let drivers_path = env_or("RUBIX_DRIVERS", "drivers.json");
+            let manifests = load_manifests(std::path::Path::new(&drivers_path))?;
+            if manifests.is_empty() {
+                tracing::info!(path = %drivers_path, "no driver manifests; supervisor idle");
+            } else {
+                let names: Vec<_> = manifests.iter().map(|m| m.identity.name.clone()).collect();
+                supervisor = Some(Supervisor::launch(bus.session_clone(), manifests)?);
+                tracing::info!(drivers = ?names, "driver supervisor launched");
+            }
         }
         Some(bus)
     };
@@ -89,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let mut state = AppState {
+        profile,
         store,
         bus,
         query,

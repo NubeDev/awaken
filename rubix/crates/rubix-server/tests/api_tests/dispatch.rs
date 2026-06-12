@@ -10,6 +10,7 @@ use awaken_runtime::engine::{ProviderScriptEvent, ScriptedLlmExecutor};
 use rubix_server::agent::build_runtime_with_executor;
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
+use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::AppState;
 use serde_json::json;
@@ -27,6 +28,7 @@ async fn published_spark_activates_an_agent_run() {
     // Build an agent whose single scripted turn commands a fan at priority 14
     // (at/below the agent ceiling 13 → allowed, completes without suspending).
     let state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store: store.clone(),
         bus: Some(bus.clone()),
         query: None,

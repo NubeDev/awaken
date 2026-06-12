@@ -11,6 +11,7 @@ use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
 use rubix_server::agent::build_runtime_with_executor;
+use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use serde_json::{json, Value};
@@ -43,6 +44,7 @@ fn app_with_script(
         None => Store::open(&dir.path().join("test.db")).expect("open store"),
     };
     let mut state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store,
         bus: None,
         query: None,
@@ -130,6 +132,7 @@ async fn chat_is_unavailable_when_agent_disabled() {
     let dir = tempfile::tempdir().expect("tempdir");
     let store = Store::open(&dir.path().join("test.db")).expect("open store");
     let state = AppState {
+        profile: Profile::defaults(ProfileKind::Edge),
         store,
         bus: None,
         query: None,

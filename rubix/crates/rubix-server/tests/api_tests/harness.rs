@@ -6,6 +6,7 @@ use axum::Router;
 use http_body_util::BodyExt;
 use rubix_query::{HisTier, QueryEngine};
 use rubix_server::bus::ZenohBus;
+use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use serde_json::Value;
@@ -34,6 +35,7 @@ impl TestApp {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus: None,
             query: None,
@@ -53,6 +55,7 @@ impl TestApp {
     /// component (e.g. the scheduler) alongside the HTTP API on one DB.
     pub fn with_store_at(store: Store) -> Self {
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus: None,
             query: None,
@@ -74,6 +77,7 @@ impl TestApp {
         let bus = ZenohBus::open(store.clone()).await.expect("open bus");
         bus.serve().await.expect("serve bus");
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus: Some(bus.clone()),
             query: None,
@@ -97,6 +101,7 @@ impl TestApp {
         let store = Store::open(&db).expect("open store");
         let query = QueryEngine::open(&db).await.expect("open query engine");
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus: None,
             query: Some(query),
@@ -124,6 +129,7 @@ impl TestApp {
             .expect("open query engine")
             .with_his_tier(tier.clone());
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus: None,
             query: Some(query),
@@ -142,6 +148,7 @@ impl TestApp {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
         let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
             store,
             bus,
             query: None,

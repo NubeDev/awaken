@@ -16,6 +16,17 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    port: 5180,
+    // Proxy the real rubix-server API in dev so the UI calls /api/v1/* without
+    // CORS. Override the target with VITE_API_PROXY.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8088',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -4576,6 +4576,8 @@ name = "rubix-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "awaken-runtime-contract",
  "axum",
  "chrono",
  "futures",
@@ -4586,6 +4588,7 @@ dependencies = [
  "rubix-driver",
  "rubix-flow",
  "rubix-query",
+ "rubix-tools",
  "rusqlite",
  "serde",
  "serde_json",

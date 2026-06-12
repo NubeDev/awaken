@@ -18,7 +18,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-05 | Postgres backend for the cloud profile | ✅ | 2026-06-12T11:40:11Z | 2026-06-12T12:55:00Z | 200269f6 |
 | WS-06 | Auth: OIDC/JWT middleware + RBAC org→team→site | ✅ | 2026-06-12T12:10:30Z | 2026-06-12T13:40:00Z | b7ec6d06 |
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ✅ | 2026-06-12T12:30:31Z | 2026-06-12T13:21:00Z | 385f0e1d |
-| WS-08 | Outbound MCP adapter (BMS tools to external agents) | ✅ | 2026-06-12T13:30:10Z | 2026-06-12T14:05:00Z | (pending commit) |
+| WS-08 | Outbound MCP adapter (BMS tools to external agents) | ✅ | 2026-06-12T13:30:10Z | 2026-06-12T14:05:00Z | 9e8be915 |
 | WS-09 | Scoped zenoh session per driver + reference driver binary | ⬜ | | | |
 | WS-10 | Write ack/backpressure protocol + bounded buffers | ⬜ | | | |
 
@@ -48,4 +48,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T12:10:30Z spawned WS-06
 - 2026-06-12T13:40:00Z gated WS-06 ✅ (b7ec6d06; OIDC-JWT + PAT bearer auth and org→team→site RBAC behind the cloud profile seam, edge unchanged; tests green on edge & cloud features, clippy clean both; per-route scope gating beyond the site routes logged as a follow-up)
 - 2026-06-12T12:30:31Z spawned WS-07 → returned Done and self-gated ✅ (385f0e1d; org/site→ScopeId mapping enforced at the tool boundary on both chat and dispatch paths, site-A run refused a site-B write; cargo test --workspace green, clippy clean; concurrent-session SQL query-scope subsystem reconciled, prior fail-closed TODO resolved)
-- 2026-06-12T13:30:10Z spawned WS-08
+- 2026-06-12T13:30:10Z spawned WS-08 → returned Done and self-gated ✅ (9e8be915; outbound MCP adapter at POST /api/v1/mcp dispatches gated BMS tools to external agents — priority-array gating, tenant scope, and HITL escalation reuse build_tools_scoped and the runs registry; cargo test --workspace green on edge, mcp suite green on cloud, clippy clean both)

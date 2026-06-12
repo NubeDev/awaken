@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { CommandMenu } from '@/components/command-menu'
+import { AskSheet } from '@/features/ask-awaken/components/ask-sheet'
+import { AskAwakenProvider } from '@/features/ask-awaken/use-ask-awaken'
 
 type SearchContextType = {
   open: boolean
@@ -28,8 +30,11 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
   return (
     <SearchContext value={{ open, setOpen }}>
-      {children}
-      <CommandMenu />
+      <AskAwakenProvider>
+        {children}
+        <CommandMenu />
+        <AskSheet />
+      </AskAwakenProvider>
     </SearchContext>
   )
 }

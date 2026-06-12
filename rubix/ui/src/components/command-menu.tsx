@@ -1,7 +1,8 @@
 import React from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react'
+import { ArrowRight, ChevronRight, Laptop, Moon, Sparkles, Sun } from 'lucide-react'
 import { useSearch } from '@/context/search-provider'
+import { useAskAwaken } from '@/features/ask-awaken/use-ask-awaken'
 import { useTheme } from '@/context/theme-provider'
 import {
   CommandDialog,
@@ -19,6 +20,7 @@ export function CommandMenu() {
   const navigate = useNavigate()
   const { setTheme } = useTheme()
   const { open, setOpen } = useSearch()
+  const ask = useAskAwaken()
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
@@ -34,6 +36,18 @@ export function CommandMenu() {
       <CommandList>
         <ScrollArea type='hover' className='h-72 pe-1'>
           <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading='awaken'>
+            <CommandItem
+              value='Ask awaken'
+              onSelect={() => runCommand(() => ask.setOpen(true))}
+            >
+              <div className='flex size-4 items-center justify-center'>
+                <Sparkles className='text-primary size-3' />
+              </div>
+              Ask awaken…
+            </CommandItem>
+          </CommandGroup>
+          <CommandSeparator />
           {sidebarData.navGroups.map((group) => (
             <CommandGroup key={group.title} heading={group.title}>
               {group.items.map((navItem, i) => {

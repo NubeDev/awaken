@@ -16,3 +16,14 @@ pub trait QueryAccess: Send + Sync + 'static {
     /// Run a read-only SQL statement, returning rows as JSON objects.
     async fn query(&self, sql: &str) -> anyhow::Result<Vec<serde_json::Value>>;
 }
+
+/// Run a reflow control/rule board to completion. The host loads the board JSON
+/// into a reflow `Network` over the store-backed `PointAccess` and returns each
+/// node's outputs. Board writes go through the priority array, so the same
+/// gating applies as for direct point commands.
+#[async_trait]
+pub trait BoardAccess: Send + Sync + 'static {
+    /// Evaluate `board` (a [`rubix_flow::BoardGraph`] as JSON) once, returning
+    /// the node outputs as JSON.
+    async fn run_board(&self, board: serde_json::Value) -> anyhow::Result<serde_json::Value>;
+}

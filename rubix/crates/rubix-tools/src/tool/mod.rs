@@ -4,8 +4,10 @@
 
 mod query;
 mod read_point;
+mod run_board;
 mod write_point;
 
 pub use query::{QueryArgs, QueryTool};
 pub use read_point::{ReadPointArgs, ReadPointTool};
+pub use run_board::{RunBoardArgs, RunBoardTool};
 pub use write_point::{WritePointArgs, WritePointTool};

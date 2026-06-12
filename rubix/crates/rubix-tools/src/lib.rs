@@ -10,7 +10,8 @@ mod port;
 mod prelude;
 mod tool;
 
-pub use port::{PointAccess, QueryAccess};
+pub use port::{BoardAccess, PointAccess, QueryAccess};
 pub use tool::{
-    QueryArgs, QueryTool, ReadPointArgs, ReadPointTool, WritePointArgs, WritePointTool,
+    QueryArgs, QueryTool, ReadPointArgs, ReadPointTool, RunBoardArgs, RunBoardTool, WritePointArgs,
+    WritePointTool,
 };

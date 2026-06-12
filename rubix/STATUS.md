@@ -278,8 +278,17 @@ File-layout discipline holds: no source file exceeds 400 lines.
       out-of-grant point never reaches a peer. **Remaining:** a *server-issued*
       session restricted per driver at the router (today's confinement is
       driver-side local refusal plus the owned-site queryable scoping).
-- [ ] Ack/backpressure protocol for writes; bounded buffers with declared
-      overflow policy (drop-oldest `cur`, reliable `write`/`his`).
+- [x] Ack/backpressure protocol for writes; bounded buffers with declared
+      overflow policy (drop-oldest `cur`, reliable `write`/`his`). The driver
+      contract crate owns the delivery semantics (`rubix-driver::buffer`):
+      `CurBuffer` (latest-wins, drop-oldest with a visible dropped counter),
+      `ReliableQueue` (bounded, full → `DriverError::BufferFull`, never silent
+      drop), and the write ack/retry protocol (`PendingWrite` → give-up
+      `DriverError::AckTimeout`, `WriteAck`). The reference driver routes `cur`
+      through `CurBuffer` and logs overflow drops; its reliable-write sender
+      (`drain_writes`) retries each command until acked or surfaces the give-up.
+      Tests: flooded `cur` drops oldest + counts; a live write is retried then
+      acked; a saturated reliable queue surfaces an error rather than dropping.
 - [x] A reference driver binary (`rubix-driver-sim`): capability-scoped zenoh
       publisher over a `ScopedSession` (publishes only within its grant; an
       out-of-grant publish is refused locally), spawned and health-checked by

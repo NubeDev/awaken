@@ -8,6 +8,7 @@ pub mod api;
 pub mod bus;
 pub mod error;
 pub mod store;
+pub mod supervisor;
 
 use axum::Router;
 use tower_http::trace::TraceLayer;

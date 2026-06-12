@@ -14,6 +14,7 @@ mod api_tests {
     mod points;
     mod query;
     mod rollup;
+    mod runs;
     mod sites;
     mod sparks;
     mod tools;

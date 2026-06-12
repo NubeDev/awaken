@@ -2,6 +2,7 @@
 //! BMS tool set and exposes a chat turn. The agent reads/commands points and
 //! queries history through the same gated tools the HTTP API uses.
 
+mod capture_sink;
 mod persist;
 mod run_record;
 mod runtime;

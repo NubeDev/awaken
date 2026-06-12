@@ -2,33 +2,39 @@
 //!
 //! `AgentRunResult` carries only the run id, response, step count, and
 //! termination — not the suspended tool call's held write. So the run is driven
-//! through [`AgentRuntime::run`] with a collecting [`EventSink`]; on a
-//! `Suspended` termination the held [`PendingWrite`] is recovered from the
-//! `write_point` tool's `ToolCallDone` event (its `SuspendTicket` parameters).
-//! Both the chat endpoint and inbound dispatch persist their runs this way, so
-//! a suspended run survives the request that raised it and the operator surface
-//! (list / get / resume / cancel) has a row to act on.
+//! through [`AgentRuntime::run`] with a [`SuspendCaptureSink`]; on a `Suspended`
+//! termination the held [`PendingWrite`] is recovered from the `write_point`
+//! tool's `ToolCallDone` event (its `SuspendTicket` parameters).
+//!
+//! The embedded full-local backend blocks the agent loop after suspending,
+//! waiting for an operator decision on a live channel. This architecture feeds
+//! no decision back into the loop — the operator surface is the `runs` HTTP API,
+//! which re-applies the held write itself. So on the suspend signal the run is
+//! cancelled to release the loop; the persisted [`RunRecord`] (status
+//! `suspended`, with the held write) is the durable source of truth the operator
+//! acts on. Both the chat endpoint and inbound dispatch persist runs this way.
 
 use std::sync::Arc;
 
 use awaken_runtime::run::RunActivation;
 use awaken_runtime::AgentRuntime;
 use awaken_runtime_contract::contract::event::AgentEvent;
-use awaken_runtime_contract::contract::event_sink::VecEventSink;
-use awaken_runtime_contract::contract::lifecycle::TerminationReason;
 use awaken_runtime_contract::contract::suspension::ToolCallOutcome;
 use chrono::Utc;
 
+use super::capture_sink::SuspendCaptureSink;
 use crate::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
 use crate::store::Store;
 
 /// The tool name a held BMS write surfaces under in its `ToolCallDone` event.
 const WRITE_TOOL: &str = "write_point";
 
-/// Drive `activation` to completion, persist the resulting [`RunRecord`], and
-/// return it. A suspended run's held write is captured and stored so the resume
-/// endpoint can re-apply it. Persisting the row is best-effort logged on failure
-/// — a store hiccup must not lose the agent's response to the caller.
+/// Drive `activation` to completion (or to suspension), persist the resulting
+/// [`RunRecord`], and return it. A suspended run is cancelled to release the
+/// blocked loop after its held write is captured; the record persists as
+/// `suspended` so the resume endpoint can re-apply it. Persisting the row is
+/// best-effort logged on failure — a store hiccup must not lose the agent's
+/// response to the caller.
 pub async fn run_and_persist(
     runtime: &Arc<AgentRuntime>,
     store: &Store,
@@ -36,16 +42,45 @@ pub async fn run_and_persist(
     activation: RunActivation,
 ) -> Result<RunRecord, awaken_runtime::loop_runner::AgentLoopError> {
     let thread_id = activation.thread_id().to_string();
-    let sink = Arc::new(VecEventSink::new());
-    let result = runtime.run(activation, sink.clone()).await?;
+    let sink = SuspendCaptureSink::new();
+    let run_runtime = runtime.clone();
+    let run_sink = sink.clone();
+    let mut run = tokio::spawn(async move { run_runtime.run(activation, run_sink).await });
 
-    let status = match result.termination {
-        TerminationReason::Suspended => RunStatus::Suspended,
-        _ => RunStatus::Completed,
+    // Race the run against its own suspend signal. The full-local backend blocks
+    // the loop after emitting `RunFinish { Suspended }`; cancelling by run id
+    // unblocks it (the wait observes the cooperative cancellation token).
+    let suspended = tokio::select! {
+        result = &mut run => return finish(result, store, origin, thread_id, &sink, false),
+        () = sink.suspended() => true,
     };
-    let pending_write = match status {
-        RunStatus::Suspended => pending_write_from_events(&sink.take()),
-        _ => None,
+    if let Some(run_id) = sink.suspended_run_id() {
+        runtime.cancel_by_run_id(&run_id);
+    }
+    let result = (&mut run).await;
+    finish(result, store, origin, thread_id, &sink, suspended)
+}
+
+/// Build and persist the record from the joined run result. `suspended` carries
+/// whether the suspend signal fired (the run was cancelled after suspending), so
+/// the cancelled termination is recorded as `suspended` — the operator-actionable
+/// state — rather than `cancelled`.
+fn finish(
+    joined: Result<Result<awaken_runtime::loop_runner::AgentRunResult, awaken_runtime::loop_runner::AgentLoopError>, tokio::task::JoinError>,
+    store: &Store,
+    origin: RunOrigin,
+    thread_id: String,
+    sink: &SuspendCaptureSink,
+    suspended: bool,
+) -> Result<RunRecord, awaken_runtime::loop_runner::AgentLoopError> {
+    let result = joined.map_err(|e| {
+        awaken_runtime::loop_runner::AgentLoopError::InferenceFailed(format!("run task join: {e}"))
+    })??;
+    let events = sink.take_events();
+    let (status, pending_write) = if suspended {
+        (RunStatus::Suspended, pending_write_from_events(&events))
+    } else {
+        (RunStatus::Completed, None)
     };
     let now = Utc::now();
     let record = RunRecord {

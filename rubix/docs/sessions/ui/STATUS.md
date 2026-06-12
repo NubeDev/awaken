@@ -35,8 +35,8 @@ What does NOT count as fake (allowed to stay):
 
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
-| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | 🔵 | 2026-06-12T22:29:06Z | 2026-06-12T22:39:09Z | f3af3bc5 |
-| UI-02 | Dev seed: the demo building as real store rows + live sim | ⬜ | | | |
+| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | ✅ | 2026-06-12T22:29:06Z | 2026-06-12T22:39:09Z | f3af3bc5 |
+| UI-02 | Dev seed: the demo building as real store rows + live sim | ✅ | 2026-06-12T22:45:13Z | 2026-06-13T01:10:00Z | d5c349f8 |
 | UI-03 | Delete the demo layer; UI reads the network only | ⬜ | | | |
 | UI-04 | Flows on stored boards (`/api/v1/boards`) | ⬜ | | | |
 | UI-05 | Agent surface: runs, resume/cancel, diagnose, HITL UX | ⬜ | | | |
@@ -92,3 +92,5 @@ Before marking any UI-xx ✅:
 - 2026-06-12T22:15:41Z skip — UI-01 still 🔵, subagent live (uncommitted edits across types.ts/hooks.ts/endpoints.ts/tags.ts + history/runs, ~6 min in, no Done/Blocked line); no double-spawn, reschedule
 - 2026-06-12T22:26:00Z skip — UI-01 still 🔵, subagent live (working tree mutating mid-wake: types/hooks/endpoints/tags.ts reverted-clean between two `git status` calls, history/index.tsx still M, no new commits, UI-01.md still Pending); no double-spawn, reschedule
 - 2026-06-12T22:29:06Z spawn — UI-01: prior subagent dead (row was ⬜/UI-01.md Pending, only leftover M history/index.tsx which UI-01 owns, no new commits since); first pending row → spawn fresh UI-01 subagent (idempotent resume from committed state)
+- 2026-06-12T22:40:54Z gate ✅ — UI-01: subagent returned Done (UI-01.md Status: Done, Finished 22:39:09Z); DONE GATE green (pnpm build ✓, test:unit 18/18 ✓, commit f3af3bc5 `UI-01:`-prefixed, backend untouched); row → ✅. Next pending: UI-02.
+- 2026-06-12T22:45:13Z spawn — UI-02: no WS 🔵, UI-01 ✅, first pending row → spawn fresh UI-02 subagent (dev seed; only UI row allowed backend changes, must pass cargo + UI gate).

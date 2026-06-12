@@ -37,7 +37,7 @@ What does NOT count as fake (allowed to stay):
 | --- | --- | --- | --- | --- | --- |
 | UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | ✅ | 2026-06-12T22:29:06Z | 2026-06-12T22:39:09Z | f3af3bc5 |
 | UI-02 | Dev seed: the demo building as real store rows + live sim | ✅ | 2026-06-12T22:45:13Z | 2026-06-13T01:10:00Z | d5c349f8 |
-| UI-03 | Delete the demo layer; UI reads the network only | ✅ | 2026-06-12T23:05:15Z | 2026-06-12T23:12:00Z | |
+| UI-03 | Delete the demo layer; UI reads the network only | ✅ | 2026-06-12T23:05:15Z | 2026-06-12T23:12:00Z | 3bf7f5b1 |
 | UI-04 | Flows on stored boards (`/api/v1/boards`) | ⬜ | | | |
 | UI-05 | Agent surface: runs, resume/cancel, diagnose, HITL UX | ⬜ | | | |
 | UI-06 | Dashboard Builder MVP on `/api/v1/widgets` | ⬜ | | | |

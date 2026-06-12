@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rubix-core", "crates/rubix-server"]
+members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-server"]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,6 +10,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 rubix-core = { path = "crates/rubix-core" }
+rubix-driver = { path = "crates/rubix-driver" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

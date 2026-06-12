@@ -137,3 +137,35 @@ The fail-closed fallback remains for a scope that cannot map to a `QueryScope`.
   then re-run the UI-04 backend gate to confirm green (it was green at commit time).
 - **Committed so far:** UI-04 committed on `rubix-gaps` (backend seed 217a5df7; UI commits follow).
   UI-04 is Done for its own scope (UI build + unit tests + grep gate green).
+
+---
+
+### 2026-06-12 — UI-06 — no DELETE verb for widgets (canvas Remove cannot persist)
+- **What's blocked:** UI-06 task 4 asks the canvas "Remove (X)" to call DELETE (or "the real
+  removal verb"). `rubix-server/src/api/widgets/` exposes only `POST` (create) and `GET` (list)
+  on `/api/v1/widgets` (see `mod.rs` router); the store layer (`store/widgets.rs`) has
+  `create_widget` + `list_widgets` and no `delete_widget`. There is no removal verb on the wire.
+- **Why (the missing dep):** Removing a pinned widget requires a server route the backend has not
+  built. Per the charter I must not invent a wire verb or synthesize a fake client-only delete
+  that silently diverges from the server rows. A localStorage "hidden" flag would be a fake that
+  hides the real row, so it is refused.
+- **What the human must decide/provide:** add `DELETE /api/v1/widgets/{id}` (+ `Store::delete_widget`)
+  so the canvas Remove can persist; then wire `widgets.remove` + `useDeleteWidget` and the (X) action.
+  Until then the canvas renders create/live/pin only and shows no Remove control (no dead button).
+- **Committed so far:** UI-06 widgets client + builder canvas committed on `rubix-gaps` (prefixed
+  `UI-06:`). UI-06 is Done for the create/render-live/pin scope; removal awaits this verb.
+
+### 2026-06-12 — UI-06 — widget layout/size has no wire field (layout is client-side)
+- **What's blocked:** Server-side persistence of dashboard tile arrangement/size. `rubix_core::Widget`
+  (`crates/rubix-core/src/model.rs`) has `id, site_id, kind, title, target, created_at` only — no
+  layout/order/size columns. Per the UI charter, with no wire field the MVP layout state is
+  client-side per browser; widget order on the canvas is order-by-creation (the server's
+  `created_at DESC`), which survives reload because the rows persist.
+- **Why (the missing field):** The reorder/resize state the full mockup editor implies has nowhere
+  to live on the wire. Inventing a field is forbidden.
+- **What the human must decide/provide:** whether to add a `layout`/`position`/`size` field to the
+  `Widget` row (and `CreateWidget`/`PinWidgetArgs`) so per-site arrangement persists across browsers,
+  or keep order-by-creation as the product decision. Drag-reorder (localStorage) is deferred until
+  this is decided to avoid a half-persistent UX.
+- **Committed so far:** UI-06 committed on `rubix-gaps` (prefixed `UI-06:`); canvas orders by
+  `created_at` as returned by the API.

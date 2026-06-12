@@ -19,7 +19,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-06 | Auth: OIDC/JWT middleware + RBAC org→team→site | ✅ | 2026-06-12T12:10:30Z | 2026-06-12T13:40:00Z | b7ec6d06 |
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ✅ | 2026-06-12T12:30:31Z | 2026-06-12T13:21:00Z | 385f0e1d |
 | WS-08 | Outbound MCP adapter (BMS tools to external agents) | ✅ | 2026-06-12T13:30:10Z | 2026-06-12T14:05:00Z | 9e8be915 |
-| WS-09 | Scoped zenoh session per driver + reference driver binary | ✅ | 2026-06-12T13:50:12Z | 2026-06-12T14:20:00Z | (pending) |
+| WS-09 | Scoped zenoh session per driver + reference driver binary | ✅ | 2026-06-12T13:50:12Z | 2026-06-12T14:20:00Z | 08217e33 |
 | WS-10 | Write ack/backpressure protocol + bounded buffers | ⬜ | | | |
 
 ## Dependency notes

@@ -6,7 +6,11 @@
 //! [`rubix_flow::PointAccess`] port, so tools stay free of the HTTP/store
 //! layers and the host wires in a real implementation.
 
+mod port;
 mod prelude;
 mod tool;
 
-pub use tool::{ReadPointArgs, ReadPointTool, WritePointArgs, WritePointTool};
+pub use port::{PointAccess, QueryAccess};
+pub use tool::{
+    QueryArgs, QueryTool, ReadPointArgs, ReadPointTool, WritePointArgs, WritePointTool,
+};

@@ -2,11 +2,20 @@
 //! Config gives the `prompt` (or it arrives on the `value` inport, which wins)
 //! and an optional `thread` to group repeated calls (default `board-agent-call`).
 //!
-//! Fire-and-forget: the request is raised through [`PointAccess::request_agent`]
-//! and the agent runs out-of-band — a control board must not block on an LLM.
-//! The node acknowledges on `output` so the graph can continue. Boards run by
-//! the agent's own `run_board` tool get a `PointAccess` without an agent, so the
-//! request fails closed there and the agent → board → agent loop cannot recur.
+//! Two modes, selected by the `await` config flag (default `false`):
+//!
+//! - Detached (default): the request is raised through
+//!   [`PointAccess::request_agent`] and the agent runs out-of-band — a control
+//!   board must not block on an LLM. The node acknowledges on `output` so the
+//!   graph continues immediately.
+//! - Awaited (`await: true`): the node blocks on
+//!   [`PointAccess::request_agent_blocking`] and emits the agent's final response
+//!   text on `output`, so a downstream node can branch on the agent's decision
+//!   in the same single-shot board run.
+//!
+//! Boards run by the agent's own `run_board` tool get a `PointAccess` without an
+//! agent, so the request fails closed there and the agent → board → agent loop
+//! cannot recur, in either mode.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -45,10 +54,31 @@ fn call(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
         None => return error_out("agent_call: no `prompt` config and no `value` input"),
     };
     let thread = config_str(context, "thread").unwrap_or_else(|| DEFAULT_THREAD.to_string());
-    match access.request_agent(AgentRequest { thread, prompt }) {
-        Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
-        Err(e) => error_out(format!("agent_call: {e}")),
+    let request = AgentRequest { thread, prompt };
+    if awaits(context) {
+        match access.request_agent_blocking(request) {
+            Ok(outcome) => HashMap::from([(
+                "output".to_string(),
+                Message::String(outcome.response.into()),
+            )]),
+            Err(e) => error_out(format!("agent_call: {e}")),
+        }
+    } else {
+        match access.request_agent(request) {
+            Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
+            Err(e) => error_out(format!("agent_call: {e}")),
+        }
     }
+}
+
+/// Whether the node blocks on the run and surfaces its outcome (`await: true`),
+/// or fires it detached (the control-board default).
+fn awaits(context: &ActorContext) -> bool {
+    context
+        .get_config_hashmap()
+        .get("await")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// The prompt: the `value` inport rendered as text if connected, else the

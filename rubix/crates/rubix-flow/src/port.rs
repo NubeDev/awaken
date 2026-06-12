@@ -24,16 +24,31 @@ pub struct SparkDraft {
 }
 
 /// A request for the embedded agent, raised by an `agent_call` board node. The
-/// board hands a free-text prompt (and a thread key to group related calls);
-/// the host activates an agent run out-of-band. Fire-and-forget by design — a
-/// control board must not block on an LLM round-trip, so the node acknowledges
-/// the request and the run proceeds detached, exactly like a dispatched spark.
+/// board hands a free-text prompt (and a thread key to group related calls).
+/// Two activation modes: detached (fire-and-forget, the control-board default —
+/// the node acknowledges and the run proceeds out-of-band, like a dispatched
+/// spark) or awaited (the node blocks on the run and surfaces its outcome on an
+/// outport so downstream nodes can branch on the agent's decision).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentRequest {
     /// Agent thread to run on; groups repeated calls from the same board.
     pub thread: String,
     /// The prompt handed to the agent.
     pub prompt: String,
+}
+
+/// The outcome of an awaited agent run, projected for a board graph. Carries the
+/// agent's final response and run identity so a downstream node can branch on
+/// the decision without depending on the awaken runtime types — keeping
+/// `rubix-flow` free of the runtime crate, the same boundary as [`PointAccess`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentOutcome {
+    /// Run identity of the completed agent run.
+    pub run_id: String,
+    /// The agent's final natural-language response.
+    pub response: String,
+    /// Loop steps the run took before terminating.
+    pub steps: usize,
 }
 
 /// Read/command/query access to points, addressed by zenoh keyexpr prefix
@@ -69,6 +84,14 @@ pub trait PointAccess: Send + Sync + 'static {
     /// the agent → board → agent recursion) need not handle it. The server's
     /// scheduler/HTTP-backed impl overrides this to activate a detached run.
     fn request_agent(&self, _request: AgentRequest) -> anyhow::Result<()> {
+        anyhow::bail!("agent_call: this point access has no agent runtime")
+    }
+
+    /// Raise an agent request and block until the run completes, returning its
+    /// [`AgentOutcome`]. Used by an `agent_call` node configured to await so the
+    /// agent's decision flows downstream in the same single-shot board run. The
+    /// default rejects it for the same fail-closed reason as [`Self::request_agent`].
+    fn request_agent_blocking(&self, _request: AgentRequest) -> anyhow::Result<AgentOutcome> {
         anyhow::bail!("agent_call: this point access has no agent runtime")
     }
 }

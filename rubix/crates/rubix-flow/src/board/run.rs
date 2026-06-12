@@ -14,10 +14,16 @@ use super::schema::BoardGraph;
 use crate::error::FlowError;
 use crate::port::PointAccess;
 
-/// How long to let actors propagate after the source tick before draining
-/// outputs. Control boards are shallow and low-rate; a few graph hops settle
-/// well within this window.
+/// Quiet interval between output polls. After a poll yields no new packets the
+/// graph is considered settled. Control boards are shallow and low-rate; a few
+/// graph hops settle within one interval.
 const SETTLE: Duration = Duration::from_millis(50);
+
+/// Upper bound on total settle time. A plain control board settles in one
+/// [`SETTLE`] interval; an awaited `agent_call` node blocks its actor task on an
+/// LLM run, so the budget must cover that round-trip before its downstream
+/// nodes fire. Bounded so a hung run cannot wedge a single-shot board run.
+const MAX_SETTLE: Duration = Duration::from_secs(120);
 
 /// One node's collected outport output after a run.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -48,16 +54,27 @@ impl BoardGraph {
             let _ = network.send_to_actor(&node_id, "trigger", Message::Flow);
         }
 
-        tokio::time::sleep(SETTLE).await;
-
+        // Drain outputs until a poll interval yields nothing new (the graph has
+        // settled) or the max budget is hit. `read_actor_output` consumes each
+        // node's outport channel, so packets are accumulated across polls — a
+        // blocking node that emits late (an awaited `agent_call`) is still caught.
         let mut outputs = Vec::new();
-        for node in &self.nodes {
-            for (port, msg) in network.read_actor_output(&node.id) {
-                outputs.push(NodeOutput {
-                    node: node.id.clone(),
-                    port,
-                    value: serde_json::Value::from(msg),
-                });
+        let deadline = tokio::time::Instant::now() + MAX_SETTLE;
+        loop {
+            tokio::time::sleep(SETTLE).await;
+            let mut drained = false;
+            for node in &self.nodes {
+                for (port, msg) in network.read_actor_output(&node.id) {
+                    drained = true;
+                    outputs.push(NodeOutput {
+                        node: node.id.clone(),
+                        port,
+                        value: serde_json::Value::from(msg),
+                    });
+                }
+            }
+            if !drained || tokio::time::Instant::now() >= deadline {
+                break;
             }
         }
         network.shutdown();

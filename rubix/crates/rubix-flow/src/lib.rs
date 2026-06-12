@@ -18,4 +18,4 @@ pub use error::FlowError;
 pub use node::{
     AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, WritePointActor,
 };
-pub use port::{AgentRequest, PointAccess, SparkDraft};
+pub use port::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};

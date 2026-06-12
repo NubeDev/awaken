@@ -10,7 +10,7 @@ use awaken_runtime::AgentRuntime;
 use awaken_runtime_contract::contract::message::Message;
 use chrono::Utc;
 use rubix_core::{HisSample, PointValue, Spark};
-use rubix_flow::{AgentRequest, PointAccess, SparkDraft};
+use rubix_flow::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};
 use uuid::Uuid;
 
 use crate::agent::AGENT_ID;
@@ -118,14 +118,9 @@ impl PointAccess for StorePointAccess {
     /// recursion). Fire-and-forget: the run is detached onto the current runtime
     /// so the board does not block on the LLM, mirroring `emit_spark`.
     fn request_agent(&self, request: AgentRequest) -> anyhow::Result<()> {
-        let Some(agent) = &self.agent else {
-            anyhow::bail!("agent_call: no agent runtime on this board access");
-        };
-        let agent = agent.clone();
+        let agent = self.agent_or_fail()?.clone();
         tokio::spawn(async move {
-            let activation = RunActivation::new(request.thread, vec![Message::user(request.prompt)])
-                .with_agent_id(AGENT_ID);
-            match agent.run_to_completion(activation).await {
+            match agent.run_to_completion(activation_for(request)).await {
                 Ok(result) => {
                     tracing::info!(steps = result.steps, "agent_call run completed");
                 }
@@ -136,4 +131,40 @@ impl PointAccess for StorePointAccess {
         });
         Ok(())
     }
+
+    /// Run the agent to completion and return its outcome for a board that awaits
+    /// the decision. The port is synchronous and a board only ever runs inside a
+    /// Tokio runtime, so we bridge to async with `block_in_place` +
+    /// `block_on` — the supported way to await on a multi-thread runtime worker
+    /// without starving it (a current-thread runtime would panic, which is the
+    /// correct fail-fast: an awaited `agent_call` needs the multi-thread flavor).
+    fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {
+        let agent = self.agent_or_fail()?.clone();
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(async move { agent.run_to_completion(activation_for(request)).await })
+        })
+        .map_err(|e| anyhow::anyhow!("agent run failed: {e}"))?;
+        Ok(AgentOutcome {
+            run_id: result.run_id,
+            response: result.response,
+            steps: result.steps,
+        })
+    }
+}
+
+impl StorePointAccess {
+    /// The wired agent runtime, or the fail-closed error that breaks the
+    /// agent → board → agent recursion when none is present.
+    fn agent_or_fail(&self) -> anyhow::Result<&Arc<AgentRuntime>> {
+        self.agent
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("agent_call: no agent runtime on this board access"))
+    }
+}
+
+/// Activation for an `agent_call` request: a single user turn on the named
+/// thread, run by the embedded [`AGENT_ID`].
+fn activation_for(request: AgentRequest) -> RunActivation {
+    RunActivation::new(request.thread, vec![Message::user(request.prompt)]).with_agent_id(AGENT_ID)
 }

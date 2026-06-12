@@ -28,7 +28,10 @@ export function Dashboard() {
       <Main>
         <div className='mb-4 flex items-center justify-between'>
           <div>
-            <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
+            <div className='flex items-center gap-2.5'>
+              <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
+              <span className='live-dot' aria-label='live' />
+            </div>
             <p className='text-muted-foreground text-sm'>
               {site ? `${site.display_name} · live overview` : 'Loading site…'}
             </p>

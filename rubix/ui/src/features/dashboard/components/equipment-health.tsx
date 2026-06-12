@@ -1,26 +1,69 @@
 import { useNavigate } from '@tanstack/react-router'
-import { CircuitBoard } from 'lucide-react'
-import { useEquips } from '@/api/hooks'
+import {
+  ArrowRight,
+  CircuitBoard,
+  Droplet,
+  Fan,
+  Flame,
+  Wind,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+import { useEquips, usePoints, useSparks } from '@/api/hooks'
 import type { Equip, Uuid } from '@/api/types'
+import { Button } from '@/components/ui/button'
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
-/** Live equipment roster for the active site, linking into the points browser. */
+/** Icon for an equip, chosen from its Haystack-style tags. */
+function equipIcon(tags: string[]): LucideIcon {
+  const t = new Set(tags)
+  if (t.has('ahu')) return Fan
+  if (t.has('chiller')) return Droplet
+  if (t.has('boiler')) return Flame
+  if (t.has('elec') || t.has('meter')) return Zap
+  if (t.has('vav') || t.has('tower')) return Wind
+  return CircuitBoard
+}
+
+/** Live equipment roster: per-kind icons, fault status from open sparks. */
 export function EquipmentHealth({ siteId }: { siteId: Uuid | undefined }) {
   const navigate = useNavigate()
   const { data: equips = [], isLoading } = useEquips(siteId)
+  const { data: points = [] } = usePoints({ siteId })
+  const { data: sparks = [] } = useSparks(siteId)
+
+  // equips with an unacked spark on one of their points are in fault
+  const pointEquip = new Map(points.map((p) => [p.id, p.equip_id]))
+  const faultEquips = new Set(
+    sparks
+      .filter((s) => !s.acknowledged && s.severity === 'fault')
+      .flatMap((s) => s.point_ids.map((pid) => pointEquip.get(pid)))
+      .filter(Boolean)
+  )
+  const pointCount = new Map<string, number>()
+  for (const p of points) pointCount.set(p.equip_id, (pointCount.get(p.equip_id) ?? 0) + 1)
 
   return (
     <Card className='col-span-1 lg:col-span-2'>
       <CardHeader>
-        <CardTitle>Equipment</CardTitle>
-        <CardDescription>{equips.length} units on this site</CardDescription>
+        <CardTitle>Equipment Health</CardTitle>
+        <CardDescription>
+          {equips.length - faultEquips.size}/{equips.length} nominal
+        </CardDescription>
+        <CardAction>
+          <Button variant='outline' size='sm' onClick={() => navigate({ to: '/points' })}>
+            Open browser <ArrowRight className='size-3.5' />
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -39,6 +82,8 @@ export function EquipmentHealth({ siteId }: { siteId: Uuid | undefined }) {
               <EquipTile
                 key={e.id}
                 equip={e}
+                fault={faultEquips.has(e.id)}
+                points={pointCount.get(e.id) ?? 0}
                 onClick={() => navigate({ to: '/points', search: { equip: e.id } })}
               />
             ))}
@@ -49,18 +94,40 @@ export function EquipmentHealth({ siteId }: { siteId: Uuid | undefined }) {
   )
 }
 
-function EquipTile({ equip, onClick }: { equip: Equip; onClick: () => void }) {
+function EquipTile({
+  equip,
+  fault,
+  points,
+  onClick,
+}: {
+  equip: Equip
+  fault: boolean
+  points: number
+  onClick: () => void
+}) {
+  const Icon = equipIcon(equip.tags)
   return (
     <button
       onClick={onClick}
-      className='bg-muted/40 hover:bg-accent hover:border-border-strong focus-visible:ring-ring flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none'
+      className='group bg-muted/40 hover:bg-accent hover:border-border-strong focus-visible:ring-ring flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-md focus-visible:ring-2 focus-visible:outline-none'
     >
-      <span className='bg-card text-muted-foreground grid size-9 shrink-0 place-items-center rounded-lg border border-border'>
-        <CircuitBoard className='size-[18px]' />
+      <span
+        className={cn(
+          'bg-card grid size-9 shrink-0 place-items-center rounded-lg border border-border transition-colors',
+          fault ? 'text-sev-fault' : 'text-muted-foreground group-hover:text-foreground'
+        )}
+      >
+        <Icon className='size-[18px]' />
       </span>
       <div className='min-w-0 flex-1'>
         <div className='truncate text-[12.5px] font-semibold'>{equip.display_name}</div>
-        <div className='text-muted-foreground truncate font-mono text-[11px]'>{equip.path}</div>
+        <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>
+          <span
+            className={cn('size-1.5 rounded-full', fault ? 'bg-sev-fault' : 'bg-positive')}
+          />
+          {fault ? 'Fault active' : 'Nominal'}
+          {points > 0 ? ` · ${points} pts` : ''}
+        </div>
       </div>
     </button>
   )

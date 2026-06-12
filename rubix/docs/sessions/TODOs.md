@@ -38,7 +38,22 @@ now captures the suspend from the event stream and `cancel_by_run_id`s the loop 
 
 ---
 
-### 2026-06-12 — WS-05 — DataFusion has no Postgres provider (federation + `/query` under cloud)
+~~### 2026-06-12 — WS-05 — DataFusion has no Postgres provider (federation + `/query` under cloud)~~
+**RESOLVED (838081b2):** the DataFusion surface now federates the canonical tables from Postgres via a
+`datafusion-table-providers` connector behind the `cloud` feature (`QueryEngine::open_postgres` /
+`Source::Postgres`); `main.rs` re-enables `/query` under a Postgres store instead of disabling it, and
+the tenant-scoped surface (`scoped_query`, from the WS-07 follow-up) works over Postgres too.
+`datafusion-table-providers 0.11` aligns with the in-tree DataFusion 53. Tests: `pg_query.rs`
+(`RUBIX_TEST_PG`-gated) proves unscoped federation sees all tenants and scoped confines to one;
+edge stays SQLite-only; clippy + tests green on edge and `--features cloud`.
+
+The **users/teams/config tables are intentionally NOT added here.** An audit found each would have zero
+readers today (identity is delegated to the OIDC issuer; `scope.rs` explicitly does not own the
+team→site mapping and `covers_resource` ignores team; all config is env-driven at boot with no runtime
+lookup). Adding bare unused tables violates the repo's "no placeholder implementations" rule, so each
+remains a dedicated follow-up gated on a real consumer (user provisioning, a team→site admin surface, a
+per-tenant settings surface). The query subsystem the WS-05/WS-07 follow-ups actually required is done.
+
 - **What's blocked:** Under a Postgres store target the DataFusion `/query` SQL surface is disabled
   (`main.rs`: "datafusion has no postgres provider yet"), and the cloud relational tables
   (users/teams/config — STATUS.md "Postgres federation") are not implemented on the Postgres backend.

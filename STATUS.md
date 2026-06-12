@@ -245,7 +245,16 @@ File-layout discipline holds: no source file exceeds 400 lines.
       **Remaining:** partition predicate pushdown (reads all partitions today),
       a cloud/remote `object_store` tier (constructor-only — code is generic over
       `ObjectStore`), and edge→cloud replication.
-- [ ] Postgres federation (cloud relational tables: users, teams, config).
+- [~] Postgres federation: under the `cloud` feature the canonical tables
+      (`sites`/`equips`/`points`/`his`/`sparks`) federate from Postgres through a
+      `datafusion-table-providers` connector (`QueryEngine::open_postgres`), so
+      `/query` (and the tenant-scoped `query` tool) work against a Postgres store;
+      `datafusion-table-providers 0.11` aligns with DataFusion 53. Edge stays
+      SQLite-only. **Remaining:** the `users`/`teams`/`config` relational tables
+      are deliberately not added — each would have no reader today (identity is
+      OIDC-delegated; the team→site mapping is not owned by the auth layer; config
+      is env-driven at boot), so they stay dedicated follow-ups gated on a real
+      consumer rather than bare unused schema.
 - [ ] Flight SQL surface.
 
 ### Driver runtime (beyond the contract)
@@ -299,10 +308,12 @@ File-layout discipline holds: no source file exceeds 400 lines.
       Ids/timestamps are TEXT (shared canonical-string / RFC 3339 codecs) so domain
       types round-trip identically across backends. The shared store-contract suite
       (`tests/store_suite.rs`) runs against both: SQLite always, Postgres when
-      `RUBIX_TEST_PG` names a database. **Remaining:** DataFusion has no Postgres
-      provider, so the `/query` SQL surface and the cloud relational tables
-      (users/teams/config — "Postgres federation" above) are disabled under a
-      Postgres target; that federation is a separate subsystem.
+      `RUBIX_TEST_PG` names a database. The DataFusion `/query` surface now
+      federates the canonical tables from Postgres through a
+      `datafusion-table-providers` connector (see "Postgres federation" above), so
+      `/query` and the tenant-scoped `query` tool work under a Postgres target.
+      The `users`/`teams`/`config` relational tables remain deliberately unbuilt
+      (no reader today — see the federation note above).
 
 ---
 

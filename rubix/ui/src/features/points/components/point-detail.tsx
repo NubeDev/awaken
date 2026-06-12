@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CircleAlert } from 'lucide-react'
+import { CircleAlert, Check, Pin } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -9,10 +9,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { usePointHistory, useRelinquishPoint } from '@/api/hooks'
+import { useCreateWidget, usePointHistory, useRelinquishPoint } from '@/api/hooks'
+import { pointKeyexpr } from '@/api/keyexpr'
 import type { Point, Site, Equip } from '@/api/types'
 import { tagNames } from '@/api/tags'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardAction,
@@ -40,8 +42,20 @@ type PointDetailProps = {
 /** Right pane: live value, command source, tags, history, and the priority array. */
 export function PointDetail({ point, site, equip, inFinding }: PointDetailProps) {
   const relinquish = useRelinquishPoint()
+  const pin = useCreateWidget(site?.id)
   const { data: history = [] } = usePointHistory(point.id)
   const [range, setRange] = useState<Range>('24h')
+
+  const canPin = Boolean(site && equip)
+  const pinPoint = () => {
+    if (!site || !equip) return
+    pin.mutate({
+      site_id: site.id,
+      kind: 'point_value',
+      title: point.display_name,
+      target: pointKeyexpr(site, equip, point),
+    })
+  }
   const writable = point.kind !== 'sensor'
   const winning = winningSlotIndex(point.priority_array)
 
@@ -81,6 +95,25 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
             <p className='text-muted-foreground mt-0.5 font-mono text-[11px]'>{keyexpr}</p>
           </div>
         </div>
+        {canPin ? (
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-7 gap-1.5 text-[12px]'
+            disabled={pin.isPending || pin.isSuccess}
+            onClick={pinPoint}
+          >
+            {pin.isSuccess ? (
+              <>
+                <Check className='size-3.5' /> Pinned
+              </>
+            ) : (
+              <>
+                <Pin className='size-3.5' /> Pin to dashboard
+              </>
+            )}
+          </Button>
+        ) : null}
       </div>
 
       {/* stat cards */}

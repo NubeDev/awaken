@@ -84,6 +84,7 @@ export function Points() {
           <div className='scroll min-h-0 overflow-y-auto pe-1'>
             {activePoint ? (
               <PointDetail
+                key={activePoint.id}
                 point={activePoint}
                 site={site}
                 equip={activeEquip}

@@ -16,7 +16,12 @@ corresponding ⛔ row to ⬜ on its next wake.
 
 ---
 
-### 2026-06-12 — (pre-existing, surfaced by WS-01) — `chat_reports_awaiting_approval_when_a_write_suspends` hangs
+~~### 2026-06-12 — (pre-existing, surfaced by WS-01) — `chat_reports_awaiting_approval_when_a_write_suspends` hangs~~
+**RESOLVED by WS-02 (92f2d912):** the full-local backend blocks the agent loop after suspending,
+waiting for an operator decision on a live channel this architecture never feeds. `run_and_persist`
+now captures the suspend from the event stream and `cancel_by_run_id`s the loop to release it.
+`cargo test --workspace` terminates; 125 tests green.
+
 - **What's blocked:** A clean `cargo test --workspace` run does not terminate — the test
   `api_tests::agent::chat_reports_awaiting_approval_when_a_write_suspends`
   (`rubix-server/tests/api_tests/agent.rs`) runs past 200s and is killed by timeout.

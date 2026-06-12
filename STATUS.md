@@ -5,7 +5,7 @@ not part of the awaken workspace). Measured against
 [STACK-DEISGN.md](STACK-DEISGN.md). Reflects the code as reviewed, not intent.
 
 **Last reviewed:** 2026-06-12 · **Workspace:** builds clean, `cargo clippy`
-clean, **97 tests passing** across 6 crates.
+clean, **125 tests passing** across 6 crates.
 
 ---
 
@@ -155,10 +155,13 @@ File-layout discipline holds: no source file exceeds 400 lines.
   scheduler/drivers. Integration-tested: a published spark drives a scripted run
   that commands a point. So the rule-board → spark → bus → agent-run loop is now
   closed end to end.
-- **Remaining:** see the AI-layer list below for HITL escalation and `pin_widget`
-  status. Dispatch runs are fire-and-log — no run registry/operator surface for
-  in-flight dispatched runs yet, and a suspended (awaiting-approval) dispatched
-  run is logged with its id but has no resume UI.
+- Chat and dispatch runs now persist to a `runs` table (`run_and_persist`):
+  completed runs record their response; a run that suspends in the escalation
+  band persists `suspended` with the held write attached. The operator surface
+  is `GET /api/v1/runs` (filterable by status), `GET /api/v1/runs/{id}`,
+  `POST /api/v1/runs/{id}/resume` (re-applies the held write through the priority
+  array, gating re-checked), and `POST /api/v1/runs/{id}/cancel` (one-shot,
+  store untouched). See the AI-layer list below for `pin_widget` status.
 
 ---
 
@@ -197,19 +200,23 @@ File-layout discipline holds: no source file exceeds 400 lines.
 - [x] `pin_widget` tool — agent pins a dashboard tile (`point_value`/
       `point_history`/`board_output`) on a site; store-backed (`widgets` table),
       also exposed as `POST`/`GET /api/v1/widgets`.
-- [~] **HITL escalation**: `write_point` now bands by slot — at/below the agent
+- [x] **HITL escalation**: `write_point` now bands by slot — at/below the agent
       ceiling commits, the **escalation band** (`RUBIX_AI_ESCALATION_FLOOR`..ceiling)
       returns a *suspended* `ToolResult` with a `SuspendTicket` (run terminates
       `Suspended`, the store untouched), and slots below the floor are hard-refused.
       `POST /agent/chat` surfaces this as `status: awaiting_approval` + the `run_id`.
-      **Remaining:** the resume endpoint (operator approve/cancel) needs the
-      persistent-backend run store — lands with the mailbox/dispatch layer.
+      The suspended run persists to the `runs` table with its held write; the
+      operator resumes it (`POST /api/v1/runs/{id}/resume` re-applies the write
+      through the priority array, gating re-checked) or cancels it
+      (`POST /api/v1/runs/{id}/cancel`, store untouched). Resume is one-shot
+      (a settled run is a 409 conflict).
 - [x] **Inbound dispatch**: the `dispatch` module subscribes to `**/spark/**`
       and activates an agent run per finding — a job, not a chat ("simultaneous
       heat/cool on AHU-3" arrives as a `RunActivation` on a spark-keyed thread).
       Launched from `main` when bus+agent present (`RUBIX_AI_DISPATCH`). See the
-      embedded-agent section above. **Remaining:** persistent run registry /
-      operator surface for in-flight and suspended dispatched runs.
+      embedded-agent section above. Dispatched runs now persist to the `runs`
+      table (`origin: dispatch`) alongside chat runs, so a suspended dispatched
+      run lists and resumes through the same `/api/v1/runs` operator surface.
 - [ ] **Outbound adapters**: MCP / A2A / AG-UI expose the building to external
       agents with the same gating. None present.
 - [ ] Tenancy: org/site hierarchy mirrored into awaken `ScopeId`.
@@ -264,7 +271,7 @@ File-layout discipline holds: no source file exceeds 400 lines.
 
 ```
 cd rubix
-cargo test --workspace     # 89 passing
+cargo test --workspace     # 125 passing
 cargo clippy --workspace --all-targets
 ```
 

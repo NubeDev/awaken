@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from './endpoints';
 import { qk } from './keys';
-import type { CurRequest, Uuid, WriteRequest } from './types';
+import type { CreateWidget, CurRequest, Uuid, WriteRequest } from './types';
 
 const LIVE_INTERVAL = 5_000;
 
@@ -135,4 +135,22 @@ export function useBoards() {
 /** Run a stored board on demand; resolves the run's outport packets. */
 export function useRunStoredBoard() {
   return useMutation({ mutationFn: (slug: string) => api.boards.runStored(slug) });
+}
+
+/** Pinned dashboard widgets for a site; polls so live tiles stay fresh. */
+export function useWidgets(siteId?: Uuid) {
+  return useQuery({
+    queryKey: qk.widgets(siteId),
+    queryFn: ({ signal }) => api.widgets.list(siteId, signal),
+    refetchInterval: LIVE_INTERVAL,
+  });
+}
+
+/** Pin a widget; invalidate the site's widget list so it appears on the canvas. */
+export function useCreateWidget(siteId?: Uuid) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateWidget) => api.widgets.create(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.widgets(siteId) }),
+  });
 }

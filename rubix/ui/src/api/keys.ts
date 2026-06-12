@@ -14,4 +14,5 @@ export const qk = {
   run: (id: string) => ['runs', id] as const,
   boards: ['boards'] as const,
   board: (slug: string) => ['boards', slug] as const,
+  widgets: (siteId?: Uuid) => ['widgets', siteId ?? 'all'] as const,
 };

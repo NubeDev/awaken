@@ -14,12 +14,14 @@ import type {
   Point,
   PointEnvelope,
   QueryResult,
+  CreateWidget,
   ResumeResponse,
   RunBoardResponse,
   RunRecord,
   Site,
   Spark,
   Uuid,
+  Widget,
   WriteRequest,
 } from './types';
 
@@ -75,6 +77,13 @@ export const boards = {
     request<BoardView>(`/api/v1/boards/${slug}`, { signal }),
   runStored: (slug: string) =>
     request<RunBoardResponse>(`/api/v1/boards/${slug}/run`, { method: 'POST' }),
+};
+
+export const widgets = {
+  list: (siteId?: Uuid, signal?: AbortSignal) =>
+    request<Widget[]>('/api/v1/widgets', { query: { site_id: siteId }, signal }),
+  create: (body: CreateWidget) =>
+    request<Widget>('/api/v1/widgets', { method: 'POST', body }),
 };
 
 export const query = {

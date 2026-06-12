@@ -214,6 +214,31 @@ export interface RunBoardResponse {
   outputs: NodeOutput[];
 }
 
+/**
+ * `rubix_core::WidgetKind` — what a pinned dashboard tile renders. serde
+ * snake_case. `point_*` kinds carry a point keyexpr in `target`; `board_output`
+ * carries a board slug.
+ */
+export type WidgetKind = 'point_value' | 'point_history' | 'board_output';
+
+/** `rubix_core::Widget` — a pinned dashboard tile row (`GET /api/v1/widgets`). */
+export interface Widget {
+  id: Uuid;
+  site_id: Uuid;
+  kind: WidgetKind;
+  title: string;
+  target: string;
+  created_at: IsoTimestamp;
+}
+
+/** `rubix-server::CreateWidget` — body for `POST /api/v1/widgets`. */
+export interface CreateWidget {
+  site_id: Uuid;
+  kind: WidgetKind;
+  title: string;
+  target: string;
+}
+
 /** A single DataFusion `/query` result row: column name -> value. */
 export type QueryRow = Record<string, PointValue | null>;
 

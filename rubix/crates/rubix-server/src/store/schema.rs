@@ -66,7 +66,19 @@ CREATE TABLE IF NOT EXISTS widgets (
     target     TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runs (
+    id            TEXT PRIMARY KEY,
+    thread_id     TEXT NOT NULL,
+    origin        TEXT NOT NULL,
+    status        TEXT NOT NULL,
+    response      TEXT NOT NULL,
+    steps         INTEGER NOT NULL,
+    pending_write TEXT,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
+CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
 CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
 CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);

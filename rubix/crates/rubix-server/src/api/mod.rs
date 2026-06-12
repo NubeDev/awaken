@@ -10,6 +10,7 @@ mod his;
 mod openapi;
 mod points;
 mod query;
+mod runs;
 mod sites;
 mod sparks;
 mod tag_query;
@@ -36,5 +37,6 @@ pub fn router(state: AppState) -> Router {
         .merge(query::router())
         .merge(boards::router())
         .merge(agent::router())
+        .merge(runs::router())
         .with_state(state)
 }

@@ -3,10 +3,11 @@
 use axum::Json;
 use utoipa::OpenApi;
 
+use crate::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
 use crate::error::ErrorBody;
 
 use super::{
-    agent, boards, command, equips, health, his, points, query, sites, sparks, widgets,
+    agent, boards, command, equips, health, his, points, query, runs, sites, sparks, widgets,
 };
 
 #[derive(OpenApi)]
@@ -49,8 +50,13 @@ use super::{
         agent::chat::chat,
         widgets::create::create_widget,
         widgets::list::list_widgets,
+        runs::list::list_runs,
+        runs::get::get_run,
+        runs::resume::resume_run,
+        runs::cancel::cancel_run,
     ),
-    components(schemas(ErrorBody))
+    components(schemas(ErrorBody, RunRecord, RunStatus, RunOrigin, PendingWrite,
+        runs::resume::ResumeResponse))
 )]
 pub struct ApiDoc;
 

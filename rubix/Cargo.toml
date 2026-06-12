@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-server"]
+members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-server", "crates/rubix-tools"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,6 +13,7 @@ rubix-core = { path = "crates/rubix-core" }
 rubix-driver = { path = "crates/rubix-driver" }
 rubix-flow = { path = "crates/rubix-flow" }
 rubix-query = { path = "crates/rubix-query" }
+rubix-tools = { path = "crates/rubix-tools" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
@@ -37,6 +38,8 @@ tempfile = "3"
 reflow_network = "0.2"
 reflow_actor = "0.2"
 reflow_actor_macro = "0.2"
+awaken-runtime-contract = "0.6"
+schemars = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -1,0 +1,7 @@
+//! Rubix BMS tools exposed to awaken agents. One verb per file; each is a
+//! [`awaken_runtime_contract::contract::tool::TypedTool`] over the BMS access
+//! port, so the runtime gets a schema and arg validation for free.
+
+mod read_point;
+
+pub use read_point::{ReadPointArgs, ReadPointTool};

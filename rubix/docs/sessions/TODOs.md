@@ -55,7 +55,12 @@ now captures the suspend from the event stream and `cancel_by_run_id`s the loop 
 
 ---
 
-### 2026-06-12 — WS-07 — tenant-scoped runs withhold the `query` SQL tool (fail-closed)
+~~### 2026-06-12 — WS-07 — tenant-scoped runs withhold the `query` SQL tool (fail-closed)~~
+**RESOLVED (fd37cad0, ba37da2d):** a tenant-filtered DataFusion session (`QueryEngine::scoped_query`
+/ `QueryScope`) now confines a scoped run's ad-hoc SQL to its own `{org}/{site}`, so
+`build_tools_scoped` hands a scoped run the `query` tool again (filtered) instead of withholding it.
+The fail-closed fallback remains for a scope that cannot map to a `QueryScope`.
+
 - **What's blocked:** A tenant-scoped agent run (chat with a sited principal, or a dispatched spark)
   gets the BMS read/write/his/board/widget tools confined to its `{org}/{site}`, but the SQL `query`
   tool is **omitted** from the scoped tool set (`build_tools_scoped` returns no query tool when

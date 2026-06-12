@@ -224,9 +224,9 @@ File-layout discipline holds: no source file exceeds 400 lines.
       spark's site, fail-closed if unknown), mapped to the tenant scope `{org}/{site}`
       (the point-keyexpr prefix). Tools are confined at construction — a scoped run's
       point read/write/history, board run, and widget pin are refused outside the
-      scope at the tool boundary, not just at HTTP; the free-form SQL `query` tool is
-      withheld from scoped runs (fail-closed). Cross-tenant denial is tested on both
-      the chat and dispatch paths.
+      scope at the tool boundary, not just at HTTP; the SQL `query` tool runs through a
+      tenant-filtered DataFusion session so a scoped run's ad-hoc SQL reads only its own
+      `{org}/{site}`. Cross-tenant denial is tested on both the chat and dispatch paths.
 
 ### Query / history tiering
 - [~] `points_cur` SQL surface: a `points_cur` **view** (registered on the

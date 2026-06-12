@@ -9,6 +9,7 @@ mod api_tests {
     mod his;
     mod points;
     mod query;
+    mod rollup;
     mod sites;
     mod sparks;
     mod tools;

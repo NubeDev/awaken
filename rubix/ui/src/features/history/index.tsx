@@ -3,12 +3,8 @@ import { useMutation } from '@tanstack/react-query'
 import { Play } from 'lucide-react'
 import * as api from '@/api/endpoints'
 import { ApiError } from '@/api/client'
-import { ConfigDrawer } from '@/components/config-drawer'
-import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,22 +19,8 @@ export function History() {
 
   return (
     <>
-      <Header>
-        <Search />
-        <div className='ms-auto flex items-center gap-2'>
-          <ThemeSwitch />
-          <ConfigDrawer />
-          <ProfileDropdown />
-        </div>
-      </Header>
-      <Main>
-        <div className='mb-4'>
-          <h1 className='text-2xl font-bold tracking-tight'>History &amp; SQL</h1>
-          <p className='text-muted-foreground text-sm'>
-            DataFusion query surface over sites, equips, points, his, sparks
-          </p>
-        </div>
-
+      <PageHeader title='History & SQL' sub='DataFusion query surface' />
+      <Main fluid>
         <Card className='mb-4'>
           <CardContent className='space-y-3 p-4'>
             <Textarea

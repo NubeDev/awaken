@@ -39,15 +39,18 @@ type Row = { t: string; demand: number; baseline: number }
  * Shape history into chart rows. The baseline is a centred rolling mean of the
  * same series — a real derivation labelled as such, not a synthetic curve.
  */
-function toRows(samples: HisSample[], window = 8): Row[] {
+function toRows(samples: HisSample[], dayLabels: boolean, window = 8): Row[] {
   const nums = samples.filter((s) => typeof s.value === 'number')
   return nums.map((s, i) => {
     const lo = Math.max(0, i - window)
     const hi = Math.min(nums.length, i + window + 1)
     const slice = nums.slice(lo, hi)
     const mean = slice.reduce((a, b) => a + (b.value as number), 0) / slice.length
+    const d = new Date(s.ts)
     return {
-      t: new Date(s.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      t: dayLabels
+        ? d.toLocaleDateString([], { weekday: 'short' })
+        : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       demand: s.value as number,
       baseline: +mean.toFixed(1),
     }
@@ -67,7 +70,9 @@ function LegendChip({ color, label, value, dashed }: { color: string; label: str
   )
 }
 
-type Range = '24h' | '48h'
+type Range = '24h' | '48h' | '7d'
+/** samples per range at the 30-minute cadence the history serves */
+const RANGE_SAMPLES: Record<Range, number> = { '24h': 48, '48h': 96, '7d': 7 * 48 }
 
 /** Whole-building demand vs its rolling average, from real point history. */
 export function DemandChart({ siteId }: { siteId: Uuid | undefined }) {
@@ -76,10 +81,10 @@ export function DemandChart({ siteId }: { siteId: Uuid | undefined }) {
   const { data: history = [], isLoading: hisLoading } = usePointHistory(demandPoint?.id)
   const [range, setRange] = useState<Range>('48h')
 
-  const rows = useMemo(() => {
-    const all = toRows(history)
-    return range === '24h' ? all.slice(-Math.ceil(all.length / 2)) : all
-  }, [history, range])
+  const rows = useMemo(
+    () => toRows(history, range === '7d').slice(-RANGE_SAMPLES[range]),
+    [history, range]
+  )
 
   const loading = pointsLoading || hisLoading
   const last = rows[rows.length - 1]
@@ -100,6 +105,7 @@ export function DemandChart({ siteId }: { siteId: Uuid | undefined }) {
             <TabsList className='h-7'>
               <TabsTrigger value='24h' className='px-2.5 text-xs'>24h</TabsTrigger>
               <TabsTrigger value='48h' className='px-2.5 text-xs'>48h</TabsTrigger>
+              <TabsTrigger value='7d' className='px-2.5 text-xs'>7d</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardAction>

@@ -11,6 +11,12 @@ export function formatValue(value: PointValue | null | undefined, unit?: string 
   return value
 }
 
+/** Ultra-short age from an ISO timestamp, e.g. "12s", "4m", "3h". */
+export function ageShort(iso: string | null | undefined, now = Date.now()): string {
+  const rel = relativeTime(iso, now)
+  return rel === '—' ? rel : rel.replace(' ago', '')
+}
+
 /** Compact relative time from an ISO timestamp, e.g. "6m ago". */
 export function relativeTime(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return '—'

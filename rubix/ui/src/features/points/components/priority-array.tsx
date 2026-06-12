@@ -1,78 +1,114 @@
-import { X } from 'lucide-react'
+import { ListOrdered, X } from 'lucide-react'
 import type { Point } from '@/api/types'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatValue } from '@/lib/format'
-import { winningSlotIndex } from '../lib/priority'
+import { SLOT_LABELS, winningSlotIndex } from '../lib/priority'
+import { WriteForm } from './write-form'
 
-type PriorityArrayProps = {
+type PriorityArrayCardProps = {
   point: Point
-  onRelinquish?: (priority: number) => void
-  relinquishing?: boolean
+  onRelinquish: (priority: number) => void
+  relinquishing: boolean
 }
 
 /**
- * The 16-level BACnet priority array. Lower level wins; the first non-null slot
- * is the effective command. Operators can relinquish a slot to fall through to
- * the next. Read straight from `point.priority_array` — no derived state.
+ * The 16-level BACnet priority array as a two-column labelled grid. Lower
+ * level wins; the winning slot is highlighted, filled slots can be
+ * relinquished, and the Command form writes through the real API.
  */
-export function PriorityArray({ point, onRelinquish, relinquishing }: PriorityArrayProps) {
+export function PriorityArrayCard({ point, onRelinquish, relinquishing }: PriorityArrayCardProps) {
   const slots = point.priority_array.slots
-  const winningIndex = winningSlotIndex(point.priority_array)
+  const winning = winningSlotIndex(point.priority_array)
 
   return (
-    <div className='space-y-1'>
-      {slots.map((slot, i) => {
-        const level = i + 1
-        const winning = i === winningIndex
-        const filled = slot !== null
-        return (
-          <div
-            key={level}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-2.5 py-1.5 text-[12.5px]',
-              winning && 'bg-primary/10',
-              !filled && 'opacity-50'
-            )}
-          >
-            <span className='text-muted-foreground tabular w-6 font-mono text-[11px]'>
-              {String(level).padStart(2, '0')}
-            </span>
-            <span className='tabular flex-1 font-medium'>
-              {filled ? formatValue(slot, point.unit) : '—'}
-            </span>
-            {winning && (
-              <Badge variant='primary' className='h-4 px-1.5 text-[9.5px]'>
-                active
-              </Badge>
-            )}
-            {filled && onRelinquish && (
-              <Button
-                variant='ghost'
-                size='icon-sm'
-                className='size-6'
-                disabled={relinquishing}
-                title={`Relinquish level ${level}`}
-                onClick={() => onRelinquish(level)}
+    <Card>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2 text-[13.5px]'>
+          <ListOrdered className='text-muted-foreground size-4' />
+          Priority Array
+        </CardTitle>
+        <CardDescription className='text-[11.5px]'>
+          BACnet 16-level command arbitration · level 1 wins, operator always beats agent
+        </CardDescription>
+        <CardAction>
+          <WriteForm point={point} />
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className='grid gap-x-6 gap-y-0.5 sm:grid-cols-2'>
+          {slots.map((slot, i) => {
+            const level = i + 1
+            const filled = slot !== null
+            const isWinning = i === winning
+            return (
+              <div
+                key={level}
+                className={cn(
+                  'flex h-8 items-center gap-2.5 rounded-md px-2 text-[12px]',
+                  isWinning && 'bg-primary/10 ring-primary/30 ring-1'
+                )}
               >
-                <X className='size-3.5' />
-              </Button>
-            )}
-          </div>
-        )
-      })}
-      {point.priority_array.relinquish_default !== null && (
-        <div className='text-muted-foreground flex items-center gap-3 rounded-md px-2.5 py-1.5 text-[12.5px]'>
-          <span className='w-6 font-mono text-[11px]'>def</span>
-          <span className='tabular flex-1'>
-            {formatValue(point.priority_array.relinquish_default, point.unit)}
-          </span>
-          <Badge variant='outline' className='h-4 px-1.5 text-[9.5px]'>
-            fallback
-          </Badge>
+                <span className='tabular text-muted-foreground w-5 text-end font-mono text-[11px] font-semibold'>
+                  {level}
+                </span>
+                <span
+                  className={cn(
+                    'flex-1 truncate',
+                    filled ? 'text-foreground font-medium' : 'text-muted-foreground/60'
+                  )}
+                >
+                  {SLOT_LABELS[level] ?? '—'}
+                </span>
+                {isWinning ? (
+                  <Badge variant='primary' className='h-4 px-1.5 text-[9px] uppercase'>
+                    effective
+                  </Badge>
+                ) : null}
+                <span
+                  className={cn(
+                    'tabular font-mono text-[11.5px]',
+                    filled ? 'font-semibold' : 'text-muted-foreground/50'
+                  )}
+                >
+                  {filled ? formatValue(slot, point.unit) : 'null'}
+                </span>
+                {filled ? (
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    className='size-5'
+                    disabled={relinquishing}
+                    title={`Relinquish level ${level}`}
+                    onClick={() => onRelinquish(level)}
+                  >
+                    <X className='size-3' />
+                  </Button>
+                ) : (
+                  <span className='size-5' />
+                )}
+              </div>
+            )
+          })}
         </div>
-      )}
-    </div>
+        {point.priority_array.relinquish_default !== null ? (
+          <div className='text-muted-foreground mt-2 flex items-center gap-2 border-t border-border px-2 pt-2 text-[11.5px]'>
+            <span className='font-mono'>relinquish default</span>
+            <span className='tabular ms-auto font-mono font-semibold'>
+              {formatValue(point.priority_array.relinquish_default, point.unit)}
+            </span>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }

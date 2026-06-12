@@ -23,10 +23,31 @@ export function AppTitle() {
             <Link
               to='/'
               onClick={() => setOpenMobile(false)}
-              className='grid flex-1 text-start text-sm leading-tight'
+              className='flex flex-1 items-center gap-2.5 text-start text-sm leading-tight'
             >
-              <span className='truncate font-bold'>Shadcn-Admin</span>
-              <span className='truncate text-xs'>Vite + ShadcnUI</span>
+              <span className='bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-lg shadow-sm'>
+                <svg
+                  width='15'
+                  height='15'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2.2'
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  aria-hidden='true'
+                >
+                  <path d='M4 7l8-4 8 4v10l-8 4-8-4z' />
+                  <path d='M4 7l8 4 8-4' />
+                  <path d='M12 11v10' />
+                </svg>
+              </span>
+              <span className='grid leading-tight'>
+                <span className='truncate text-[13.5px] font-bold'>Rubix</span>
+                <span className='text-muted-foreground truncate text-[10.5px]'>
+                  Building Intelligence
+                </span>
+              </span>
             </Link>
             <ToggleSidebar />
           </div>

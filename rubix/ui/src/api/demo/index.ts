@@ -95,7 +95,7 @@ export const demo = {
           id: 'run_8fa2',
           status: 'awaiting_approval',
           title: 'Diagnose AHU-3 simultaneous heat/cool',
-          started_at: new Date(Date.UTC(2026, 5, 12, 11, 54)).toISOString(),
+          started_at: new Date(Date.now() - 6 * 60_000).toISOString(),
         },
       ]),
   },

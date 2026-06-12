@@ -1,10 +1,6 @@
 import { useRuns } from '@/api/hooks'
-import { ConfigDrawer } from '@/components/config-drawer'
-import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageHeader } from '@/components/layout/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,19 +12,8 @@ export function Runs() {
 
   return (
     <>
-      <Header>
-        <Search />
-        <div className='ms-auto flex items-center gap-2'>
-          <ThemeSwitch />
-          <ConfigDrawer />
-          <ProfileDropdown />
-        </div>
-      </Header>
-      <Main>
-        <div className='mb-4'>
-          <h1 className='text-2xl font-bold tracking-tight'>Agent Runs</h1>
-          <p className='text-muted-foreground text-sm'>awaken activity &amp; approvals</p>
-        </div>
+      <PageHeader title='Agent Runs' sub='awaken activity & approvals' />
+      <Main fluid>
         <Card>
           <CardContent className='p-2'>
             {isLoading ? (

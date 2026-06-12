@@ -1,14 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  CircuitBoard,
-  Droplet,
-  Fan,
-  Flame,
-  Wind,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useEquips, usePoints, useSparks } from '@/api/hooks'
 import type { Equip, Uuid } from '@/api/types'
 import { Button } from '@/components/ui/button'
@@ -22,17 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-
-/** Icon for an equip, chosen from its Haystack-style tags. */
-function equipIcon(tags: string[]): LucideIcon {
-  const t = new Set(tags)
-  if (t.has('ahu')) return Fan
-  if (t.has('chiller')) return Droplet
-  if (t.has('boiler')) return Flame
-  if (t.has('elec') || t.has('meter')) return Zap
-  if (t.has('vav') || t.has('tower')) return Wind
-  return CircuitBoard
-}
+import { equipKindIcon } from '@/lib/equip-icon'
 
 /** Live equipment roster: per-kind icons, fault status from open sparks. */
 export function EquipmentHealth({ siteId }: { siteId: Uuid | undefined }) {
@@ -105,7 +86,7 @@ function EquipTile({
   points: number
   onClick: () => void
 }) {
-  const Icon = equipIcon(equip.tags)
+  const Icon = equipKindIcon(equip.tags)
   return (
     <button
       onClick={onClick}

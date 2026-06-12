@@ -1,10 +1,6 @@
 import { LayoutGrid } from 'lucide-react'
-import { ConfigDrawer } from '@/components/config-drawer'
-import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { PageHeader } from '@/components/layout/page-header'
 
 /**
  * Dashboard Builder surface. Widget binding writes to `/api/v1/widgets`; the
@@ -14,15 +10,8 @@ import { ThemeSwitch } from '@/components/theme-switch'
 export function Builder() {
   return (
     <>
-      <Header>
-        <Search />
-        <div className='ms-auto flex items-center gap-2'>
-          <ThemeSwitch />
-          <ConfigDrawer />
-          <ProfileDropdown />
-        </div>
-      </Header>
-      <Main>
+      <PageHeader title='Dashboard Builder' sub='Compose and bind widgets' />
+      <Main fluid>
         <div className='grid h-full place-items-center'>
           <div className='max-w-sm text-center'>
             <div className='bg-accent text-primary mx-auto mb-4 grid size-14 place-items-center rounded-xl'>

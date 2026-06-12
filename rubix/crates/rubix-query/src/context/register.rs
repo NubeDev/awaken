@@ -7,6 +7,7 @@ use datafusion::prelude::SessionContext;
 use super::tables::CANONICAL;
 use super::QueryEngine;
 use crate::error::QueryError;
+use crate::his::HisTable;
 use crate::provider::SqliteTable;
 
 impl QueryEngine {
@@ -17,6 +18,17 @@ impl QueryEngine {
     pub(crate) async fn session(&self) -> Result<SessionContext, QueryError> {
         let ctx = SessionContext::new();
         for &table in CANONICAL {
+            // `his` resolves through the two-tier union provider when a Parquet
+            // cold tier is attached; every other canonical table (and `his`
+            // without a tier) is the live SQLite provider.
+            if table == "his" {
+                if let Some(tier) = &self.his_tier {
+                    let provider = HisTable::new(self.pool.clone(), tier.store());
+                    ctx.register_table(table, Arc::new(provider))
+                        .map_err(|source| QueryError::Register { table, source })?;
+                    continue;
+                }
+            }
             let provider = SqliteTable::try_new(self.pool.clone(), table)?;
             ctx.register_table(table, Arc::new(provider))
                 .map_err(|source| QueryError::Register { table, source })?;

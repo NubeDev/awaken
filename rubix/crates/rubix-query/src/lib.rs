@@ -8,11 +8,13 @@
 
 mod context;
 mod error;
+mod his;
 mod provider;
 mod rollup;
 mod sql;
 
 pub use context::QueryEngine;
 pub use error::QueryError;
+pub use his::{write_partitions, HisRow, HisTier};
 pub use rollup::{Aggregate, Interval, RollupSpec};
 pub use sql::QueryRows;

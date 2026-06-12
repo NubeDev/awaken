@@ -13,6 +13,10 @@ pub enum QueryError {
     #[error("sqlite backend: {0}")]
     Backend(String),
 
+    /// A `his` Parquet cold-tier operation failed (open, list, read, or write).
+    #[error("his parquet tier: {0}")]
+    His(String),
+
     /// A canonical table could not be built into a provider.
     #[error("build provider for `{table}`: {message}")]
     Provider {

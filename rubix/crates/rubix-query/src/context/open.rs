@@ -25,6 +25,9 @@ impl QueryEngine {
         let pool = Pool::builder()
             .build(manager)
             .map_err(|e| QueryError::Pool(e.to_string()))?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            his_tier: None,
+        })
     }
 }

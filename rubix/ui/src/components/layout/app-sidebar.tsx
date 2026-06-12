@@ -1,4 +1,4 @@
-import { useSparks } from '@/api/hooks'
+import { useRuns, useSparks } from '@/api/hooks'
 import { useActiveSite } from '@/hooks/use-active-site'
 import { useLayout } from '@/context/layout-provider'
 import {
@@ -18,15 +18,19 @@ export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const { site } = useActiveSite()
   const { data: sparks = [] } = useSparks(site?.id)
+  const { data: runs = [] } = useRuns()
   const openSparks = sparks.filter((s) => !s.acknowledged).length
+  const awaitingRuns = runs.filter((r) => r.status === 'suspended').length
 
-  // Inject the live unacked-sparks count onto the Sparks nav item.
+  // Inject live counts: unacked sparks and runs awaiting approval (suspended).
+  const navBadges: Record<string, number> = {
+    Sparks: openSparks,
+    'Agent Runs': awaitingRuns,
+  }
   const navGroups = sidebarData.navGroups.map((group) => ({
     ...group,
     items: group.items.map((item) =>
-      item.title === 'Sparks' && openSparks > 0
-        ? { ...item, badge: String(openSparks) }
-        : item
+      navBadges[item.title] ? { ...item, badge: String(navBadges[item.title]) } : item
     ),
   }))
 

@@ -52,10 +52,20 @@ export function SparkDetail({ spark, site, points, equips, onAck, acking }: Spar
         message: `Diagnose finding ${spark.rule}: ${spark.message}`,
       },
       {
-        onSuccess: (res) =>
-          toast(res.status === 'awaiting_approval' ? 'Run awaiting approval' : 'awaken responded', {
-            description: res.response,
-          }),
+        onSuccess: (res) => {
+          if (res.status === 'awaiting_approval' && res.run_id) {
+            const runId = res.run_id
+            toast('Run awaiting approval', {
+              description: res.response,
+              action: {
+                label: 'Review & approve',
+                onClick: () => navigate({ to: '/runs/$runId', params: { runId } }),
+              },
+            })
+            return
+          }
+          toast('awaken responded', { description: res.response })
+        },
         onError: () => toast.error('Agent unavailable'),
       }
     )

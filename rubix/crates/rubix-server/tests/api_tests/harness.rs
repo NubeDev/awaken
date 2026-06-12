@@ -55,6 +55,30 @@ impl TestApp {
         (app, state)
     }
 
+    /// Build with an explicit HITL escalation floor, so a test can exercise the
+    /// operator-reserved band (slots below the floor an agent may never command,
+    /// even with approval).
+    pub fn with_escalation_floor(floor: u8) -> Self {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
+            store,
+            bus: None,
+            query: None,
+            his_tier: None,
+            agent: None,
+            agent_blueprint: None,
+            ai_min_priority: 13,
+            ai_escalation_floor: floor,
+            authenticator: None,
+        };
+        Self {
+            router: app(state),
+            _dir: dir,
+        }
+    }
+
     /// Build with a DataFusion query engine over the same store and return the
     /// `AppState`, for tests that build the agent tool set (`build_tools_scoped`)
     /// against a live query surface.

@@ -40,5 +40,6 @@ pub fn router(state: AppState) -> Router {
         .merge(agent::router())
         .merge(runs::router())
         .merge(tokens::router())
+        .merge(crate::mcp::router())
         .with_state(state)
 }

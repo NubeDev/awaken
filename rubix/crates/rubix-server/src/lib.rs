@@ -18,6 +18,7 @@ pub mod dispatch;
 pub mod error;
 pub mod flow;
 pub mod his;
+pub mod mcp;
 pub mod profile;
 pub mod scheduler;
 pub mod store;

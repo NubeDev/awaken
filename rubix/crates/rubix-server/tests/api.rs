@@ -12,6 +12,7 @@ mod api_tests {
     mod dispatch;
     mod flow;
     mod his;
+    mod mcp;
     mod points;
     mod query;
     mod rollup;

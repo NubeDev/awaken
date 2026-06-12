@@ -13,7 +13,8 @@ use rubix_core::PointValue;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// What raised a run: an operator chat turn or an inbound spark dispatch.
+/// What raised a run: an operator chat turn, an inbound spark dispatch, or an
+/// external MCP tool call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RunOrigin {
@@ -21,6 +22,8 @@ pub enum RunOrigin {
     Chat,
     /// An inbound spark finding dispatched to the agent.
     Dispatch,
+    /// An external agent's MCP `tools/call` against the outbound adapter.
+    Mcp,
 }
 
 impl RunOrigin {
@@ -28,6 +31,7 @@ impl RunOrigin {
         match self {
             RunOrigin::Chat => "chat",
             RunOrigin::Dispatch => "dispatch",
+            RunOrigin::Mcp => "mcp",
         }
     }
 
@@ -35,6 +39,7 @@ impl RunOrigin {
         match s {
             "chat" => Some(RunOrigin::Chat),
             "dispatch" => Some(RunOrigin::Dispatch),
+            "mcp" => Some(RunOrigin::Mcp),
             _ => None,
         }
     }
@@ -148,7 +153,7 @@ mod tests {
 
     #[test]
     fn origin_round_trips_through_str() {
-        for o in [RunOrigin::Chat, RunOrigin::Dispatch] {
+        for o in [RunOrigin::Chat, RunOrigin::Dispatch, RunOrigin::Mcp] {
             assert_eq!(RunOrigin::parse(o.as_str()), Some(o));
         }
         assert_eq!(RunOrigin::parse("bogus"), None);

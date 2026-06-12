@@ -266,7 +266,17 @@ File-layout discipline holds: no source file exceeds 400 lines.
 - [ ] **Auth**: OIDC/JWT middleware, RBAC org→team→site scoping, PATs/service
       accounts. None present.
 - [ ] **UI**: React flow canvas + dashboard pages, served by axum. None present.
-- [ ] Postgres backend for the cloud profile (SQLite-only today).
+- [x] **Postgres backend for the cloud profile**: behind the `cloud` cargo
+      feature, a synchronous `postgres` (`r2d2_postgres`-pooled) `Backend` mirrors
+      the SQLite store method-for-method. `Store` dispatches on a `Backend` enum;
+      `RUBIX_DB` accepts a `postgres://` URL under cloud (else a SQLite file path).
+      Ids/timestamps are TEXT (shared canonical-string / RFC 3339 codecs) so domain
+      types round-trip identically across backends. The shared store-contract suite
+      (`tests/store_suite.rs`) runs against both: SQLite always, Postgres when
+      `RUBIX_TEST_PG` names a database. **Remaining:** DataFusion has no Postgres
+      provider, so the `/query` SQL surface and the cloud relational tables
+      (users/teams/config — "Postgres federation" above) are disabled under a
+      Postgres target; that federation is a separate subsystem.
 
 ---
 
@@ -288,14 +298,20 @@ File-layout discipline holds: no source file exceeds 400 lines.
 
 ```
 cd rubix
-cargo test --workspace     # 125 passing
+cargo test --workspace     # 126 passing (edge/SQLite)
+cargo test --workspace --no-default-features --features cloud   # + the Postgres pass
+
 cargo clippy --workspace --all-targets
 ```
 
 Env:
 - `RUBIX_PROFILE` (`edge` default / `cloud`; selects among the compiled-in
   profile features — see `--features edge`/`--features cloud`)
-- `RUBIX_DB`, `RUBIX_ADDR`, `RUBIX_AI_MIN_PRIORITY`, `RUBIX_AI_ESCALATION_FLOOR`
+- `RUBIX_DB` (SQLite file path on edge; under cloud a `postgres://` /
+  `postgresql://` URL selects the Postgres backend, else a SQLite path)
+- `RUBIX_TEST_PG` (test-only: a `postgres://` URL runs the shared store-contract
+  suite against that database; unset skips the Postgres pass cleanly)
+- `RUBIX_ADDR`, `RUBIX_AI_MIN_PRIORITY`, `RUBIX_AI_ESCALATION_FLOOR`
 - `RUBIX_ZENOH` (0=off), `RUBIX_QUERY` (0=off)
 - `RUBIX_HIS_PARQUET` (local dir path; enables the Parquet `his` cold tier +
   `/his/flush`. Unset = SQLite-only `his`)

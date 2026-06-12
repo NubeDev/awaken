@@ -15,7 +15,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-02 | Persistent run registry + resume endpoint (HITL) | ✅ | 2026-06-12T10:10:09Z | 2026-06-12T11:40:00Z | 92f2d912 |
 | WS-03 | Parquet history `TableProvider` (object_store tiering) | ✅ | 2026-06-12T10:35:35Z | 2026-06-12T12:20:00Z | 2b717955 |
 | WS-04 | Edge/cloud profiles (cargo features + runtime config) | ✅ | 2026-06-12T11:00:13Z | 2026-06-12T11:33:26Z | a5648944 |
-| WS-05 | Postgres backend for the cloud profile | 🔵 | 2026-06-12T11:40:11Z | | |
+| WS-05 | Postgres backend for the cloud profile | ✅ | 2026-06-12T11:40:11Z | 2026-06-12T12:55:00Z | 200269f6 |
 | WS-06 | Auth: OIDC/JWT middleware + RBAC org→team→site | ⬜ | | | |
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ⬜ | | | |
 | WS-08 | Outbound MCP adapter (BMS tools to external agents) | ⬜ | | | |
@@ -44,3 +44,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T11:00:13Z spawned WS-04
 - 2026-06-12T11:34:33Z re-spawned WS-04 (prior subagent died mid-session with uncommitted work; resumed idempotently) → gated WS-04 ✅ (a5648944; clippy clean + tests green under both edge & cloud features)
 - 2026-06-12T11:40:11Z spawned WS-05
+- 2026-06-12T12:55:00Z gated WS-05 ✅ (200269f6; synchronous Postgres Backend behind the cloud feature, shared store_suite green on both SQLite and a live Postgres; DataFusion-Postgres federation logged to TODOs.md)

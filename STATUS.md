@@ -93,7 +93,8 @@ File-layout discipline holds: no source file exceeds 400 lines.
 - `PointAccess` port; custom nodes `read_point`, `write_point` (always through
   the priority array), `query_his`, `emit_spark` (records a rule finding via
   `PointAccess::emit_spark`), `agent_call` (raises an embedded-agent run via
-  `PointAccess::request_agent`, fire-and-forget). `BoardGraph` JSON format +
+  `PointAccess::request_agent` detached, or `request_agent_blocking` when
+  `await: true` to surface the run outcome on `output`). `BoardGraph` JSON format +
   `load()` → runnable reflow `Network`. `StorePointAccess` implements the port
   over the store.
 - `BoardGraph::run()` does a single-shot evaluation: start the network, tick
@@ -181,7 +182,13 @@ File-layout discipline holds: no source file exceeds 400 lines.
 - [x] Rule boards / sparks (cloud): scheduled evaluation runs, the `emit_spark`
       node records a finding, and board sparks publish on the bus (same scheme
       as HTTP `/sparks`).
-- [ ] `agent_call` actor (board step that invokes the embedded agent).
+- [x] `agent_call` actor (board step that invokes the embedded agent). Two modes
+      via the `await` config flag: detached (control-board default — the run
+      proceeds out-of-band, the node acknowledges) and awaited (the single-shot
+      run blocks on the run and surfaces the agent's decision on `output` so a
+      downstream node branches on it; `request_agent_blocking` bridges the sync
+      port to the async runtime). Fails closed without an agent runtime
+      (recursion guard for the agent's own `run_board` tool).
 - [x] Versioned board storage (`boards` table, `(slug, version)`). **Remaining:**
       zenoh deploy to stations (hot-reload), and live scheduler reconfiguration
       (added boards picked up on restart, not hot).

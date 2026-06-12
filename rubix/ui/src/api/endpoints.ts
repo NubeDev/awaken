@@ -5,6 +5,7 @@
  */
 import { request } from './client';
 import type {
+  BoardView,
   ChatRequest,
   ChatResponse,
   CurRequest,
@@ -13,6 +14,7 @@ import type {
   Point,
   PointEnvelope,
   QueryResult,
+  RunBoardResponse,
   RunRecord,
   Site,
   Spark,
@@ -64,6 +66,14 @@ export const runs = {
 export const agent = {
   chat: (body: ChatRequest) =>
     request<ChatResponse>('/api/v1/agent/chat', { method: 'POST', body }),
+};
+
+export const boards = {
+  list: (signal?: AbortSignal) => request<BoardView[]>('/api/v1/boards', { signal }),
+  get: (slug: string, signal?: AbortSignal) =>
+    request<BoardView>(`/api/v1/boards/${slug}`, { signal }),
+  runStored: (slug: string) =>
+    request<RunBoardResponse>(`/api/v1/boards/${slug}/run`, { method: 'POST' }),
 };
 
 export const query = {

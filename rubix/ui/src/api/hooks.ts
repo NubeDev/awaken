@@ -86,3 +86,12 @@ export function useIngestPoint() {
 export function useAgentChat() {
   return useMutation({ mutationFn: api.agent.chat });
 }
+
+export function useBoards() {
+  return useQuery({ queryKey: qk.boards, queryFn: ({ signal }) => api.boards.list(signal) });
+}
+
+/** Run a stored board on demand; resolves the run's outport packets. */
+export function useRunStoredBoard() {
+  return useMutation({ mutationFn: (slug: string) => api.boards.runStored(slug) });
+}

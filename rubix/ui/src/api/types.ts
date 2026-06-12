@@ -145,6 +145,63 @@ export interface RunRecord {
   updated_at: IsoTimestamp;
 }
 
+/**
+ * `scheduler::Trigger` — what fires a stored board. serde-tagged on `kind`
+ * (snake_case). `manual` boards run only via `POST /boards/{slug}/run`.
+ */
+export type Trigger =
+  | { kind: 'manual' }
+  | { kind: 'interval'; seconds: number }
+  | { kind: 'subscription'; key: string };
+
+/** `rubix_flow::BoardNode` — a graph node naming a registered actor component. */
+export interface BoardNode {
+  id: string;
+  component: string;
+  config: Record<string, unknown>;
+}
+
+/** `rubix_flow::BoardConnection` — a directed wire between two node ports. */
+export interface BoardConnection {
+  from_node: string;
+  from_port: string;
+  to_node: string;
+  to_port: string;
+}
+
+/**
+ * `rubix_flow::BoardGraph` — the stored wiresheet. Nodes plus connections; there
+ * is no canvas geometry on the wire, so the UI lays nodes out deterministically.
+ */
+export interface BoardGraph {
+  nodes: BoardNode[];
+  connections: BoardConnection[];
+}
+
+/** `rubix-server::BoardView` — a stored board as returned by `/api/v1/boards`. */
+export interface BoardView {
+  id: Uuid;
+  slug: string;
+  version: number;
+  display_name: string;
+  enabled: boolean;
+  trigger: Trigger;
+  graph: BoardGraph;
+  created_at: IsoTimestamp;
+}
+
+/** `rubix_flow::NodeOutput` — one outport packet from a board run. */
+export interface NodeOutput {
+  node: string;
+  port: string;
+  value: unknown;
+}
+
+/** `rubix-server::RunBoardResponse` — every outport packet from one board run. */
+export interface RunBoardResponse {
+  outputs: NodeOutput[];
+}
+
 /** A single DataFusion `/query` result row: column name -> value. */
 export type QueryRow = Record<string, PointValue | null>;
 

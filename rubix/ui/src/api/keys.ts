@@ -12,4 +12,6 @@ export const qk = {
   sparks: (siteId?: Uuid) => ['sparks', siteId ?? 'all'] as const,
   runs: ['runs'] as const,
   run: (id: string) => ['runs', id] as const,
+  boards: ['boards'] as const,
+  board: (slug: string) => ['boards', slug] as const,
 };

@@ -6,13 +6,15 @@
 //! the point/board tools wrap their store access in [`ScopedPointAccess`] so a
 //! read/write/history/board call outside the run's `{org}/{site}` is refused at
 //! the tool boundary, `pin_widget` is gated to sites in the scope, and the
-//! unconstrained `query` SQL surface is withheld (a tenant-aware query view is a
-//! follow-up — see docs/sessions/TODOs.md). An unscoped build (edge, or a run
-//! with no principal) keeps today's full, open tool set.
+//! `query` SQL surface runs through a tenant-filtered DataFusion session
+//! ([`QueryEngine::scoped_query`]) so the run's ad-hoc SQL can only read its own
+//! `{org}/{site}`. An unscoped build (edge, or a run with no principal) keeps
+//! today's full, open tool set with an unconstrained `query`.
 
 use std::sync::Arc;
 
 use awaken_runtime_contract::contract::tool::Tool;
+use rubix_query::QueryScope;
 use rubix_tools::{
     PinWidgetTool, QueryTool, ReadPointTool, RunBoardTool, ScopedPointAccess, TenantScope,
     WritePointTool,
@@ -34,7 +36,8 @@ pub fn build_tools(state: &AppState) -> Vec<Arc<dyn Tool>> {
 
 /// Construct the BMS tools for a run, optionally confined to a tenant `scope`.
 /// With a scope, point/board access is wrapped in [`ScopedPointAccess`],
-/// `pin_widget` is gated to sites in the scope, and `query` is withheld.
+/// `pin_widget` is gated to sites in the scope, and `query` runs through a
+/// tenant-filtered DataFusion session.
 pub fn build_tools_scoped(state: &AppState, scope: Option<TenantScope>) -> Vec<Arc<dyn Tool>> {
     let base: Arc<dyn PointAccess> = Arc::new(StorePointAccess::new(state.store.clone()));
     let access: Arc<dyn PointAccess> = match &scope {
@@ -57,13 +60,21 @@ pub fn build_tools_scoped(state: &AppState, scope: Option<TenantScope>) -> Vec<A
             scope.clone(),
         )))),
     ];
-    // The DataFusion `query` surface runs unconstrained SQL across every tenant's
-    // tables; it has no per-tenant view today, so a tenant-scoped run does not
-    // get it (fail-closed) rather than leaking cross-tenant rows.
-    if scope.is_none() {
-        if let Some(engine) = &state.query {
-            let query_access = Arc::new(EngineQueryAccess::new(engine.clone()));
-            tools.push(Arc::new(QueryTool::new(query_access)));
+    // The `query` tool runs SQL through the DataFusion engine. An unscoped run
+    // gets the full surface across every tenant; a scoped run gets a
+    // tenant-filtered session (`scoped_query`) so its SQL can only read its own
+    // `{org}/{site}`. A scope that cannot map to a `QueryScope` (empty or
+    // quote-bearing org/site — impossible from a valid keyexpr) withholds the
+    // tool rather than running it unscoped, keeping the boundary fail-closed.
+    if let Some(engine) = &state.query {
+        let query_access = match &scope {
+            None => Some(EngineQueryAccess::new(engine.clone())),
+            Some(scope) => QueryScope::new(scope.org(), scope.site())
+                .ok()
+                .map(|qs| EngineQueryAccess::scoped(engine.clone(), qs)),
+        };
+        if let Some(access) = query_access {
+            tools.push(Arc::new(QueryTool::new(Arc::new(access))));
         }
     }
     tools

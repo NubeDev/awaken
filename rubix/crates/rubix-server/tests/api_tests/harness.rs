@@ -55,6 +55,33 @@ impl TestApp {
         (app, state)
     }
 
+    /// Build with a DataFusion query engine over the same store and return the
+    /// `AppState`, for tests that build the agent tool set (`build_tools_scoped`)
+    /// against a live query surface.
+    pub async fn with_state_query() -> (Self, AppState) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().join("test.db");
+        let store = Store::open(&db).expect("open store");
+        let query = QueryEngine::open(&db).await.expect("open query engine");
+        let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
+            store,
+            bus: None,
+            query: Some(query),
+            his_tier: None,
+            agent: None,
+            agent_blueprint: None,
+            ai_min_priority: 13,
+            ai_escalation_floor: 1,
+            authenticator: None,
+        };
+        let app = Self {
+            router: app(state.clone()),
+            _dir: dir,
+        };
+        (app, state)
+    }
+
     /// Build over an already-open store, for tests that drive a store-backed
     /// component (e.g. the scheduler) alongside the HTTP API on one DB.
     pub fn with_store_at(store: Store) -> Self {

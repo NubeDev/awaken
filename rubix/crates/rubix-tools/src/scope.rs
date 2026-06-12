@@ -31,6 +31,16 @@ impl TenantScope {
         }
     }
 
+    /// The org segment (`sites.org`).
+    pub fn org(&self) -> &str {
+        &self.org
+    }
+
+    /// The site slug segment (`sites.slug`).
+    pub fn site(&self) -> &str {
+        &self.site
+    }
+
     /// Parse a `{org}/{site}` prefix into a scope. Returns `None` unless the
     /// prefix is exactly two non-empty, slash-free segments — the shape every
     /// point keyexpr starts with.

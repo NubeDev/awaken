@@ -10,6 +10,7 @@ pub mod error;
 pub mod flow;
 pub mod store;
 pub mod supervisor;
+pub mod tools;
 
 use axum::Router;
 use tower_http::trace::TraceLayer;

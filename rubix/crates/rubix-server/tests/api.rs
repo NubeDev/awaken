@@ -11,4 +11,5 @@ mod api_tests {
     mod query;
     mod sites;
     mod sparks;
+    mod tools;
 }

@@ -15,6 +15,8 @@ rubix-core.workspace = true
 rubix-driver.workspace = true
 rubix-flow.workspace = true
 rubix-query.workspace = true
+rubix-tools.workspace = true
+awaken-runtime-contract.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -30,6 +32,7 @@ rusqlite.workspace = true
 r2d2.workspace = true
 r2d2_sqlite.workspace = true
 anyhow.workspace = true
+async-trait.workspace = true
 zenoh.workspace = true
 futures.workspace = true
 

@@ -24,19 +24,26 @@ impl TestApp {
     /// Build and also hand back a clone of the store, for tests that exercise
     /// store-backed integrations (e.g. the flow `PointAccess`) directly.
     pub fn with_store() -> (Self, Store) {
+        let (app, state) = Self::with_state();
+        (app, state.store.clone())
+    }
+
+    /// Build and hand back a clone of the `AppState`, for tests that drive
+    /// server-state integrations (e.g. the agent tool registry) directly.
+    pub fn with_state() -> (Self, AppState) {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
         let state = AppState {
-            store: store.clone(),
+            store,
             bus: None,
             query: None,
             ai_min_priority: 13,
         };
         let app = Self {
-            router: app(state),
+            router: app(state.clone()),
             _dir: dir,
         };
-        (app, store)
+        (app, state)
     }
 
     /// Build with a live zenoh bus whose queryables serve the same store.

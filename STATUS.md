@@ -263,8 +263,27 @@ File-layout discipline holds: no source file exceeds 400 lines.
       that is not in this build yet (Postgres store → clear boot error). The
       heavy cloud backends (Postgres, auth) attach behind this seam in later
       work.
-- [ ] **Auth**: OIDC/JWT middleware, RBAC org→team→site scoping, PATs/service
-      accounts. None present.
+- [x] **Auth**: OIDC/JWT bearer middleware + RBAC org→team→site + PATs/service
+      accounts, behind the cloud profile's auth seam (`Profile::auth_required`).
+      A request carries `Authorization: Bearer …` that is either an OIDC JWT
+      (verified against a boot-fetched JWKS — `RUBIX_OIDC_ISSUER`/`RUBIX_OIDC_JWKS`,
+      RS/ES/EdDSA only, issuer+exp checked, fail-closed on an absent `kid`) or a
+      PAT (`rbx_pat_…`, sha-256 hashed in a `tokens` table, never stored in the
+      clear). The middleware attaches a `Principal` (subject + org/team/site
+      `Scope` + role); domain routes gate via `RequestPrincipal` — the site
+      routes authorize read/write by org+site coverage (the `Capability::covers`
+      path-boundary shape lifted to the scope tuple). `POST`/`GET`/`DELETE
+      /api/v1/tokens` issue/list/revoke PATs within the caller's own scope (no
+      privilege escalation). Auth is **off on edge** (no authenticator wired, RBAC
+      gates are no-ops) so local/offline stations keep today's behavior; the
+      cloud profile fails closed at boot if it requires auth without an OIDC
+      issuer configured. OpenAPI marks a `bearer` security scheme. **Remaining:**
+      RBAC gating is applied at the site routes (the scope root); equip/point/
+      board/spark/widget/query routes still inherit only the authenticated-caller
+      requirement from the middleware — per-route scope checks on those resolve a
+      site first (a follow-up, tracked in the session log). A team→site mapping
+      (which sites a team owns) is tenancy data WS-07 owns; `covers_resource`
+      gates on org+site today and treats team as a principal grouping.
 - [ ] **UI**: React flow canvas + dashboard pages, served by axum. None present.
 - [x] **Postgres backend for the cloud profile**: behind the `cloud` cargo
       feature, a synchronous `postgres` (`r2d2_postgres`-pooled) `Backend` mirrors
@@ -312,6 +331,9 @@ Env:
 - `RUBIX_TEST_PG` (test-only: a `postgres://` URL runs the shared store-contract
   suite against that database; unset skips the Postgres pass cleanly)
 - `RUBIX_ADDR`, `RUBIX_AI_MIN_PRIORITY`, `RUBIX_AI_ESCALATION_FLOOR`
+- `RUBIX_OIDC_ISSUER` / `RUBIX_OIDC_JWKS` (OIDC issuer + JWKS URL; both set
+  enables JWT/PAT bearer auth. The cloud profile requires them and fails closed
+  at boot when unset; edge leaves auth off when unset)
 - `RUBIX_ZENOH` (0=off), `RUBIX_QUERY` (0=off)
 - `RUBIX_HIS_PARQUET` (local dir path; enables the Parquet `his` cold tier +
   `/his/flush`. Unset = SQLite-only `his`)

@@ -60,6 +60,25 @@ fn unknown_component_fails_closed() {
     }
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn running_a_board_emits_node_output() {
+    let graph: BoardGraph = serde_json::from_value(json!({
+        "nodes": [
+            {"id": "r1", "component": "read_point", "config": {"point": "nube/hq/ahu-3/temp"}}
+        ],
+        "connections": []
+    }))
+    .expect("parse board");
+    let access: Arc<dyn PointAccess> = Arc::new(FakeAccess);
+    let outputs = graph.run(access).await.expect("run board");
+    // The read_point source node reads the fake 21.5 and emits it on `output`.
+    let out = outputs
+        .iter()
+        .find(|o| o.node == "r1" && o.port == "output")
+        .expect("r1 output present");
+    assert_eq!(out.value, json!(21.5));
+}
+
 #[test]
 fn board_roundtrips_through_json() {
     let graph: BoardGraph = serde_json::from_value(board_json()).unwrap();

@@ -13,7 +13,7 @@ mod error;
 mod node;
 mod port;
 
-pub use board::{BoardConnection, BoardGraph, BoardNode, COMPONENTS};
+pub use board::{BoardConnection, BoardGraph, BoardNode, NodeOutput, COMPONENTS};
 pub use error::FlowError;
 pub use node::{QueryHisActor, ReadPointActor, WritePointActor};
 pub use port::PointAccess;

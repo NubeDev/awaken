@@ -1,6 +1,7 @@
 //! HTTP API. One file per route verb; this module is router wiring only.
 
 mod blocking;
+mod boards;
 mod command;
 mod equips;
 mod health;
@@ -30,5 +31,6 @@ pub fn router(state: AppState) -> Router {
         .merge(his::router())
         .merge(sparks::router())
         .merge(query::router())
+        .merge(boards::router())
         .with_state(state)
 }

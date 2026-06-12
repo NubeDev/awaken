@@ -146,6 +146,18 @@ export interface RunRecord {
 }
 
 /**
+ * `rubix-server::ResumeResponse` — the result of approving a suspended run. The
+ * resume endpoint re-applies the held write and returns the commanded point and
+ * its effective value; it does NOT echo back a `RunRecord`.
+ */
+export interface ResumeResponse {
+  run_id: string;
+  point: string;
+  priority: number;
+  effective?: PointValue | null;
+}
+
+/**
  * `scheduler::Trigger` — what fires a stored board. serde-tagged on `kind`
  * (snake_case). `manual` boards run only via `POST /boards/{slug}/run`.
  */

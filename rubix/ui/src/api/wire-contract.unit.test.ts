@@ -12,7 +12,7 @@ import writeFixture from './__fixtures__/write.json'
 import queryFixture from './__fixtures__/query.json'
 import runFixture from './__fixtures__/run.json'
 import { tagNames } from './tags'
-import type { PointEnvelope, QueryResult, RunRecord, Site } from './types'
+import type { PointEnvelope, QueryResult, ResumeResponse, RunRecord, Site } from './types'
 
 function mockJson(body: unknown) {
   return vi.fn(
@@ -77,5 +77,32 @@ describe('wire contract: RunRecord shape', () => {
     expect(run!.thread_id).toBe('thread_ops_1')
     expect(run!.pending_write?.point).toBe('acme/hq/ahu-3/sat')
     expect(run!.pending_write?.agent_min_priority).toBe(13)
+  })
+})
+
+describe('wire contract: resume returns ResumeResponse, cancel returns 204', () => {
+  it('decodes the approve result, not a RunRecord', async () => {
+    const body: ResumeResponse = {
+      run_id: 'run_8fa2',
+      point: 'acme/hq/ahu-3/sat',
+      priority: 12,
+      effective: 18,
+    }
+    vi.stubGlobal('fetch', mockJson(body))
+    const { runs } = await import('./endpoints')
+    const res = await runs.resume('run_8fa2')
+    expect(res.point).toBe('acme/hq/ahu-3/sat')
+    expect(res.effective).toBe(18)
+    // A RunRecord field would be absent — this is the resume DTO, not the record.
+    expect('status' in res).toBe(false)
+  })
+
+  it('resolves cancel against a 204 No Content (empty body)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (): Promise<Response> => new Response(null, { status: 204 }))
+    )
+    const { runs } = await import('./endpoints')
+    await expect(runs.cancel('run_8fa2')).resolves.toBeUndefined()
   })
 })

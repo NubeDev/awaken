@@ -14,6 +14,7 @@ import type {
   Point,
   PointEnvelope,
   QueryResult,
+  ResumeResponse,
   RunBoardResponse,
   RunRecord,
   Site,
@@ -59,8 +60,8 @@ export const sparks = {
 export const runs = {
   list: (signal?: AbortSignal) => request<RunRecord[]>('/api/v1/runs', { signal }),
   get: (id: string, signal?: AbortSignal) => request<RunRecord>(`/api/v1/runs/${id}`, { signal }),
-  resume: (id: string) => request<RunRecord>(`/api/v1/runs/${id}/resume`, { method: 'POST' }),
-  cancel: (id: string) => request<RunRecord>(`/api/v1/runs/${id}/cancel`, { method: 'POST' }),
+  resume: (id: string) => request<ResumeResponse>(`/api/v1/runs/${id}/resume`, { method: 'POST' }),
+  cancel: (id: string) => request<void>(`/api/v1/runs/${id}/cancel`, { method: 'POST' }),
 };
 
 export const agent = {

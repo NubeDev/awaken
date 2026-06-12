@@ -46,8 +46,49 @@ export function useSparks(siteId?: Uuid) {
   });
 }
 
+/** Poll the run list while any run is suspended so the approval queue stays live. */
 export function useRuns() {
-  return useQuery({ queryKey: qk.runs, queryFn: ({ signal }) => api.runs.list(signal) });
+  return useQuery({
+    queryKey: qk.runs,
+    queryFn: ({ signal }) => api.runs.list(signal),
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((r) => r.status === 'suspended') ? LIVE_INTERVAL : false,
+  });
+}
+
+/** One run; polls while suspended so an approval landing elsewhere reflects here. */
+export function useRun(id: string | undefined) {
+  return useQuery({
+    queryKey: qk.run(id ?? 'none'),
+    queryFn: ({ signal }) => api.runs.get(id as string, signal),
+    enabled: Boolean(id),
+    refetchInterval: (query) => (query.state.data?.status === 'suspended' ? LIVE_INTERVAL : false),
+  });
+}
+
+/**
+ * Approve a suspended run: the agent's held write is re-applied through the
+ * priority array. Invalidate runs and points so the resumed status and the
+ * agent's write at its priority slot both surface.
+ */
+export function useResumeRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.runs.resume(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['runs'] });
+      qc.invalidateQueries({ queryKey: ['points'] });
+    },
+  });
+}
+
+/** Reject a suspended run: the held write is discarded; refresh the run state. */
+export function useCancelRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.runs.cancel(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['runs'] }),
+  });
 }
 
 export function useAckSpark(siteId?: Uuid) {

@@ -64,7 +64,6 @@ export function Sparks() {
                     spark={s}
                     equipName={equipOf(s.point_ids)}
                     active={s.id === selected?.id}
-                    agentAttributed={s.rule === 'simultaneous-heat-cool'}
                     onClick={() => setSelectedId(s.id)}
                   />
                 ))

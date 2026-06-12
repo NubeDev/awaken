@@ -1,7 +1,6 @@
-import { Check, Sparkles } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { Spark } from '@/api/types'
 import { SeverityIcon } from '@/components/severity-icon'
-import { Badge } from '@/components/ui/badge'
 import { relativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -9,12 +8,11 @@ type SparkListItemProps = {
   spark: Spark
   equipName?: string
   active: boolean
-  agentAttributed?: boolean
   onClick: () => void
 }
 
 /** One finding in the master list — rule, message, equip, freshness. */
-export function SparkListItem({ spark, equipName, active, agentAttributed, onClick }: SparkListItemProps) {
+export function SparkListItem({ spark, equipName, active, onClick }: SparkListItemProps) {
   return (
     <button
       onClick={onClick}
@@ -34,11 +32,6 @@ export function SparkListItem({ spark, equipName, active, agentAttributed, onCli
         {equipName ? <span className='font-medium'>{equipName}</span> : null}
         {equipName ? <span>·</span> : null}
         <span>{relativeTime(spark.ts)}</span>
-        {agentAttributed ? (
-          <Badge variant='primary' className='ms-1 h-4 gap-1 px-1.5 text-[9px]'>
-            <Sparkles className='size-2.5' /> agent
-          </Badge>
-        ) : null}
       </div>
     </button>
   )

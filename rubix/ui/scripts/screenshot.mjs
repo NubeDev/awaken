@@ -1,15 +1,15 @@
 /**
  * Look-freeze reference capture.
  *
- * With `rubix-server --seed-dev` running and the UI served in real mode
- * (`VITE_DEMO=0`), screenshot the four operator surfaces into
- * `docs/reference/`. These are the baseline every later UI gate eyeballs
- * against (docs/sessions/ui/STATUS.md "Look-freeze gate") — a populated page
- * may not lose widgets, density, or chart series versus its reference.
+ * With `rubix-server --seed-dev` running and the UI served against the live
+ * API, screenshot the four operator surfaces into `docs/reference/`. These are
+ * the baseline every later UI gate eyeballs against
+ * (docs/sessions/ui/STATUS.md "Look-freeze gate") — a populated page may not
+ * lose widgets, density, or chart series versus its reference.
  *
  * Usage (dev loop, three terminals):
  *   1. cd rubix && cargo run -p rubix-server -- --seed-dev   # :8088
- *   2. VITE_DEMO=0 pnpm -C rubix/ui dev                      # :5180, /api proxied
+ *   2. pnpm -C rubix/ui dev                                  # :5180, /api proxied
  *   3. node rubix/ui/scripts/screenshot.mjs                  # captures references
  *
  * Override the UI origin with UI_BASE (default http://127.0.0.1:5180).

@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import type { Spark } from '@/api/types'
 import { SeverityIcon } from '@/components/severity-icon'
 import { Badge } from '@/components/ui/badge'
@@ -8,12 +7,10 @@ import { relativeTime } from '@/lib/format'
 type SparkRowProps = {
   spark: Spark
   onClick?: () => void
-  /** Render the rule as an `agent`-attributed finding. */
-  agentAttributed?: boolean
 }
 
 /** One spark finding as a clickable row — shared by the dashboard and list. */
-export function SparkRow({ spark, onClick, agentAttributed }: SparkRowProps) {
+export function SparkRow({ spark, onClick }: SparkRowProps) {
   return (
     <button
       onClick={onClick}
@@ -31,11 +28,6 @@ export function SparkRow({ spark, onClick, agentAttributed }: SparkRowProps) {
           <span className='font-mono font-medium'>{spark.rule}</span>
           <span>·</span>
           <span>{relativeTime(spark.ts)}</span>
-          {agentAttributed ? (
-            <Badge variant='secondary' className='h-4 gap-1 px-1.5 text-[9.5px]'>
-              <Sparkles className='size-2.5' /> agent
-            </Badge>
-          ) : null}
           {spark.acknowledged ? (
             <Badge variant='outline' className='h-4 px-1.5 text-[9.5px]'>
               ack

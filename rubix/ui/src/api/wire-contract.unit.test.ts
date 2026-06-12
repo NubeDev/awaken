@@ -6,7 +6,7 @@
  * matches the corrected `types.ts` shapes — the contract UI-01 verified against
  * `/api-docs/openapi.json`. A drift here is a wire-shape regression.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import siteFixture from './__fixtures__/site.json'
 import writeFixture from './__fixtures__/write.json'
 import queryFixture from './__fixtures__/query.json'
@@ -24,11 +24,7 @@ function mockJson(body: unknown) {
   )
 }
 
-// Endpoints branch on `isDemo()`; force live mode so the fixture flows through
-// the real `request()` decode path rather than the in-memory demo shims.
-beforeEach(() => vi.stubEnv('VITE_DEMO', '0'))
 afterEach(() => {
-  vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
 

@@ -1,4 +1,5 @@
 import type { Equip, Point, Site, Uuid } from '@/api/types'
+import { tagNames } from '@/api/tags'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ageShort, formatValue } from '@/lib/format'
@@ -31,9 +32,9 @@ export function PointList({ site, equip, points, loading, inFinding, activeId, o
             {points.length} pts
           </Badge>
         </div>
-        {equip && equip.tags.length > 0 ? (
+        {equip && tagNames(equip.tags).length > 0 ? (
           <div className='mt-2 flex flex-wrap gap-1'>
-            {equip.tags.map((t) => (
+            {tagNames(equip.tags).map((t) => (
               <Badge key={t} variant='outline' className='h-[18px] px-1.5 font-mono text-[10px]'>
                 #{t}
               </Badge>

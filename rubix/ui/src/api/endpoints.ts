@@ -17,7 +17,7 @@ import type {
   Point,
   PointEnvelope,
   QueryResult,
-  RunSummary,
+  RunRecord,
   Site,
   Spark,
   Uuid,
@@ -74,10 +74,10 @@ export const sparks = {
 
 export const runs = {
   list: (signal?: AbortSignal) =>
-    isDemo() ? demo.runs.list() : request<RunSummary[]>('/api/v1/runs', { signal }),
-  get: (id: string, signal?: AbortSignal) => request<RunSummary>(`/api/v1/runs/${id}`, { signal }),
-  resume: (id: string) => request<RunSummary>(`/api/v1/runs/${id}/resume`, { method: 'POST' }),
-  cancel: (id: string) => request<RunSummary>(`/api/v1/runs/${id}/cancel`, { method: 'POST' }),
+    isDemo() ? demo.runs.list() : request<RunRecord[]>('/api/v1/runs', { signal }),
+  get: (id: string, signal?: AbortSignal) => request<RunRecord>(`/api/v1/runs/${id}`, { signal }),
+  resume: (id: string) => request<RunRecord>(`/api/v1/runs/${id}/resume`, { method: 'POST' }),
+  cancel: (id: string) => request<RunRecord>(`/api/v1/runs/${id}/cancel`, { method: 'POST' }),
 };
 
 export const agent = {

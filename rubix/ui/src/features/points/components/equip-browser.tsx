@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Building2, Search } from 'lucide-react'
 import type { Equip, Site, Uuid } from '@/api/types'
+import { tagNames } from '@/api/tags'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { equipKindIcon } from '@/lib/equip-icon'
@@ -21,7 +22,7 @@ export function EquipBrowser({ site, equips, faultEquips, activeId, onSelect }: 
     ? equips.filter(
         (e) =>
           e.display_name.toLowerCase().includes(q) ||
-          e.tags.some((t) => `#${t}`.includes(q) || t.includes(q.replace(/^#/, '')))
+          tagNames(e.tags).some((t) => `#${t}`.includes(q) || t.includes(q.replace(/^#/, '')))
       )
     : equips
 

@@ -12,7 +12,7 @@ import type {
   Point,
   PointEnvelope,
   QueryResult,
-  RunSummary,
+  RunRecord,
   Site,
   Spark,
   Uuid,
@@ -89,13 +89,23 @@ export const demo = {
     },
   },
   runs: {
-    list: (): Promise<RunSummary[]> =>
+    list: (): Promise<RunRecord[]> =>
       delay([
         {
           id: 'run_8fa2',
-          status: 'awaiting_approval',
-          title: 'Diagnose AHU-3 simultaneous heat/cool',
-          started_at: new Date(Date.now() - 6 * 60_000).toISOString(),
+          thread_id: 'thread_ops_1',
+          origin: 'dispatch',
+          status: 'suspended',
+          response: 'Diagnose AHU-3 simultaneous heat/cool',
+          steps: 4,
+          pending_write: {
+            point: 'acme/hq/ahu-3/sat',
+            priority: 12,
+            value: 18,
+            agent_min_priority: 13,
+          },
+          created_at: new Date(Date.now() - 6 * 60_000).toISOString(),
+          updated_at: new Date(Date.now() - 6 * 60_000).toISOString(),
         },
       ]),
   },
@@ -106,8 +116,7 @@ export const demo = {
   query: {
     run: (): Promise<QueryResult> =>
       delay({
-        columns: ['slug', 'display_name', 'kind'],
-        rows: POINTS.map((p) => [p.slug, p.display_name, p.kind]),
+        rows: POINTS.map((p) => ({ slug: p.slug, display_name: p.display_name, kind: p.kind })),
       }),
   },
 }

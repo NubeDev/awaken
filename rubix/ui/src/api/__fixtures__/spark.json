@@ -1,0 +1,10 @@
+{
+  "id": "9f1c7b2a-1d44-4a3e-8e21-0c5a2b6e9f10",
+  "site_id": "bab18de8-e55e-4cf2-86d7-2cf0554cfe9b",
+  "rule": "simultaneous-heat-cool",
+  "severity": "warning",
+  "message": "AHU-3 heating and cooling commanded together",
+  "point_ids": ["0cc7587a-87d2-49c1-93ef-4940299c737c"],
+  "ts": "2026-06-12T22:30:00Z",
+  "acknowledged": false
+}

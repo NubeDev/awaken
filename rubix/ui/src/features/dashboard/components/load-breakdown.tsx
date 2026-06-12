@@ -1,5 +1,6 @@
 import { usePoints } from '@/api/hooks'
 import type { Uuid } from '@/api/types'
+import { hasTag } from '@/api/tags'
 import { Donut, type DonutSlice } from '@/components/charts/donut'
 import {
   Card,
@@ -15,7 +16,7 @@ const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--cha
 export function LoadBreakdown({ siteId }: { siteId: Uuid | undefined }) {
   const { data: points = [] } = usePoints({ siteId })
   const submeters = points.filter(
-    (p) => p.tags.includes('submeter') && typeof p.cur_value === 'number'
+    (p) => hasTag(p.tags, 'submeter') && typeof p.cur_value === 'number'
   )
   const slices: DonutSlice[] = submeters.map((p, i) => ({
     label: p.display_name,

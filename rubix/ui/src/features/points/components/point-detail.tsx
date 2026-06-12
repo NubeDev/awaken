@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { usePointHistory, useRelinquishPoint } from '@/api/hooks'
 import type { Point, Site, Equip } from '@/api/types'
+import { tagNames } from '@/api/tags'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -126,7 +127,7 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
         <Card className='gap-2 p-3.5'>
           <span className='eyebrow text-[10px]'>Tags</span>
           <div className='flex flex-wrap gap-1'>
-            {point.tags.map((t) => (
+            {tagNames(point.tags).map((t) => (
               <Badge key={t} variant='outline' className='h-[18px] px-1.5 font-mono text-[10px]'>
                 #{t}
               </Badge>

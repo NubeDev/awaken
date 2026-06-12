@@ -29,13 +29,13 @@ export function Runs() {
                 {runs.map((r) => (
                   <li key={r.id} className='flex items-center gap-3 px-2.5 py-3'>
                     <div className='min-w-0 flex-1'>
-                      <div className='truncate text-[13px] font-medium'>{r.title ?? r.id}</div>
+                      <div className='truncate text-[13px] font-medium'>{r.response || r.id}</div>
                       <div className='text-muted-foreground font-mono text-[11px]'>{r.id}</div>
                     </div>
                     <span className='text-muted-foreground text-[11px]'>
-                      {relativeTime(r.started_at)}
+                      {relativeTime(r.created_at)}
                     </span>
-                    <Badge variant={r.status === 'awaiting_approval' ? 'warning' : 'muted'}>
+                    <Badge variant={r.status === 'suspended' ? 'warning' : 'muted'}>
                       {r.status}
                     </Badge>
                   </li>

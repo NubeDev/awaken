@@ -7,14 +7,15 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { hasTag } from '@/api/tags'
+import type { TagSet } from '@/api/types'
 
-/** Icon for an equip, chosen from its Haystack-style tags. */
-export function equipKindIcon(tags: string[]): LucideIcon {
-  const t = new Set(tags)
-  if (t.has('ahu')) return Fan
-  if (t.has('chiller')) return Droplet
-  if (t.has('boiler')) return Flame
-  if (t.has('elec') || t.has('meter')) return Zap
-  if (t.has('vav') || t.has('tower')) return Wind
+/** Icon for an equip, chosen from its Haystack-style marker tags. */
+export function equipKindIcon(tags: TagSet): LucideIcon {
+  if (hasTag(tags, 'ahu')) return Fan
+  if (hasTag(tags, 'chiller')) return Droplet
+  if (hasTag(tags, 'boiler')) return Flame
+  if (hasTag(tags, 'elec') || hasTag(tags, 'meter')) return Zap
+  if (hasTag(tags, 'vav') || hasTag(tags, 'tower')) return Wind
   return CircuitBoard
 }

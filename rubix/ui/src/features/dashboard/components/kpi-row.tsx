@@ -1,12 +1,12 @@
 import { Activity, Thermometer, Zap } from 'lucide-react'
 import { usePointHistory, usePoints, useSparks } from '@/api/hooks'
 import type { HisSample, Point, Uuid } from '@/api/types'
+import { hasTag } from '@/api/tags'
 import { formatValue } from '@/lib/format'
 import { KpiCard } from './kpi-card'
 
 function isDemandPoint(p: Point): boolean {
-  const t = new Set(p.tags)
-  return t.has('meter') || (t.has('kw') && p.unit === 'kW')
+  return hasTag(p.tags, 'meter') || (hasTag(p.tags, 'kw') && p.unit === 'kW')
 }
 
 /** % change of the last sample vs 24h earlier. */
@@ -45,7 +45,7 @@ export function KpiRow({ siteId }: { siteId: Uuid | undefined }) {
   const { data: sparks = [] } = useSparks(siteId)
   const demand = points.find((p) => isDemandPoint(p) && p.slug.includes('total'))
     ?? points.find(isDemandPoint)
-  const comfort = points.find((p) => p.tags.includes('comfort'))
+  const comfort = points.find((p) => hasTag(p.tags, 'comfort'))
   const { data: demandHis = [] } = usePointHistory(demand?.id)
   const { data: comfortHis = [] } = usePointHistory(comfort?.id)
 

@@ -13,6 +13,14 @@ export type PointValue = boolean | number | string;
 export type PointKind = 'sensor' | 'cmd' | 'sp';
 export type SparkSeverity = 'info' | 'warning' | 'fault';
 
+/**
+ * `rubix_core::TagSet` — `#[serde(transparent)] BTreeMap<String, Value>`. On the
+ * wire it is a JSON object, not an array: marker tags map to `true`, value tags
+ * to any JSON value (`{"ahu": true, "stage": 2}`). Read tag names via
+ * `tagNames`/`hasTag` in `./tags`, never by treating this as `string[]`.
+ */
+export type TagSet = Record<string, unknown>;
+
 /** A single priority-array slot. `null` slots are unwritten. */
 export type PrioritySlot = PointValue | null;
 
@@ -30,7 +38,7 @@ export interface Site {
   org: string;
   slug: string;
   display_name: string;
-  tags: string[];
+  tags: TagSet;
   created_at: IsoTimestamp;
 }
 
@@ -39,7 +47,7 @@ export interface Equip {
   site_id: Uuid;
   path: string;
   display_name: string;
-  tags: string[];
+  tags: TagSet;
   created_at: IsoTimestamp;
 }
 
@@ -50,7 +58,7 @@ export interface Point {
   display_name: string;
   kind: PointKind;
   unit: string | null;
-  tags: string[];
+  tags: TagSet;
   priority_array: PriorityArray;
   cur_value: PointValue | null;
   cur_ts: IsoTimestamp | null;
@@ -80,7 +88,8 @@ export interface HisSample {
   value: PointValue;
 }
 
-export type WriteSource = 'operator' | 'agent' | 'schedule';
+/** `rubix-server::WriteSource` — snake_case; only these two variants exist. */
+export type WriteSource = 'operator' | 'agent';
 
 export interface WriteRequest {
   value: PointValue;
@@ -106,15 +115,40 @@ export interface ChatResponse {
   run_id?: string;
 }
 
-export interface RunSummary {
-  id: string;
-  status: string;
-  title?: string;
-  started_at?: IsoTimestamp;
+/** `rubix-server::RunOrigin` — what raised a run. */
+export type RunOrigin = 'chat' | 'dispatch' | 'mcp';
+
+/** `rubix-server::RunStatus` — lifecycle of an agent run. `suspended` awaits approval. */
+export type RunStatus = 'completed' | 'suspended' | 'resumed' | 'cancelled';
+
+/** `rubix-server::PendingWrite` — the command a suspended run holds for approval. */
+export interface PendingWrite {
+  point: string;
+  priority: number;
+  value: PointValue;
+  agent_min_priority: number;
 }
 
-/** A DataFusion `/query` result: column names plus row arrays. */
+/**
+ * `rubix-server::RunRecord` — the persisted agent-run row backing the operator
+ * surface. `pending_write` is present only while `status === 'suspended'`.
+ */
+export interface RunRecord {
+  id: string;
+  thread_id: string;
+  origin: RunOrigin;
+  status: RunStatus;
+  response: string;
+  steps: number;
+  pending_write?: PendingWrite;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
+}
+
+/** A single DataFusion `/query` result row: column name -> value. */
+export type QueryRow = Record<string, PointValue | null>;
+
+/** `rubix-server::QueryResponse` — rows as JSON objects; no separate columns. */
 export interface QueryResult {
-  columns: string[];
-  rows: PointValue[][];
+  rows: QueryRow[];
 }

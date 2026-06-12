@@ -8,9 +8,23 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { formatValue } from '@/lib/format'
+import type { QueryRow } from '@/api/types'
 
 const DEFAULT_SQL = 'SELECT slug, display_name, kind FROM points LIMIT 20'
+
+/**
+ * Column order for a `/query` result. The server returns rows as JSON objects
+ * keyed by column name with no separate column list, so derive the columns from
+ * the first row (all rows of a result share one schema).
+ */
+function columnsOf(rows: QueryRow[]): string[] {
+  return rows.length ? Object.keys(rows[0]!) : []
+}
+
+/** Render one query cell value; `null`/`undefined` show as an em dash. */
+function formatCell(value: QueryRow[string] | undefined): string {
+  return value === null || value === undefined ? '—' : String(value)
+}
 
 /** DataFusion SQL surface — runs real `/api/v1/query` against the store. */
 export function History() {
@@ -49,7 +63,7 @@ export function History() {
               <table className='w-full text-[12.5px]'>
                 <thead>
                   <tr className='border-border border-b'>
-                    {run.data.columns.map((c) => (
+                    {columnsOf(run.data.rows).map((c) => (
                       <th key={c} className='text-muted-foreground px-3 py-2 text-left font-medium'>
                         {c}
                       </th>
@@ -59,9 +73,9 @@ export function History() {
                 <tbody>
                   {run.data.rows.map((row, i) => (
                     <tr key={i} className='border-border/60 border-b last:border-0'>
-                      {row.map((cell, j) => (
-                        <td key={j} className='tabular px-3 py-1.5 font-mono'>
-                          {formatValue(cell)}
+                      {columnsOf(run.data!.rows).map((c) => (
+                        <td key={c} className='tabular px-3 py-1.5 font-mono'>
+                          {formatCell(row[c])}
                         </td>
                       ))}
                     </tr>

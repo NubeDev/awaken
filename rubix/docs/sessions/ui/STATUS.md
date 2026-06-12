@@ -35,7 +35,7 @@ What does NOT count as fake (allowed to stay):
 
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
-| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | 🔵 | 2026-06-12T22:09:00Z | | |
+| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | 🔵 | 2026-06-12T22:29:06Z | 2026-06-12T22:39:09Z | (pending commit) |
 | UI-02 | Dev seed: the demo building as real store rows + live sim | ⬜ | | | |
 | UI-03 | Delete the demo layer; UI reads the network only | ⬜ | | | |
 | UI-04 | Flows on stored boards (`/api/v1/boards`) | ⬜ | | | |
@@ -89,3 +89,6 @@ Before marking any UI-xx ✅:
 ## Loop log
 <!-- one line per wake: <utc> <action> -->
 - (pending first wake)
+- 2026-06-12T22:15:41Z skip — UI-01 still 🔵, subagent live (uncommitted edits across types.ts/hooks.ts/endpoints.ts/tags.ts + history/runs, ~6 min in, no Done/Blocked line); no double-spawn, reschedule
+- 2026-06-12T22:26:00Z skip — UI-01 still 🔵, subagent live (working tree mutating mid-wake: types/hooks/endpoints/tags.ts reverted-clean between two `git status` calls, history/index.tsx still M, no new commits, UI-01.md still Pending); no double-spawn, reschedule
+- 2026-06-12T22:29:06Z spawn — UI-01: prior subagent dead (row was ⬜/UI-01.md Pending, only leftover M history/index.tsx which UI-01 owns, no new commits since); first pending row → spawn fresh UI-01 subagent (idempotent resume from committed state)

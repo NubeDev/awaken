@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { usePointHistory, usePoints } from '@/api/hooks'
 import type { HisSample, Point, Uuid } from '@/api/types'
+import { hasTag } from '@/api/tags'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -26,10 +27,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** Points whose tags mark them as an electrical/energy demand signal. */
 function isDemandPoint(p: Point): boolean {
-  const tags = new Set(p.tags)
   return (
-    (tags.has('elec') || tags.has('energy') || tags.has('power')) &&
-    (tags.has('meter') || tags.has('kw') || p.unit === 'kW')
+    (hasTag(p.tags, 'elec') || hasTag(p.tags, 'energy') || hasTag(p.tags, 'power')) &&
+    (hasTag(p.tags, 'meter') || hasTag(p.tags, 'kw') || p.unit === 'kW')
   )
 }
 

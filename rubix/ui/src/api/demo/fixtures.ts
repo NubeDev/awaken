@@ -6,7 +6,11 @@
  * Every site gets the full equipment blueprint so the UI is populated no
  * matter which site the operator has selected.
  */
-import type { Equip, HisSample, Point, PriorityArray, Site, Spark } from '../types'
+import type { Equip, HisSample, Point, PriorityArray, Site, Spark, TagSet } from '../types'
+
+/** Author tags as name lists, emit the wire marker map (`{name: true}`). */
+const markers = (names: readonly string[]): TagSet =>
+  Object.fromEntries(names.map((n) => [n, true]))
 
 const NOW = Date.now()
 const ISO = (minsAgo: number) => new Date(NOW - minsAgo * 60_000).toISOString()
@@ -36,10 +40,10 @@ export function historyFor(pointId: string): HisSample[] {
 }
 
 export const SITES: Site[] = [
-  { id: 's1', org: 'acme', slug: 'hq-tower', display_name: 'HQ Tower', tags: ['site', 'commercial'], created_at: ISO(100000) },
-  { id: 's2', org: 'acme', slug: 'distribution-w', display_name: 'Distribution West', tags: ['site', 'warehouse'], created_at: ISO(100000) },
-  { id: 's3', org: 'acme', slug: 'lab-campus', display_name: 'Lab Campus', tags: ['site', 'lab'], created_at: ISO(100000) },
-  { id: 's4', org: 'acme', slug: 'cold-store-3', display_name: 'Cold Store 3', tags: ['site', 'cold'], created_at: ISO(100000) },
+  { id: 's1', org: 'acme', slug: 'hq-tower', display_name: 'HQ Tower', tags: markers(['site', 'commercial']), created_at: ISO(100000) },
+  { id: 's2', org: 'acme', slug: 'distribution-w', display_name: 'Distribution West', tags: markers(['site', 'warehouse']), created_at: ISO(100000) },
+  { id: 's3', org: 'acme', slug: 'lab-campus', display_name: 'Lab Campus', tags: markers(['site', 'lab']), created_at: ISO(100000) },
+  { id: 's4', org: 'acme', slug: 'cold-store-3', display_name: 'Cold Store 3', tags: markers(['site', 'cold']), created_at: ISO(100000) },
 ]
 
 const EQUIP_BLUEPRINT = [
@@ -110,7 +114,7 @@ for (const site of SITES) {
       site_id: site.id,
       path: e.key,
       display_name: e.name,
-      tags: [...e.tags],
+      tags: markers(e.tags),
       created_at: ISO(100000),
     })
   }
@@ -127,7 +131,7 @@ for (const site of SITES) {
       display_name: p.name,
       kind: p.kind,
       unit: p.unit || null,
-      tags: [...p.tags],
+      tags: markers(p.tags),
       priority_array: p.pa ? { slots: [...p.pa.slots], relinquish_default: p.pa.relinquish_default } : { ...emptyPa, slots: Array(16).fill(null) },
       cur_value: p.cur,
       cur_ts: ISO(p.minsAgo ?? 0.2),

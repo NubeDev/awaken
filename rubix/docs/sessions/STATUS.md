@@ -12,7 +12,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
 | WS-01 | `agent_call` board node → embedded agent | ✅ | 2026-06-12T09:44:18Z | 2026-06-12T10:35:00Z | 47221b45 |
-| WS-02 | Persistent run registry + resume endpoint (HITL) | ⬜ | | | |
+| WS-02 | Persistent run registry + resume endpoint (HITL) | 🔵 | 2026-06-12T10:10:09Z | | |
 | WS-03 | Parquet history `TableProvider` (object_store tiering) | ⬜ | | | |
 | WS-04 | Edge/cloud profiles (cargo features + runtime config) | ⬜ | | | |
 | WS-05 | Postgres backend for the cloud profile | ⬜ | | | |
@@ -37,3 +37,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - (pending first wake)
 - 2026-06-12T09:44:18Z spawned WS-01
 - 2026-06-12T10:35:00Z gated WS-01 ✅ (47221b45; pre-existing HITL-suspend test hang logged to TODOs.md)
+- 2026-06-12T10:10:09Z spawned WS-02

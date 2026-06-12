@@ -13,7 +13,7 @@ mod provider;
 mod rollup;
 mod sql;
 
-pub use context::QueryEngine;
+pub use context::{QueryEngine, QueryScope};
 pub use error::QueryError;
 pub use his::{write_partitions, HisRow, HisTier};
 pub use rollup::{Aggregate, Interval, RollupSpec};

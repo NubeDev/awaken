@@ -13,6 +13,10 @@ pub enum QueryError {
     #[error("sqlite backend: {0}")]
     Backend(String),
 
+    /// A tenant scope was malformed (empty or carrying an illegal character).
+    #[error("tenant scope: {0}")]
+    Scope(String),
+
     /// A `his` Parquet cold-tier operation failed (open, list, read, or write).
     #[error("his parquet tier: {0}")]
     His(String),

@@ -4,7 +4,11 @@
 
 mod open;
 mod register;
+mod scope;
+mod scoped;
 mod tables;
+
+pub use scope::QueryScope;
 
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;

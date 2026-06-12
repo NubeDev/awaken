@@ -44,6 +44,9 @@ reflow_actor_macro = "0.2"
 awaken-runtime-contract = "0.6"
 awaken-runtime = "0.6"
 schemars = "1"
+jsonwebtoken = "10"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+sha2 = "0.10"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -77,6 +77,18 @@ CREATE TABLE IF NOT EXISTS runs (
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tokens (
+    id          TEXT PRIMARY KEY,
+    secret_hash TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    role        TEXT NOT NULL,
+    scope_org   TEXT,
+    scope_team  TEXT,
+    scope_site  TEXT,
+    created_at  TEXT NOT NULL,
+    revoked_at  TEXT,
+    UNIQUE (secret_hash)
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -167,6 +179,18 @@ CREATE TABLE IF NOT EXISTS runs (
     pending_write TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tokens (
+    id          TEXT PRIMARY KEY,
+    secret_hash TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    role        TEXT NOT NULL,
+    scope_org   TEXT,
+    scope_team  TEXT,
+    scope_site  TEXT,
+    created_at  TEXT NOT NULL,
+    revoked_at  TEXT,
+    UNIQUE (secret_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);

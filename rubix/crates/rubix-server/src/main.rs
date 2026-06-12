@@ -1,4 +1,5 @@
 use rubix_query::{HisTier, QueryEngine};
+use rubix_server::auth::{AuthConfig, Authenticator, JwksVerifier};
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
 use rubix_server::profile::{self, StoreKind};
@@ -123,6 +124,27 @@ async fn main() -> anyhow::Result<()> {
         Some(engine)
     };
 
+    // Resolve the auth posture. The cloud profile requires authenticated
+    // requests (STACK-DEISGN.md "auth (OIDC/RBAC)"); the edge profile leaves it
+    // off so local/offline stations keep working. A profile that requires auth
+    // without a configured OIDC issuer fails closed here, never silently open.
+    let auth_config = AuthConfig::resolve(
+        profile.auth_required,
+        std::env::var("RUBIX_OIDC_ISSUER").ok().as_deref(),
+        std::env::var("RUBIX_OIDC_JWKS").ok().as_deref(),
+    )?;
+    let authenticator = match &auth_config {
+        AuthConfig::Disabled => {
+            tracing::info!("auth disabled for this profile; requests pass without a principal");
+            None
+        }
+        AuthConfig::Enabled { issuer, jwks_url } => {
+            let jwks = JwksVerifier::fetch(jwks_url, issuer).await?;
+            tracing::info!(%issuer, jwks = %jwks_url, "auth enforced: OIDC JWT + PAT bearer");
+            Some(Authenticator::new(jwks, store.clone()))
+        }
+    };
+
     let mut state = AppState {
         profile,
         store,
@@ -132,6 +154,7 @@ async fn main() -> anyhow::Result<()> {
         agent: None,
         ai_min_priority,
         ai_escalation_floor,
+        authenticator,
     };
 
     // Embed the awaken agent over the BMS tools when enabled. The genai

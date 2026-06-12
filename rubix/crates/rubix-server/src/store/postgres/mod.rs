@@ -17,13 +17,14 @@ pub(super) mod points;
 pub(super) mod runs;
 pub(super) mod sites;
 pub(super) mod sparks;
+pub(super) mod tokens;
 pub(super) mod widgets;
 
 /// Wipe every table. Test-only: the shared store suite calls this to start each
 /// Postgres pass from a clean slate (the SQLite pass uses a fresh temp file).
 pub(super) fn truncate_all(store: &Store) -> Result<()> {
     store.postgres_conn()?.batch_execute(
-        "TRUNCATE runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
+        "TRUNCATE tokens, runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
     )?;
     Ok(())
 }

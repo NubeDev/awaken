@@ -48,6 +48,9 @@ anyhow.workspace = true
 async-trait.workspace = true
 zenoh.workspace = true
 futures.workspace = true
+jsonwebtoken.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 tower.workspace = true

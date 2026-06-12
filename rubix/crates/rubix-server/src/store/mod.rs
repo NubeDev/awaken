@@ -23,6 +23,7 @@ mod runs;
 mod schema;
 mod sites;
 mod sparks;
+mod tokens;
 mod widgets;
 
 pub use error::StoreError;

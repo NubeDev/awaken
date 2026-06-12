@@ -43,6 +43,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         let app = Self {
             router: app(state.clone()),
@@ -63,6 +64,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         Self {
             router: app(state),
@@ -85,6 +87,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         let app = Self {
             router: app(state),
@@ -109,6 +112,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         Self {
             router: app(state),
@@ -137,6 +141,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         Self {
             router: app(state),
@@ -156,6 +161,7 @@ impl TestApp {
             agent: None,
             ai_min_priority: 13,
             ai_escalation_floor: 1,
+            authenticator: None,
         };
         Self {
             router: app(state),

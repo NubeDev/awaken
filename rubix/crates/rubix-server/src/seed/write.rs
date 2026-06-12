@@ -30,6 +30,7 @@ pub struct SeedReport {
     pub points: usize,
     pub his_samples: usize,
     pub sparks: usize,
+    pub boards: usize,
 }
 
 /// Populate `store` with the demo portfolio. Idempotent: existing rows (matched
@@ -42,6 +43,7 @@ pub fn seed_portfolio(store: &Store) -> Result<SeedReport, SeedError> {
         let point_ids = ensure_points(store, &equip_ids, site_idx, &mut report)?;
         ensure_sparks(store, site_id, &point_ids, &mut report)?;
     }
+    report.boards += super::board::seed_board(store)?;
     Ok(report)
 }
 

@@ -91,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
             points = report.points,
             his_samples = report.his_samples,
             sparks = report.sparks,
+            boards = report.boards,
             "dev portfolio seeded"
         );
     }

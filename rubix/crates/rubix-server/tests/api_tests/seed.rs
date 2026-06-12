@@ -132,6 +132,42 @@ fn sparks_preserve_acknowledged_state() {
     assert_eq!(open.len(), 5);
 }
 
+#[test]
+fn seeds_one_stored_board_with_a_valid_graph() {
+    let (store, _dir) = fresh_store();
+    let report = seed_portfolio(&store).expect("seed");
+    assert_eq!(report.boards, 1, "the demo board is seeded");
+
+    let boards = store.latest_boards().unwrap();
+    let board = boards
+        .iter()
+        .find(|b| b.slug == "ahu-3-discharge-reset")
+        .expect("demo board listed");
+    assert_eq!(board.display_name, "AHU-3 · Discharge Reset");
+    assert!(board.enabled);
+    // Manual: the scheduler never fires it; only /boards/{slug}/run does.
+    assert!(!board.is_scheduled());
+
+    // Every node names a registered rubix component, and the graph is wired.
+    assert_eq!(board.graph.nodes.len(), 3);
+    for node in &board.graph.nodes {
+        assert!(
+            rubix_flow::COMPONENTS.contains(&node.component.as_str()),
+            "unknown component {}",
+            node.component
+        );
+    }
+    assert_eq!(board.graph.connections.len(), 2);
+}
+
+#[test]
+fn re_seeding_does_not_duplicate_the_board() {
+    let (store, _dir) = fresh_store();
+    assert_eq!(seed_portfolio(&store).unwrap().boards, 1);
+    assert_eq!(seed_portfolio(&store).unwrap().boards, 0);
+    assert_eq!(store.latest_boards().unwrap().len(), 1);
+}
+
 #[tokio::test]
 async fn dev_ticker_ingests_fresh_cur_for_seeded_sensors() {
     let (store, _dir) = fresh_store();

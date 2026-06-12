@@ -7,6 +7,7 @@
 //! Activated by `--seed-dev` on `rubix-server` (never the default). Idempotent:
 //! re-running upserts by slug. See `docs/sessions/ui/UI-02.md`.
 
+mod board;
 mod curves;
 mod portfolio;
 mod tags;

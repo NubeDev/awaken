@@ -20,7 +20,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ✅ | 2026-06-12T12:30:31Z | 2026-06-12T13:21:00Z | 385f0e1d |
 | WS-08 | Outbound MCP adapter (BMS tools to external agents) | ✅ | 2026-06-12T13:30:10Z | 2026-06-12T14:05:00Z | 9e8be915 |
 | WS-09 | Scoped zenoh session per driver + reference driver binary | ✅ | 2026-06-12T13:50:12Z | 2026-06-12T14:20:00Z | 08217e33 |
-| WS-10 | Write ack/backpressure protocol + bounded buffers | 🔵 | 2026-06-12T14:00:23Z | | |
+| WS-10 | Write ack/backpressure protocol + bounded buffers | ✅ | 2026-06-12T14:00:23Z | 2026-06-12T14:35:00Z | 8aaab1d8 |
 
 ## Dependency notes
 - **WS-02** lands the persistent run store the HITL resume endpoint needs (STATUS.md flags this as
@@ -52,3 +52,4 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 - 2026-06-12T13:50:12Z spawned WS-09 (scoped zenoh session per driver + reference driver binary; first pending in queue order, WS-01..08 all ✅)
 - 2026-06-12T14:20:00Z gated WS-09 ✅ (ScopedSession wrapper confines the sim's zenoh session to its CapabilitySet — publish/subscribe outside the grant refused locally before the bus; live supervisor-spawn out-of-grant-publish refusal test closes the prior known gap; cargo test --workspace green, clippy clean)
 - 2026-06-12T14:00:23Z spawned WS-10 (write ack/backpressure protocol + bounded buffers; first pending in queue order, WS-01..09 all ✅; builds on WS-09's per-driver session)
+- 2026-06-12T14:35:00Z gated WS-10 ✅ (3b1e7358 driver-contract buffers/ack, 8887ddb0 driver-sim wiring, 8aaab1d8 docs; CurBuffer drop-oldest + visible counter, ReliableQueue full→BufferFull, write ack/retry→AckTimeout give-up; driver 18 + driver-sim 9 tests green incl. live retry/ack/give-up/saturation, clippy clean workspace-wide; pre-existing WS-09 supervised liveliness-clear + api HITL-suspend host failures logged to TODOs.md, both confirmed not WS-10 regressions). Final queue WS — run complete.

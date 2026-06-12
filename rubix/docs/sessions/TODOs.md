@@ -94,3 +94,27 @@ The fail-closed fallback remains for a scope that cannot map to a `QueryScope`.
 - **Committed so far:** WS-07 committed on `rubix-gaps` (c96f6996, 2bccee07, 385f0e1d); WS-07 is Done
   for its own scope (point/board/widget tools enforce the tenant boundary; cross-tenant denial is
   tested on both paths). This entry is a follow-up, not a WS-07 blocker.
+
+---
+
+### 2026-06-12 — (pre-existing, surfaced by WS-10) — `supervisor_spawns_sim_which_attaches_and_publishes` liveliness-clear fails on this host
+- **What's blocked:** A clean `cargo test --workspace` does not go fully green: the WS-09 live test
+  `supervised::supervisor_spawns_sim_which_attaches_and_publishes`
+  (`rubix-driver-sim/tests/supervised.rs:110`) fails the post-shutdown assertion that the sim's
+  liveliness token clears — `supervisor.shutdown()` returns but the token still answers within the
+  test's 10s (50×200ms) poll window. Deterministic on this host (~45s/run). Separately, the
+  rubix-server `api-*` integration binary also hangs (the historically-flaky HITL-suspend path).
+- **Why (NOT a WS-10 regression):** Reproduced with WS-09's *original* `simulate.rs` restored from
+  history (3b1e7358) and WS-10's buffer code removed — the failure is identical, so it is a
+  pre-existing WS-09 supervisor/zenoh liveliness-reaping timing issue on this machine, not caused by
+  the WS-10 bounded-buffer / ack work. WS-10 touches only `rubix-driver` and `rubix-driver-sim`
+  publish/ack logic; the granted sim still attaches and publishes `cur` (the test reaches line 110,
+  past the publish assertion). WS-10's own tests (driver 18 unit + driver-sim 9 incl. live
+  retry/ack/give-up/saturation) are all green; clippy is clean workspace-wide.
+- **What the human must decide/provide:** whether the supervisor's shutdown should await liveliness
+  token clearance (deterministic reap) before returning, or the test's clear-window needs widening /
+  a Delete-sample subscription instead of a liveliness `get` poll; and a bound on the api-* HITL
+  suspend test so `--workspace` terminates on this host.
+- **Committed so far:** WS-10 committed on `rubix-gaps` (3b1e7358 driver contract, 8887ddb0
+  driver-sim wiring, 8aaab1d8 docs). WS-10 is Done for its own scope. This entry is a follow-up, not
+  a WS-10 blocker.

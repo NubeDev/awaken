@@ -3,5 +3,7 @@
 //! port, so the runtime gets a schema and arg validation for free.
 
 mod read_point;
+mod write_point;
 
 pub use read_point::{ReadPointArgs, ReadPointTool};
+pub use write_point::{WritePointArgs, WritePointTool};

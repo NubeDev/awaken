@@ -9,4 +9,4 @@
 mod prelude;
 mod tool;
 
-pub use tool::{ReadPointArgs, ReadPointTool};
+pub use tool::{ReadPointArgs, ReadPointTool, WritePointArgs, WritePointTool};

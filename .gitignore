@@ -50,3 +50,6 @@ docs/book/mermaid-init.js
 # ...and Playwright visual-regression baselines (one per surface × theme × locale).
 !e2e/tests/**/*-snapshots/**/*.png
 coverage_err.log
+.dev/
+# Design-reference repos kept on disk only (e.g. flow-like) — never committed.
+bin/

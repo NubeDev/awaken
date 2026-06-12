@@ -33,6 +33,7 @@ use super::{command, equips, health, his, points, query, sites, sparks};
         command::cur::ingest_cur,
         his::query::query_his,
         his::insert::insert_his,
+        his::rollup::rollup_his,
         sparks::create::create_spark,
         sparks::list::list_sparks,
         sparks::ack::ack_spark,

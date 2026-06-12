@@ -55,7 +55,11 @@ impl Col {
                 ValueRef::Text(t) => b.append_value(String::from_utf8_lossy(t)),
                 ValueRef::Integer(i) => b.append_value(i.to_string()),
                 ValueRef::Real(r) => b.append_value(r.to_string()),
-                ValueRef::Blob(_) => b.append_null(),
+                // The store persists UUID ids as 16-byte big-endian blobs
+                // (rusqlite's `uuid` feature). Render those as canonical UUID
+                // strings so they match string id comparisons in SQL.
+                ValueRef::Blob(bytes) if bytes.len() == 16 => b.append_value(uuid_string(bytes)),
+                ValueRef::Blob(bytes) => b.append_value(String::from_utf8_lossy(bytes)),
             },
         }
     }
@@ -97,4 +101,17 @@ pub(super) fn read_batch(
 
 fn backend(e: rusqlite::Error) -> QueryError {
     QueryError::Backend(e.to_string())
+}
+
+/// Format 16 big-endian bytes as a canonical `8-4-4-4-12` UUID string.
+fn uuid_string(b: &[u8]) -> String {
+    let h = |r: &[u8]| r.iter().map(|x| format!("{x:02x}")).collect::<String>();
+    format!(
+        "{}-{}-{}-{}-{}",
+        h(&b[0..4]),
+        h(&b[4..6]),
+        h(&b[6..8]),
+        h(&b[8..10]),
+        h(&b[10..16])
+    )
 }

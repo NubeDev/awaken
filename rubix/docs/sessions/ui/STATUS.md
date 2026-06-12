@@ -35,7 +35,7 @@ What does NOT count as fake (allowed to stay):
 
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
-| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | ⬜ | | | |
+| UI-01 | Wire-contract truth-up: TS types verified against OpenAPI | 🔵 | 2026-06-12T22:09:00Z | | |
 | UI-02 | Dev seed: the demo building as real store rows + live sim | ⬜ | | | |
 | UI-03 | Delete the demo layer; UI reads the network only | ⬜ | | | |
 | UI-04 | Flows on stored boards (`/api/v1/boards`) | ⬜ | | | |

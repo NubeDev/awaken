@@ -11,9 +11,11 @@
 
 mod config;
 mod liveliness;
+mod scoped;
 mod simulate;
 
 use config::SimConfig;
+use scoped::ScopedSession;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,7 +37,10 @@ async fn main() -> anyhow::Result<()> {
     let _token = liveliness::declare(&session, &cfg.name).await?;
     tracing::info!(driver = %cfg.name, "liveliness token declared; attached to bus");
 
-    simulate::run(&session, &cfg, shutdown_signal()).await;
+    // Confine the publish path to the granted capabilities: an out-of-scope
+    // keyexpr is refused locally, before it reaches the bus.
+    let scoped = ScopedSession::new(cfg.name.clone(), cfg.caps.clone(), session);
+    simulate::run(&scoped, &cfg, shutdown_signal()).await;
     Ok(())
 }
 

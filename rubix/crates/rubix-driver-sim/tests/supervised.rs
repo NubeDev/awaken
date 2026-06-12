@@ -10,12 +10,14 @@ use rubix_driver::{Access, Capability, CapabilitySet, DriverManifest, Identity, 
 use rubix_server::supervisor::{liveliness_key, Supervisor};
 use serde_json::json;
 
-/// Manifest pointing at the compiled sim binary, granting it publish on the
-/// test point and configuring a fast (1s) sample period.
-fn sim_manifest(point: &str) -> DriverManifest {
+/// Manifest pointing at the compiled sim binary, granting publish on
+/// `grant_prefix` and configuring it to publish `cur` on `point` at a fast
+/// (1s) cadence. When `grant_prefix` does not cover `point`, the scoped session
+/// inside the sim refuses every publish locally and nothing reaches the bus.
+fn sim_manifest_named(name: &str, grant_prefix: &str, point: &str) -> DriverManifest {
     DriverManifest {
         identity: Identity {
-            name: "sim-temp".into(),
+            name: name.into(),
             protocol: "sim".into(),
             version: "0.1.0".into(),
             launch: Launch {
@@ -26,12 +28,18 @@ fn sim_manifest(point: &str) -> DriverManifest {
         point_types: vec![],
         capabilities: CapabilitySet {
             grants: vec![Capability {
-                prefix: point.rsplit_once('/').map(|(p, _)| p).unwrap_or(point).into(),
+                prefix: grant_prefix.into(),
                 access: Access::Publish,
             }],
         },
         config: json!({ "point": point, "period_secs": 1, "baseline": 21.0, "amplitude": 2.0 }),
     }
+}
+
+/// Manifest granting publish on the point's own equip prefix (the in-scope case).
+fn sim_manifest(point: &str) -> DriverManifest {
+    let grant = point.rsplit_once('/').map(|(p, _)| p).unwrap_or(point);
+    sim_manifest_named("sim-temp", grant, point)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -102,5 +110,63 @@ async fn supervisor_spawns_sim_which_attaches_and_publishes() {
     assert!(cleared, "sim liveliness token did not clear after shutdown");
 
     // Keep the subscriber alive to the end so the borrow is not dropped early.
+    drop(sub);
+}
+
+/// The driver's own scoped session refuses publishes outside its grant before
+/// they reach the bus: a sim configured to publish on a point its caps do not
+/// cover attaches (liveliness) but no `cur` ever appears on the mesh. This is
+/// the local capability enforcement, distinct from the server-side owned-site
+/// queryable scoping.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn out_of_grant_publish_is_refused_locally() {
+    // Granted equip is ahu-1, but the sim is told to publish on ahu-9 — outside
+    // its grant. The scoped session denies every publish.
+    let grant = "sim/site-a/ahu-1";
+    let point = "sim/site-a/ahu-9/temp";
+
+    let client = zenoh::open(zenoh::Config::default()).await.expect("client");
+    let sub = client
+        .declare_subscriber(format!("{point}/cur"))
+        .await
+        .expect("subscribe");
+
+    let sup_session = zenoh::open(zenoh::Config::default())
+        .await
+        .expect("sup session");
+    let supervisor = Supervisor::launch(
+        sup_session,
+        vec![sim_manifest_named("sim-denied", grant, point)],
+    )
+    .expect("launch");
+
+    // The sim still attaches to the bus (the denial is on publish, not on
+    // session open or liveliness).
+    let key = liveliness_key("sim-denied");
+    let mut attached = false;
+    for _ in 0..50 {
+        if let Ok(replies) = client.liveliness().get(&key).await {
+            if let Ok(Ok(reply)) =
+                tokio::time::timeout(Duration::from_millis(200), replies.recv_async()).await
+            {
+                if reply.result().is_ok() {
+                    attached = true;
+                    break;
+                }
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    assert!(attached, "denied sim did not attach to the bus");
+
+    // No cur sample should arrive within several sample periods — the publishes
+    // are refused locally and never reach the bus.
+    let got = tokio::time::timeout(Duration::from_secs(3), sub.recv_async()).await;
+    assert!(
+        got.is_err(),
+        "out-of-grant sim must not publish any cur sample"
+    );
+
+    supervisor.shutdown().await;
     drop(sub);
 }

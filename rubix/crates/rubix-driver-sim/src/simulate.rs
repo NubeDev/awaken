@@ -1,29 +1,28 @@
 //! Publish simulated `cur` samples on the configured point, on a cadence, until
-//! shutdown. Each publish is self-authorized against the granted capabilities —
-//! the driver refuses to publish outside its scope even though the bus also
-//! enforces it, so a misconfigured `point` fails loudly here rather than being
-//! silently dropped.
-
-use zenoh::Session;
-
-use rubix_driver::Access;
+//! shutdown. Every publish goes through the [`ScopedSession`], which authorizes
+//! it against the granted capabilities before it reaches the bus — so a
+//! misconfigured `point` fails loudly here rather than being silently dropped.
 
 use crate::config::SimConfig;
+use crate::scoped::ScopedSession;
 
 /// Run the publish loop until `shutdown` resolves. A sample is a sine-like
 /// oscillation around the baseline, JSON-encoded as a bare number on
 /// `{point}/cur` — the same payload shape the server publishes for `cur`.
-pub async fn run(session: &Session, cfg: &SimConfig, shutdown: impl std::future::Future<Output = ()>) {
+pub async fn run(
+    session: &ScopedSession,
+    cfg: &SimConfig,
+    shutdown: impl std::future::Future<Output = ()>,
+) {
     let cur_key = format!("{}/cur", cfg.point);
 
     // Fail closed: refuse to start if the configured point is outside the
-    // granted publish scope. The bus would drop it anyway; surfacing it here
-    // turns a silent no-op into a clear startup error.
+    // granted publish scope. The scoped session would deny each publish anyway;
+    // surfacing it here turns a silent loop into a clear startup error.
     if let Err(e) = cfg.caps.authorize_publish(&cfg.name, &cur_key) {
         tracing::error!(error = %e, key = %cur_key, "sim point not within granted capabilities; not publishing");
         return;
     }
-    debug_assert!(cfg.caps.allows(&cur_key, Access::Publish));
 
     let mut ticker = tokio::time::interval(cfg.period);
     tokio::pin!(shutdown);
@@ -34,13 +33,10 @@ pub async fn run(session: &Session, cfg: &SimConfig, shutdown: impl std::future:
                 let value = sample(cfg.baseline, cfg.amplitude, step);
                 step = step.wrapping_add(1);
                 match serde_json::to_vec(&value) {
-                    Ok(payload) => {
-                        if let Err(e) = session.put(&cur_key, payload).await {
-                            tracing::warn!(error = %e, key = %cur_key, "publish cur");
-                        } else {
-                            tracing::debug!(key = %cur_key, value, "published cur");
-                        }
-                    }
+                    Ok(payload) => match session.put(&cur_key, payload).await {
+                        Ok(()) => tracing::debug!(key = %cur_key, value, "published cur"),
+                        Err(e) => tracing::warn!(error = %e, key = %cur_key, "publish cur"),
+                    },
                     Err(e) => tracing::error!(error = %e, "encode sample"),
                 }
             }

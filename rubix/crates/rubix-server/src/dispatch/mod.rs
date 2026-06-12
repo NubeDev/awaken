@@ -19,6 +19,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::bus::ZenohBus;
+use crate::store::Store;
 
 /// Owns the dispatch loop and the signal that stops it.
 pub struct Dispatcher {
@@ -28,10 +29,12 @@ pub struct Dispatcher {
 
 impl Dispatcher {
     /// Launch the spark-dispatch loop on the bus, activating `runtime` per
-    /// finding. Returns a handle whose [`Dispatcher::shutdown`] stops it.
-    pub fn launch(bus: ZenohBus, runtime: Arc<AgentRuntime>) -> Self {
+    /// finding. Each run is persisted to `store` so a finding that suspends in
+    /// the escalation band lands on the operator surface. Returns a handle whose
+    /// [`Dispatcher::shutdown`] stops it.
+    pub fn launch(bus: ZenohBus, runtime: Arc<AgentRuntime>, store: Store) -> Self {
         let (shutdown, rx) = watch::channel(false);
-        let handle = tokio::spawn(subscribe::run_dispatch(bus, runtime, rx));
+        let handle = tokio::spawn(subscribe::run_dispatch(bus, runtime, store, rx));
         tracing::info!("spark dispatcher launched: **/spark/** -> agent runs");
         Self { shutdown, handle }
     }

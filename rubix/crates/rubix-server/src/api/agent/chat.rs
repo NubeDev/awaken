@@ -6,14 +6,13 @@
 //! — the agent has no path around the gating the tools enforce.
 
 use awaken_runtime::run::RunActivation;
-use awaken_runtime_contract::contract::lifecycle::TerminationReason;
 use awaken_runtime_contract::contract::message::Message;
 use axum::extract::State;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::agent::AGENT_ID;
+use crate::agent::{run_and_persist, RunOrigin, RunStatus, AGENT_ID};
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
 
@@ -68,20 +67,17 @@ pub(crate) async fn chat(
 
     let activation =
         RunActivation::new(req.thread_id, vec![Message::user(req.message)]).with_agent_id(AGENT_ID);
-    let result = runtime
-        .run_to_completion(activation)
+    let record = run_and_persist(runtime, &state.store, RunOrigin::Chat, activation)
         .await
         .map_err(|e| ApiError::BadRequest(format!("agent run failed: {e}")))?;
 
-    let (status, run_id) = match result.termination {
-        TerminationReason::Suspended => {
-            (ChatStatus::AwaitingApproval, Some(result.run_id.clone()))
-        }
+    let (status, run_id) = match record.status {
+        RunStatus::Suspended => (ChatStatus::AwaitingApproval, Some(record.id)),
         _ => (ChatStatus::Completed, None),
     };
     Ok(Json(ChatResponse {
-        response: result.response,
-        steps: result.steps,
+        response: record.response,
+        steps: record.steps,
         status,
         run_id,
     }))

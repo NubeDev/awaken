@@ -134,7 +134,9 @@ async fn main() -> anyhow::Result<()> {
         None
     } else {
         match (state.bus.clone(), state.agent.clone()) {
-            (Some(bus), Some(runtime)) => Some(Dispatcher::launch(bus, runtime)),
+            (Some(bus), Some(runtime)) => {
+                Some(Dispatcher::launch(bus, runtime, state.store.clone()))
+            }
             _ => {
                 tracing::info!("spark dispatch idle: needs both zenoh and the agent");
                 None

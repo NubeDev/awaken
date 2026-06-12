@@ -55,7 +55,7 @@ async fn published_spark_activates_an_agent_run() {
     let fan = app.create_point(&equip, "cmd", "fan").await;
 
     // Launch dispatch, then publish a finding as a second peer would.
-    let dispatcher = Dispatcher::launch(bus.clone(), runtime);
+    let dispatcher = Dispatcher::launch(bus.clone(), runtime, store.clone());
     tokio::time::sleep(Duration::from_millis(500)).await; // let the subscriber attach
 
     let spark = json!({

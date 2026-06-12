@@ -9,16 +9,18 @@ use std::sync::Arc;
 
 use awaken_runtime::run::RunActivation;
 use awaken_runtime::AgentRuntime;
-use awaken_runtime_contract::contract::lifecycle::TerminationReason;
 use awaken_runtime_contract::contract::message::Message;
 use rubix_core::Spark;
 
 use super::job;
-use crate::agent::AGENT_ID;
+use crate::agent::{run_and_persist, RunOrigin, RunStatus, AGENT_ID};
+use crate::store::Store;
 
-/// Decode a published spark payload and run the agent on it. Never panics; a
-/// decode or run failure is logged so one bad finding cannot stop the loop.
-pub(super) async fn dispatch_spark(payload: &[u8], runtime: &Arc<AgentRuntime>) {
+/// Decode a published spark payload and run the agent on it. The run is
+/// persisted (a suspended finding lands on the operator surface, an in-flight
+/// dispatched run is no longer fire-and-log). Never panics; a decode or run
+/// failure is logged so one bad finding cannot stop the loop.
+pub(super) async fn dispatch_spark(payload: &[u8], runtime: &Arc<AgentRuntime>, store: &Store) {
     let spark: Spark = match serde_json::from_slice(payload) {
         Ok(s) => s,
         Err(e) => {
@@ -30,17 +32,17 @@ pub(super) async fn dispatch_spark(payload: &[u8], runtime: &Arc<AgentRuntime>) 
     let activation =
         RunActivation::new(thread.clone(), vec![Message::user(job::prompt(&spark))])
             .with_agent_id(AGENT_ID);
-    match runtime.run_to_completion(activation).await {
-        Ok(result) => match result.termination {
-            TerminationReason::Suspended => {
+    match run_and_persist(runtime, store, RunOrigin::Dispatch, activation).await {
+        Ok(record) => match record.status {
+            RunStatus::Suspended => {
                 tracing::info!(
-                    rule = %spark.rule, run_id = %result.run_id,
+                    rule = %spark.rule, run_id = %record.id,
                     "dispatch: agent run suspended for approval"
                 );
             }
             _ => {
                 tracing::info!(
-                    rule = %spark.rule, steps = result.steps,
+                    rule = %spark.rule, steps = record.steps,
                     "dispatch: agent run completed"
                 );
             }

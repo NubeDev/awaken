@@ -12,6 +12,7 @@ use tokio::sync::watch;
 
 use super::run::dispatch_spark;
 use crate::bus::ZenohBus;
+use crate::store::Store;
 
 /// The keyexpr every site's spark publications fall under
 /// (`{org}/{site}/spark/{rule}/{id}`).
@@ -23,6 +24,7 @@ const SPARK_KEY: &str = "**/spark/**";
 pub(super) async fn run_dispatch(
     bus: ZenohBus,
     runtime: Arc<AgentRuntime>,
+    store: Store,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let subscriber = match bus.session_clone().declare_subscriber(SPARK_KEY).await {
@@ -38,7 +40,7 @@ pub(super) async fn run_dispatch(
             sample = stream.next() => {
                 match sample {
                     Some(sample) => {
-                        dispatch_spark(&sample.payload().to_bytes(), &runtime).await;
+                        dispatch_spark(&sample.payload().to_bytes(), &runtime, &store).await;
                     }
                     None => {
                         tracing::debug!("dispatch: spark stream closed");

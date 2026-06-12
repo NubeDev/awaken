@@ -38,6 +38,23 @@ impl Store {
             .ok_or(StoreError::NotFound("point"))
     }
 
+    /// Distinct `{org}/{site}` prefixes this node owns — one per site in the
+    /// store. The bus scopes its `write`/`his` queryables to these so a node in
+    /// a multi-node mesh only answers for sites it actually holds, instead of
+    /// declaring global `**/write` and replying "not found" for foreign keys.
+    pub fn owned_site_prefixes(&self) -> Result<Vec<String>> {
+        let conn = self.conn()?;
+        let mut stmt = conn.prepare("SELECT org, slug FROM sites ORDER BY org, slug")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(format!(
+                "{}/{}",
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?
+            ))
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
     /// All points with their keyexpr prefixes, for declaring the data plane.
     pub fn all_point_keys(&self) -> Result<Vec<PointKey>> {
         let conn = self.conn()?;

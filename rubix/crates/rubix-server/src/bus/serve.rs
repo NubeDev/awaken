@@ -4,6 +4,7 @@
 use chrono::Utc;
 use futures::StreamExt;
 use rubix_core::PointValue;
+use rubix_driver::{Access, Capability};
 use zenoh::query::Query;
 
 use super::ZenohBus;
@@ -70,6 +71,13 @@ impl ZenohBus {
         let Some(prefix) = prefix_before(&key, "write") else {
             return;
         };
+        // In a multi-node mesh, every node's wildcard queryable sees every
+        // query. Answer only for keys under a site this node owns; stay silent
+        // otherwise so the owning node's reply is the only one — no "not found"
+        // noise from foreign nodes.
+        if !self.owns(prefix).await {
+            return;
+        }
         let Some(payload) = query.payload() else {
             let _ = query.reply_err("write requires a value payload").await;
             return;
@@ -111,6 +119,9 @@ impl ZenohBus {
         let Some((prefix, _)) = key.split_once("/his") else {
             return;
         };
+        if !self.owns(prefix).await {
+            return;
+        }
         let prefix = prefix.to_string();
         let store = self.store.clone();
         let result = tokio::task::spawn_blocking(move || {
@@ -131,6 +142,36 @@ impl ZenohBus {
                 let _ = query.reply_err(format!("his task: {e}")).await;
             }
         }
+    }
+}
+
+impl ZenohBus {
+    /// True if `point_prefix` (`{org}/{site}/{equip}/{point}`) falls under a
+    /// site this node owns. Reuses [`Capability::covers`] for correct path-
+    /// boundary matching (so `nube/hq` does not spuriously cover `nube/hq2`).
+    /// Ownership is read live from the store, so sites provisioned after boot
+    /// are covered without re-declaring queryables.
+    async fn owns(&self, point_prefix: &str) -> bool {
+        let store = self.store.clone();
+        let prefixes = match tokio::task::spawn_blocking(move || store.owned_site_prefixes()).await
+        {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => {
+                tracing::warn!(error = %e, "owned-prefix lookup failed; declining query");
+                return false;
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "owned-prefix task failed; declining query");
+                return false;
+            }
+        };
+        prefixes.iter().any(|site| {
+            Capability {
+                prefix: site.clone(),
+                access: Access::All,
+            }
+            .covers(point_prefix)
+        })
     }
 }
 

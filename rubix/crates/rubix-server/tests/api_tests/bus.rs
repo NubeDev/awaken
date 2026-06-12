@@ -99,6 +99,32 @@ async fn write_queryable_commands_priority_array() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn write_query_for_unowned_site_gets_no_reply() {
+    // The node owns no `ghost/x` site, so its wildcard `**/write` queryable must
+    // stay silent rather than answer "not found" — that's what lets the owning
+    // node be the sole responder in a multi-node mesh.
+    let (_app, _bus) = TestApp::with_bus().await;
+    let client = client_session().await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let replies = client
+        .get("ghost/x/ahu-1/fan/write")
+        .payload(serde_json::to_vec(&json!({ "value": true })).unwrap())
+        .await
+        .expect("get write");
+
+    // No owned site covers the key → no successful reply. Either the query
+    // window closes the channel (Ok(Err)) or it times out (outer Err); a
+    // delivered reply (Ok(Ok)) would be the failure.
+    let got = tokio::time::timeout(Duration::from_millis(800), replies.recv_async()).await;
+    let delivered = matches!(got, Ok(Ok(_)));
+    assert!(
+        !delivered,
+        "expected no reply for unowned site, got {got:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn spark_create_publishes_on_zenoh() {
     let (app, _bus) = TestApp::with_bus().await;
     let site = app.create_site_with("bus5", "s5").await;

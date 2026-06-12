@@ -167,6 +167,58 @@ async fn spark_create_publishes_on_zenoh() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn board_emit_spark_publishes_on_zenoh() {
+    let (app, _bus) = TestApp::with_bus().await;
+    let _site = app.create_site_with("bus6", "s6").await;
+
+    let client = client_session().await;
+    let sub = client
+        .declare_subscriber("bus6/s6/spark/**")
+        .await
+        .expect("subscribe");
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Store a board whose single node emits a finding, then run it by slug.
+    let board = json!({
+        "slug": "conflict-rule", "display_name": "Conflict rule",
+        "trigger": {"kind": "manual"},
+        "board": {
+            "nodes": [{
+                "id": "s1", "component": "emit_spark",
+                "config": {
+                    "site": "bus6/s6", "rule": "heat-cool-conflict",
+                    "severity": "fault", "message": "AHU-3 heat/cool conflict"
+                }
+            }],
+            "connections": []
+        }
+    });
+    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, _) = app
+        .request("POST", "/api/v1/boards/conflict-rule/run", None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // The board-emitted finding lands on the same `spark` keyexpr scheme as
+    // an HTTP-created one.
+    let sample = tokio::time::timeout(Duration::from_secs(3), sub.recv_async())
+        .await
+        .expect("spark within timeout")
+        .expect("sample");
+    let key = sample.key_expr().as_str();
+    assert!(
+        key.starts_with("bus6/s6/spark/heat-cool-conflict/"),
+        "unexpected key {key}"
+    );
+    let published: Value =
+        serde_json::from_slice(&sample.payload().to_bytes()).expect("decode spark payload");
+    assert_eq!(published["rule"], json!("heat-cool-conflict"));
+    assert_eq!(published["severity"], json!("fault"));
+    assert_eq!(published["message"], json!("AHU-3 heat/cool conflict"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn his_queryable_serves_history() {
     let (app, _bus) = TestApp::with_bus().await;
     let site = app.create_site_with("bus3", "s3").await;

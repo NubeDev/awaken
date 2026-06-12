@@ -6,6 +6,7 @@
 //! — the agent has no path around the gating the tools enforce.
 
 use awaken_runtime::run::RunActivation;
+use awaken_runtime_contract::contract::lifecycle::TerminationReason;
 use awaken_runtime_contract::contract::message::Message;
 use axum::extract::State;
 use axum::Json;
@@ -30,6 +31,24 @@ pub struct ChatResponse {
     pub response: String,
     /// How many loop steps the run took.
     pub steps: usize,
+    /// How the run ended: `completed` for a normal turn, or
+    /// `awaiting_approval` when a tool (e.g. a `write_point` above the agent
+    /// priority ceiling) suspended for human approval. The run's id is
+    /// returned so an operator surface can resume it.
+    pub status: ChatStatus,
+    /// Set when `status` is `awaiting_approval`: the suspended run's id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+}
+
+/// Outcome of a chat turn.
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatStatus {
+    /// The turn finished and `response` is the agent's answer.
+    Completed,
+    /// A tool call suspended for human approval; the run is paused.
+    AwaitingApproval,
 }
 
 #[utoipa::path(post, path = "/api/v1/agent/chat", tag = "agent",
@@ -54,8 +73,16 @@ pub(crate) async fn chat(
         .await
         .map_err(|e| ApiError::BadRequest(format!("agent run failed: {e}")))?;
 
+    let (status, run_id) = match result.termination {
+        TerminationReason::Suspended => {
+            (ChatStatus::AwaitingApproval, Some(result.run_id.clone()))
+        }
+        _ => (ChatStatus::Completed, None),
+    };
     Ok(Json(ChatResponse {
         response: result.response,
         steps: result.steps,
+        status,
+        run_id,
     }))
 }

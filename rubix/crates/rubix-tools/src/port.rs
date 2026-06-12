@@ -17,6 +17,23 @@ pub trait QueryAccess: Send + Sync + 'static {
     async fn query(&self, sql: &str) -> anyhow::Result<Vec<serde_json::Value>>;
 }
 
+/// Pin a dashboard widget so a finding or trend an agent surfaced persists on
+/// the site dashboard. The host writes it to the store after validating the
+/// owning site exists.
+#[async_trait]
+pub trait WidgetAccess: Send + Sync + 'static {
+    /// Pin a widget on `site_id`. `kind` is one of `point_value`,
+    /// `point_history`, `board_output`; `target` is a point keyexpr or board
+    /// slug per the kind. Returns the new widget id.
+    async fn pin_widget(
+        &self,
+        site_id: uuid::Uuid,
+        kind: &str,
+        title: &str,
+        target: &str,
+    ) -> anyhow::Result<uuid::Uuid>;
+}
+
 /// Run a reflow control/rule board to completion. The host loads the board JSON
 /// into a reflow `Network` over the store-backed `PointAccess` and returns each
 /// node's outputs. Board writes go through the priority array, so the same

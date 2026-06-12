@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-server", "crates/rubix-tools"]
+members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-driver-sim", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-server", "crates/rubix-tools"]
 
 [workspace.package]
 version = "0.1.0"

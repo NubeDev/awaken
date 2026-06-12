@@ -70,17 +70,48 @@ async fn agent_eligible_priority_is_allowed() {
 }
 
 #[tokio::test]
-async fn priority_above_agent_min_is_denied() {
+async fn priority_above_agent_min_suspends_for_approval() {
+    // Default floor is slot 1, so slot 8 (above the agent ceiling) escalates
+    // rather than being denied.
     let (tool, access) = tool();
-    let err = tool
+    let out = tool
         .execute(
             json!({ "point": "nube/hq/ahu-3/fan", "value": true, "priority": 8 }),
             &ToolCallContext::test_default(),
         )
         .await
+        .expect("suspended output");
+    assert!(out.result.is_pending(), "write should suspend, not commit");
+    let ticket = out.result.suspension.expect("suspension ticket");
+    assert_eq!(ticket.suspension.action, "approve_write");
+    assert_eq!(ticket.suspension.parameters["priority"], json!(8));
+    assert_eq!(ticket.suspension.parameters["point"], json!("nube/hq/ahu-3/fan"));
+    // The store must never have been touched while awaiting approval.
+    assert!(access.last.lock().unwrap().is_none());
+}
+
+#[tokio::test]
+async fn priority_below_escalation_floor_is_denied() {
+    let access = Arc::new(RecordingAccess::default());
+    // Slots 1..=2 are operator-reserved; agent ceiling at 13.
+    let tool = WritePointTool::with_escalation_floor(access.clone(), 13, 3);
+    let err = tool
+        .execute(
+            json!({ "point": "nube/hq/ahu-3/fan", "value": true, "priority": 2 }),
+            &ToolCallContext::test_default(),
+        )
+        .await
         .unwrap_err();
     assert!(matches!(err, ToolError::Denied(_)));
-    // The store must never have been touched.
+    // A slot inside the escalation band still suspends, not denies.
+    let out = tool
+        .execute(
+            json!({ "point": "nube/hq/ahu-3/fan", "value": true, "priority": 8 }),
+            &ToolCallContext::test_default(),
+        )
+        .await
+        .expect("suspended");
+    assert!(out.result.is_pending());
     assert!(access.last.lock().unwrap().is_none());
 }
 

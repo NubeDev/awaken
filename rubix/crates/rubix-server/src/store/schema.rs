@@ -47,6 +47,27 @@ CREATE TABLE IF NOT EXISTS sparks (
     ts           TEXT NOT NULL,
     acknowledged INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS boards (
+    id          TEXT PRIMARY KEY,
+    slug        TEXT NOT NULL,
+    version     INTEGER NOT NULL,
+    display_name TEXT NOT NULL,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    trigger     TEXT NOT NULL,
+    graph       TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    UNIQUE (slug, version)
+);
+CREATE TABLE IF NOT EXISTS widgets (
+    id         TEXT PRIMARY KEY,
+    site_id    TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    target     TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
+CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
+CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);
 ";

@@ -15,5 +15,7 @@ mod port;
 
 pub use board::{BoardConnection, BoardGraph, BoardNode, NodeOutput, COMPONENTS};
 pub use error::FlowError;
-pub use node::{QueryHisActor, ReadPointActor, WritePointActor};
-pub use port::PointAccess;
+pub use node::{
+    AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, WritePointActor,
+};
+pub use port::{AgentRequest, PointAccess, SparkDraft};

@@ -13,6 +13,7 @@ mod query;
 mod sites;
 mod sparks;
 mod tag_query;
+mod widgets;
 
 pub use openapi::ApiDoc;
 
@@ -31,6 +32,7 @@ pub fn router(state: AppState) -> Router {
         .merge(command::router())
         .merge(his::router())
         .merge(sparks::router())
+        .merge(widgets::router())
         .merge(query::router())
         .merge(boards::router())
         .merge(agent::router())

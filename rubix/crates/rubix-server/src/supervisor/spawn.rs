@@ -1,15 +1,10 @@
 //! Launch a driver child process from its manifest.
 
 use rubix_driver::DriverManifest;
+// The env-var names are part of the driver contract; re-export the canonical
+// definitions from `rubix-driver` so the spawner and driver binaries agree.
+pub use rubix_driver::{ENV_DRIVER_CAPS, ENV_DRIVER_CONFIG, ENV_DRIVER_NAME};
 use tokio::process::{Child, Command};
-
-/// Env var carrying the driver's own name (also its liveliness-token key).
-pub const ENV_DRIVER_NAME: &str = "RUBIX_DRIVER_NAME";
-/// Env var carrying the JSON-encoded [`rubix_driver::CapabilitySet`] the
-/// driver must confine its session to.
-pub const ENV_DRIVER_CAPS: &str = "RUBIX_DRIVER_CAPS";
-/// Env var carrying the driver's JSON config blob.
-pub const ENV_DRIVER_CONFIG: &str = "RUBIX_DRIVER_CONFIG";
 
 /// Spawn the driver process described by `manifest`, passing its identity,
 /// granted capabilities, and config through the environment. The child speaks

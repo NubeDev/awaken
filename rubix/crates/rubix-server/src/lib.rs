@@ -7,8 +7,10 @@
 pub mod agent;
 pub mod api;
 pub mod bus;
+pub mod dispatch;
 pub mod error;
 pub mod flow;
+pub mod scheduler;
 pub mod store;
 pub mod supervisor;
 pub mod tools;
@@ -37,8 +39,13 @@ pub struct AppState {
     /// `RUBIX_AI=1`; the `/agent/chat` route returns 503 when absent.
     pub agent: Option<Arc<AgentRuntime>>,
     /// Priority level AI/agent writes are clamped to (1..=16); writes from
-    /// agents may not command above (numerically below) this level.
+    /// agents may not command above (numerically below) this level outright —
+    /// they escalate for human approval instead.
     pub ai_min_priority: u8,
+    /// Lowest priority slot an agent write may reach *with* human approval
+    /// (1..=`ai_min_priority`). Slots below this are operator-reserved and
+    /// hard-refused. Defaults to 1 (escalate the whole band above the ceiling).
+    pub ai_escalation_floor: u8,
 }
 
 pub fn app(state: AppState) -> Router {

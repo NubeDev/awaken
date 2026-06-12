@@ -3,21 +3,56 @@
 //! via [`Store::command_point`]; the agent-priority gate is enforced at the
 //! HTTP/tool layer, not here (boards are operator-authored control logic).
 
-use chrono::Utc;
-use rubix_core::{HisSample, PointValue};
-use rubix_flow::PointAccess;
+use std::sync::Arc;
 
+use awaken_runtime::run::RunActivation;
+use awaken_runtime::AgentRuntime;
+use awaken_runtime_contract::contract::message::Message;
+use chrono::Utc;
+use rubix_core::{HisSample, PointValue, Spark};
+use rubix_flow::{AgentRequest, PointAccess, SparkDraft};
+use uuid::Uuid;
+
+use crate::agent::AGENT_ID;
+use crate::bus::ZenohBus;
 use crate::store::Store;
 
-/// Store-backed point access handed to [`rubix_flow::BoardGraph::load`].
+/// Store-backed point access handed to [`rubix_flow::BoardGraph::load`]. An
+/// optional bus lets board-emitted sparks publish on their rule keyexpr, the
+/// same way HTTP `POST /sparks` does. An optional agent runtime lets an
+/// `agent_call` node activate a run. Both are absent for the board access the
+/// agent's own `run_board` tool builds — so `agent_call` fails closed there and
+/// the agent → board → agent loop cannot recur.
 #[derive(Clone)]
 pub struct StorePointAccess {
     store: Store,
+    bus: Option<ZenohBus>,
+    agent: Option<Arc<AgentRuntime>>,
 }
 
 impl StorePointAccess {
     pub fn new(store: Store) -> Self {
-        Self { store }
+        Self {
+            store,
+            bus: None,
+            agent: None,
+        }
+    }
+
+    /// Construct with a bus so `emit_spark` publishes findings live.
+    pub fn with_bus(store: Store, bus: Option<ZenohBus>) -> Self {
+        Self {
+            store,
+            bus,
+            agent: None,
+        }
+    }
+
+    /// Add the agent runtime so an `agent_call` node can raise a run. Chained
+    /// after `with_bus` on the scheduler/HTTP board paths.
+    pub fn with_agent(mut self, agent: Option<Arc<AgentRuntime>>) -> Self {
+        self.agent = agent;
+        self
     }
 }
 
@@ -43,5 +78,62 @@ impl PointAccess for StorePointAccess {
     fn query_his(&self, keyexpr: &str, limit: usize) -> anyhow::Result<Vec<HisSample>> {
         let id = self.store.point_by_keyexpr(keyexpr)?;
         Ok(self.store.his_query(id, None, None, limit)?)
+    }
+
+    /// Persist a rule-board finding and, when a bus is present, publish it on
+    /// `{org}/{site}/spark/{rule}/{id}` so cloud subscribers observe it live —
+    /// the same keyexpr scheme as HTTP `POST /sparks`. The port is synchronous;
+    /// publishing is detached onto the current runtime (a board only runs inside
+    /// one), so a slow or failed publish never blocks the graph. The spark is
+    /// already durable, so the publish is best-effort.
+    fn emit_spark(&self, draft: SparkDraft) -> anyhow::Result<()> {
+        let site_id = self.store.site_id_by_prefix(&draft.site_prefix)?;
+        let spark = Spark {
+            id: Uuid::new_v4(),
+            site_id,
+            rule: draft.rule,
+            severity: draft.severity,
+            message: draft.message,
+            point_ids: Vec::new(),
+            ts: Utc::now(),
+            acknowledged: false,
+        };
+        self.store.create_spark(&spark)?;
+        if let Some(bus) = &self.bus {
+            // `site_prefix` is `{org}/{site}` — the two segments the publish key
+            // needs. Resolved already by `site_id_by_prefix`, so it is well-formed.
+            if let Some((org, site_slug)) = draft.site_prefix.split_once('/') {
+                let bus = bus.clone();
+                let (org, site_slug) = (org.to_string(), site_slug.to_string());
+                tokio::spawn(async move {
+                    bus.publish_spark(&org, &site_slug, &spark).await;
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Raise an agent run for an `agent_call` node. Fails closed when no agent
+    /// runtime is wired (notably the `run_board` tool's board access, breaking
+    /// recursion). Fire-and-forget: the run is detached onto the current runtime
+    /// so the board does not block on the LLM, mirroring `emit_spark`.
+    fn request_agent(&self, request: AgentRequest) -> anyhow::Result<()> {
+        let Some(agent) = &self.agent else {
+            anyhow::bail!("agent_call: no agent runtime on this board access");
+        };
+        let agent = agent.clone();
+        tokio::spawn(async move {
+            let activation = RunActivation::new(request.thread, vec![Message::user(request.prompt)])
+                .with_agent_id(AGENT_ID);
+            match agent.run_to_completion(activation).await {
+                Ok(result) => {
+                    tracing::info!(steps = result.steps, "agent_call run completed");
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "agent_call run failed");
+                }
+            }
+        });
+        Ok(())
     }
 }

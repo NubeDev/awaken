@@ -4912,6 +4912,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-driver-sim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rubix-driver",
+ "rubix-server",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zenoh",
+]
+
+[[package]]
 name = "rubix-flow"
 version = "0.1.0"
 dependencies = [
@@ -4991,6 +5006,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

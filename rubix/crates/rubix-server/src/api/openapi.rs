@@ -5,7 +5,9 @@ use utoipa::OpenApi;
 
 use crate::error::ErrorBody;
 
-use super::{agent, boards, command, equips, health, his, points, query, sites, sparks};
+use super::{
+    agent, boards, command, equips, health, his, points, query, sites, sparks, widgets,
+};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -39,7 +41,14 @@ use super::{agent, boards, command, equips, health, his, points, query, sites, s
         sparks::ack::ack_spark,
         query::run::run_query,
         boards::run::run_board,
+        boards::create::create_board,
+        boards::list::list_boards,
+        boards::get::get_board,
+        boards::delete::delete_board,
+        boards::run_stored::run_stored_board,
         agent::chat::chat,
+        widgets::create::create_widget,
+        widgets::list::list_widgets,
     ),
     components(schemas(ErrorBody))
 )]

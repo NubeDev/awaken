@@ -2,10 +2,12 @@
 //! identity, contributed point types, granted capabilities, and config schema.
 
 mod capability;
+mod env;
 mod identity;
 mod point_type;
 
 pub use capability::{Access, Capability, CapabilitySet};
+pub use env::{ENV_DRIVER_CAPS, ENV_DRIVER_CONFIG, ENV_DRIVER_NAME};
 pub use identity::{Identity, Launch};
 pub use point_type::{PinDirection, PointType};
 

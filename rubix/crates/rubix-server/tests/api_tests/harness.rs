@@ -39,12 +39,30 @@ impl TestApp {
             query: None,
             agent: None,
             ai_min_priority: 13,
+            ai_escalation_floor: 1,
         };
         let app = Self {
             router: app(state.clone()),
             _dir: dir,
         };
         (app, state)
+    }
+
+    /// Build over an already-open store, for tests that drive a store-backed
+    /// component (e.g. the scheduler) alongside the HTTP API on one DB.
+    pub fn with_store_at(store: Store) -> Self {
+        let state = AppState {
+            store,
+            bus: None,
+            query: None,
+            agent: None,
+            ai_min_priority: 13,
+            ai_escalation_floor: 1,
+        };
+        Self {
+            router: app(state),
+            _dir: tempfile::tempdir().expect("tempdir"),
+        }
     }
 
     /// Build with a live zenoh bus whose queryables serve the same store.
@@ -59,6 +77,7 @@ impl TestApp {
             query: None,
             agent: None,
             ai_min_priority: 13,
+            ai_escalation_floor: 1,
         };
         let app = Self {
             router: app(state),
@@ -80,6 +99,7 @@ impl TestApp {
             query: Some(query),
             agent: None,
             ai_min_priority: 13,
+            ai_escalation_floor: 1,
         };
         Self {
             router: app(state),
@@ -96,6 +116,7 @@ impl TestApp {
             query: None,
             agent: None,
             ai_min_priority: 13,
+            ai_escalation_floor: 1,
         };
         Self {
             router: app(state),

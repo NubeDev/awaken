@@ -1,6 +1,8 @@
 use rubix_query::QueryEngine;
 use rubix_server::bus::ZenohBus;
+use rubix_server::dispatch::Dispatcher;
 use rubix_server::store::Store;
+use rubix_server::scheduler::Scheduler;
 use rubix_server::supervisor::{load_manifests, Supervisor};
 use rubix_server::{app, AppState};
 
@@ -24,6 +26,14 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("RUBIX_AI_MIN_PRIORITY must be 1..=16: {e}"))?;
     if !(1..=16).contains(&ai_min_priority) {
         anyhow::bail!("RUBIX_AI_MIN_PRIORITY must be 1..=16, got {ai_min_priority}");
+    }
+    let ai_escalation_floor: u8 = env_or("RUBIX_AI_ESCALATION_FLOOR", "1")
+        .parse()
+        .map_err(|e| anyhow::anyhow!("RUBIX_AI_ESCALATION_FLOOR must be 1..=16: {e}"))?;
+    if !(1..=ai_min_priority).contains(&ai_escalation_floor) {
+        anyhow::bail!(
+            "RUBIX_AI_ESCALATION_FLOOR must be 1..={ai_min_priority}, got {ai_escalation_floor}"
+        );
     }
 
     let store = Store::open(std::path::Path::new(&db_path))?;
@@ -66,6 +76,7 @@ async fn main() -> anyhow::Result<()> {
         query,
         agent: None,
         ai_min_priority,
+        ai_escalation_floor,
     };
 
     // Embed the awaken agent over the BMS tools when enabled. The genai
@@ -91,11 +102,63 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("agent disabled (RUBIX_AI != 1)");
     }
 
+    // Launch the board scheduler: fire stored boards on their interval or cur
+    // subscription. Reads the current set of scheduled boards from the store at
+    // boot; a board added later is picked up on the next restart.
+    let scheduler = if env_or("RUBIX_SCHEDULER", "1") == "0" {
+        tracing::info!("board scheduler disabled (RUBIX_SCHEDULER=0)");
+        None
+    } else {
+        let boards = state.store.latest_boards()?;
+        let scheduled: Vec<_> = boards.into_iter().filter(|b| b.is_scheduled()).collect();
+        if scheduled.is_empty() {
+            tracing::info!("no scheduled boards; scheduler idle");
+            None
+        } else {
+            let scheduler = Scheduler::launch(
+                state.store.clone(),
+                state.bus.clone(),
+                state.agent.clone(),
+                scheduled,
+            );
+            tracing::info!(boards = scheduler.active(), "board scheduler running");
+            Some(scheduler)
+        }
+    };
+
+    // Launch inbound spark dispatch: subscribe to spark findings on the bus and
+    // activate the agent per finding (a job, not a chat). Needs both the bus
+    // (transport) and the agent runtime; without either, dispatch is off.
+    let dispatcher = if env_or("RUBIX_AI_DISPATCH", "1") == "0" {
+        tracing::info!("spark dispatch disabled (RUBIX_AI_DISPATCH=0)");
+        None
+    } else {
+        match (state.bus.clone(), state.agent.clone()) {
+            (Some(bus), Some(runtime)) => Some(Dispatcher::launch(bus, runtime)),
+            _ => {
+                tracing::info!("spark dispatch idle: needs both zenoh and the agent");
+                None
+            }
+        }
+    };
+
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path, "rubix server listening");
     axum::serve(listener, app(state))
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+
+    // Stop the spark dispatcher first so no new agent runs start during teardown.
+    if let Some(dispatcher) = dispatcher {
+        tracing::info!("stopping spark dispatcher");
+        dispatcher.shutdown().await;
+    }
+
+    // Stop the board scheduler so its loops drain before drivers go down.
+    if let Some(scheduler) = scheduler {
+        tracing::info!("stopping board scheduler");
+        scheduler.shutdown().await;
+    }
 
     // Stop supervised drivers cleanly so liveliness tokens clear before exit.
     if let Some(supervisor) = supervisor {

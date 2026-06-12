@@ -4,7 +4,9 @@
 mod board_access;
 mod query_access;
 mod registry;
+mod widget_access;
 
 pub use board_access::StoreBoardAccess;
 pub use query_access::EngineQueryAccess;
 pub use registry::build_tools;
+pub use widget_access::StoreWidgetAccess;

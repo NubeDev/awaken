@@ -5,10 +5,11 @@
 use std::sync::Arc;
 
 use awaken_runtime_contract::contract::tool::Tool;
-use rubix_tools::{QueryTool, ReadPointTool, RunBoardTool, WritePointTool};
+use rubix_tools::{PinWidgetTool, QueryTool, ReadPointTool, RunBoardTool, WritePointTool};
 
 use super::board_access::StoreBoardAccess;
 use super::query_access::EngineQueryAccess;
+use super::widget_access::StoreWidgetAccess;
 use crate::flow::StorePointAccess;
 use crate::AppState;
 
@@ -19,8 +20,15 @@ pub fn build_tools(state: &AppState) -> Vec<Arc<dyn Tool>> {
     let access = Arc::new(StorePointAccess::new(state.store.clone()));
     let mut tools: Vec<Arc<dyn Tool>> = vec![
         Arc::new(ReadPointTool::new(access.clone())),
-        Arc::new(WritePointTool::new(access, state.ai_min_priority)),
+        Arc::new(WritePointTool::with_escalation_floor(
+            access,
+            state.ai_min_priority,
+            state.ai_escalation_floor,
+        )),
         Arc::new(RunBoardTool::new(Arc::new(StoreBoardAccess::new(
+            state.store.clone(),
+        )))),
+        Arc::new(PinWidgetTool::new(Arc::new(StoreWidgetAccess::new(
             state.store.clone(),
         )))),
     ];

@@ -38,6 +38,23 @@ impl Store {
             .ok_or(StoreError::NotFound("point"))
     }
 
+    /// Resolve an `{org}/{site}` prefix to a site id. Used by the `emit_spark`
+    /// board node, which names its site the same way it names points.
+    pub fn site_id_by_prefix(&self, prefix: &str) -> Result<Uuid> {
+        let parts: Vec<&str> = prefix.split('/').collect();
+        if parts.len() != 2 {
+            return Err(StoreError::NotFound("site"));
+        }
+        self.conn()?
+            .query_row(
+                "SELECT id FROM sites WHERE org = ?1 AND slug = ?2",
+                params![parts[0], parts[1]],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::NotFound("site"))
+    }
+
     /// Distinct `{org}/{site}` prefixes this node owns — one per site in the
     /// store. The bus scopes its `write`/`his` queryables to these so a node in
     /// a multi-node mesh only answers for sites it actually holds, instead of

@@ -13,7 +13,7 @@ impl QueryEngine {
     /// registered canonical tables. Result batches are encoded column-wise by
     /// `arrow-json`, preserving nulls and nested types.
     pub async fn query(&self, sql: &str) -> Result<QueryRows, QueryError> {
-        let ctx = self.session()?;
+        let ctx = self.session().await?;
         let df = ctx.sql(sql).await?;
         let batches = df.collect().await?;
 
@@ -29,6 +29,6 @@ impl QueryEngine {
         if buf.is_empty() {
             return Ok(Vec::new());
         }
-        Ok(serde_json::from_slice(&buf).unwrap_or_default())
+        Ok(serde_json::from_slice(&buf)?)
     }
 }

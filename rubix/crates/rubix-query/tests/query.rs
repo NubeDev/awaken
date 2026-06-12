@@ -41,6 +41,12 @@ fn seed_db() -> (TempDir, std::path::PathBuf) {
     )
     .expect("site");
     conn.execute(
+        "INSERT INTO equips (id, site_id, path, display_name, tags, created_at) \
+         VALUES ('e1', 's1', 'ahu-3', 'AHU-3', '{}', '2026-01-01T00:00:00Z')",
+        [],
+    )
+    .expect("equip");
+    conn.execute(
         "INSERT INTO points (id, equip_id, slug, display_name, kind, unit, tags, \
          priority_array, cur_value, cur_ts, created_at) VALUES \
          ('p1', 'e1', 'temp', 'Temp', 'analog', '°C', '{}', '[]', '21.5', \
@@ -78,6 +84,23 @@ async fn joins_across_canonical_tables() {
 
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0]["slug"], "temp");
+    assert_eq!(rows[0]["cur_value"], "21.5");
+}
+
+#[tokio::test]
+async fn points_cur_view_resolves_keyexpr_and_value() {
+    let (_dir, path) = seed_db();
+    let engine = QueryEngine::open(&path).await.expect("open engine");
+
+    let rows = engine
+        .query("SELECT keyexpr, kind, unit, cur_value FROM points_cur")
+        .await
+        .expect("query");
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["keyexpr"], "acme/hq/ahu-3/temp");
+    assert_eq!(rows[0]["kind"], "analog");
+    assert_eq!(rows[0]["unit"], "°C");
     assert_eq!(rows[0]["cur_value"], "21.5");
 }
 

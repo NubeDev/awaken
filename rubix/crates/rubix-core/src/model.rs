@@ -100,3 +100,30 @@ pub struct Spark {
     pub ts: DateTime<Utc>,
     pub acknowledged: bool,
 }
+
+/// What a pinned widget renders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetKind {
+    /// Live current value of a point (`target` is a point keyexpr).
+    PointValue,
+    /// Time-series history of a point (`target` is a point keyexpr).
+    PointHistory,
+    /// Latest output of a stored board (`target` is a board slug).
+    BoardOutput,
+}
+
+/// A dashboard tile pinned by an agent (or operator) for later viewing. The
+/// agent `pin_widget` tool creates these so a finding or trend it surfaced
+/// during a turn persists on the site dashboard instead of scrolling away.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Widget {
+    pub id: Uuid,
+    pub site_id: Uuid,
+    pub kind: WidgetKind,
+    /// Human-facing tile title.
+    pub title: String,
+    /// What the tile points at: a point keyexpr or a board slug, per `kind`.
+    pub target: String,
+    pub created_at: DateTime<Utc>,
+}

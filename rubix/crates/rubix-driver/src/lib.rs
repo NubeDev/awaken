@@ -11,4 +11,5 @@ mod manifest;
 pub use error::DriverError;
 pub use manifest::{
     Access, Capability, CapabilitySet, DriverManifest, Identity, Launch, PinDirection, PointType,
+    ENV_DRIVER_CAPS, ENV_DRIVER_CONFIG, ENV_DRIVER_NAME,
 };

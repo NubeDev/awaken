@@ -110,7 +110,7 @@ async fn run_board_tool_evaluates_a_board_over_the_store() {
 }
 
 #[tokio::test]
-async fn write_tool_enforces_agent_priority_gate() {
+async fn write_tool_escalates_above_agent_ceiling() {
     let (app, state) = TestApp::with_state();
     let site = app.create_site().await;
     let equip = app.create_equip(&site).await;
@@ -118,13 +118,77 @@ async fn write_tool_enforces_agent_priority_gate() {
 
     let tools = build_tools(&state);
     let write = find(&tools, "rubix_write_point");
-    // ai_min_priority is 13 in the harness; slot 5 is above the agent ceiling.
-    let err = write
+    // ai_min_priority is 13, escalation_floor is 1 in the harness; slot 5 is
+    // above the agent ceiling but inside the escalation band → suspends for
+    // approval rather than committing or denying.
+    let out = write
         .execute(
             json!({ "point": "nube/hq/ahu-3/fan", "value": true, "priority": 5 }),
             &ToolCallContext::test_default(),
         )
         .await
+        .expect("suspended output");
+    assert!(out.result.is_pending());
+    let ticket = out.result.suspension.expect("ticket");
+    assert_eq!(ticket.suspension.action, "approve_write");
+
+    // The point was never commanded while awaiting approval.
+    let read = find(&tools, "rubix_read_point");
+    let read_out = read
+        .execute(
+            json!({ "point": "nube/hq/ahu-3/fan" }),
+            &ToolCallContext::test_default(),
+        )
+        .await
+        .expect("read");
+    assert_eq!(read_out.result.data["value"], json!(null));
+}
+
+#[tokio::test]
+async fn pin_widget_tool_persists_a_dashboard_tile() {
+    let (app, state) = TestApp::with_state();
+    let site = app.create_site().await;
+
+    let tools = build_tools(&state);
+    let ids: Vec<String> = tools.iter().map(|t| t.descriptor().id).collect();
+    assert!(ids.contains(&"rubix_pin_widget".to_string()));
+
+    let pin = find(&tools, "rubix_pin_widget");
+    let out = pin
+        .execute(
+            json!({
+                "site_id": site, "kind": "point_value",
+                "title": "AHU-3 fan", "target": "nube/hq/ahu-3/fan"
+            }),
+            &ToolCallContext::test_default(),
+        )
+        .await
+        .expect("pin");
+    assert_eq!(out.result.data["kind"], json!("point_value"));
+
+    // The pinned widget is listable over the HTTP surface.
+    let (status, body) = app
+        .request("GET", &format!("/api/v1/widgets?site_id={site}"), None)
+        .await;
+    assert_eq!(status, axum::http::StatusCode::OK);
+    assert_eq!(body.as_array().unwrap().len(), 1);
+    assert_eq!(body[0]["target"], "nube/hq/ahu-3/fan");
+}
+
+#[tokio::test]
+async fn pin_widget_tool_rejects_unknown_kind() {
+    let (_app, state) = TestApp::with_state();
+    let tools = build_tools(&state);
+    let pin = find(&tools, "rubix_pin_widget");
+    let err = pin
+        .execute(
+            json!({
+                "site_id": "00000000-0000-0000-0000-000000000000",
+                "kind": "bogus", "title": "t", "target": "x"
+            }),
+            &ToolCallContext::test_default(),
+        )
+        .await
         .unwrap_err();
-    assert!(matches!(err, ToolError::Denied(_)));
+    assert!(matches!(err, ToolError::InvalidArguments(_)));
 }

@@ -34,4 +34,8 @@ pub enum QueryError {
     /// A result batch could not be serialized to JSON rows.
     #[error("encode rows: {0}")]
     Encode(#[from] datafusion::arrow::error::ArrowError),
+
+    /// The encoded JSON rows could not be decoded back into result values.
+    #[error("decode rows: {0}")]
+    Decode(#[from] serde_json::Error),
 }

@@ -7,6 +7,7 @@
 
 use zenoh::handlers::FifoChannelHandler;
 use zenoh::pubsub::Subscriber;
+use zenoh::query::Reply;
 use zenoh::sample::Sample;
 use zenoh::Session;
 
@@ -60,6 +61,27 @@ impl ScopedSession {
             .declare_subscriber(key)
             .await
             .map_err(|e| DriverError::InvalidManifest(format!("subscribe {key}: {e}")))
+    }
+
+    /// Issue a query (`get`) on `key` with `payload`, returning the reply stream,
+    /// or [`DriverError::Denied`] if the grant does not permit subscribing/
+    /// querying there. A `write` command is a query whose reply is the responder's
+    /// ack, so this is the publish/subscribe-direction gate for the reliable write
+    /// path (the responder side `covers` is enforced server-side).
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub async fn get(
+        &self,
+        key: &str,
+        payload: Vec<u8>,
+        timeout: std::time::Duration,
+    ) -> Result<FifoChannelHandler<Reply>, DriverError> {
+        self.caps.authorize_subscribe(&self.driver, key)?;
+        self.session
+            .get(key)
+            .payload(payload)
+            .timeout(timeout)
+            .await
+            .map_err(|e| DriverError::InvalidManifest(format!("query {key}: {e}")))
     }
 
     /// The driver's name, as used in denial errors.

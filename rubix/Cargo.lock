@@ -5581,6 +5581,7 @@ name = "rubix-driver-sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
  "rubix-driver",
  "rubix-server",
  "serde",

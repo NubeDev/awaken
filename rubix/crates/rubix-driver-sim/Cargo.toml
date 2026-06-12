@@ -21,6 +21,7 @@ tracing-subscriber = { workspace = true }
 
 [dev-dependencies]
 rubix-server = { path = "../rubix-server" }
+futures = { workspace = true }
 
 [lints]
 workspace = true

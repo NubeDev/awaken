@@ -1,7 +1,12 @@
 //! Publish simulated `cur` samples on the configured point, on a cadence, until
-//! shutdown. Every publish goes through the [`ScopedSession`], which authorizes
-//! it against the granted capabilities before it reaches the bus — so a
-//! misconfigured `point` fails loudly here rather than being silently dropped.
+//! shutdown. Samples are enqueued into a bounded [`CurBuffer`] and drained to the
+//! [`ScopedSession`] (which authorizes each publish against the granted
+//! capabilities before it reaches the bus). The `cur` channel is latest-wins: if
+//! publishing falls behind the sample cadence the oldest queued samples are
+//! dropped and counted, never silently truncated (STACK-DEISGN.md
+//! "Ack/backpressure", `docs/sessions/WS-10.md`).
+
+use rubix_driver::CurBuffer;
 
 use crate::config::SimConfig;
 use crate::scoped::ScopedSession;
@@ -24,27 +29,54 @@ pub async fn run(
         return;
     }
 
+    let mut buffer: CurBuffer<f64> = CurBuffer::new(cfg.cur_capacity);
     let mut ticker = tokio::time::interval(cfg.period);
     tokio::pin!(shutdown);
     let mut step: u64 = 0;
+    let mut last_logged_drops: u64 = 0;
     loop {
         tokio::select! {
             _ = ticker.tick() => {
                 let value = sample(cfg.baseline, cfg.amplitude, step);
                 step = step.wrapping_add(1);
-                match serde_json::to_vec(&value) {
-                    Ok(payload) => match session.put(&cur_key, payload).await {
-                        Ok(()) => tracing::debug!(key = %cur_key, value, "published cur"),
-                        Err(e) => tracing::warn!(error = %e, key = %cur_key, "publish cur"),
-                    },
-                    Err(e) => tracing::error!(error = %e, "encode sample"),
-                }
+                buffer.push(value);
+                drain(session, &cur_key, &mut buffer).await;
+                log_drops(&cur_key, buffer.dropped(), &mut last_logged_drops);
             }
             _ = &mut shutdown => {
-                tracing::info!(driver = %cfg.name, "sim shutting down");
+                tracing::info!(driver = %cfg.name, dropped = buffer.dropped(), "sim shutting down");
                 return;
             }
         }
+    }
+}
+
+/// Publish every queued sample in arrival order. A publish failure re-counts the
+/// sample as a loss only via the bus error; the buffer is already drained, so a
+/// transient bus error does not wedge the loop (the next tick enqueues fresh).
+async fn drain(session: &ScopedSession, cur_key: &str, buffer: &mut CurBuffer<f64>) {
+    while let Some(value) = buffer.pop() {
+        match serde_json::to_vec(&value) {
+            Ok(payload) => match session.put(cur_key, payload).await {
+                Ok(()) => tracing::debug!(key = %cur_key, value, "published cur"),
+                Err(e) => tracing::warn!(error = %e, key = %cur_key, "publish cur"),
+            },
+            Err(e) => tracing::error!(error = %e, "encode sample"),
+        }
+    }
+}
+
+/// Emit a single warning whenever the dropped-sample count has grown since the
+/// last tick, so overflow is observable without spamming a line per drop.
+fn log_drops(cur_key: &str, dropped: u64, last_logged: &mut u64) {
+    if dropped > *last_logged {
+        tracing::warn!(
+            key = %cur_key,
+            dropped,
+            newly_dropped = dropped - *last_logged,
+            "cur buffer overflow: dropped oldest samples under pressure"
+        );
+        *last_logged = dropped;
     }
 }
 
@@ -74,5 +106,17 @@ mod tests {
     #[test]
     fn sample_is_deterministic() {
         assert_eq!(sample(21.0, 2.0, 3), sample(21.0, 2.0, 15));
+    }
+
+    #[test]
+    fn log_drops_fires_only_on_growth() {
+        let mut last = 0;
+        log_drops("k/cur", 0, &mut last);
+        assert_eq!(last, 0);
+        log_drops("k/cur", 3, &mut last);
+        assert_eq!(last, 3);
+        // No growth: last is unchanged.
+        log_drops("k/cur", 3, &mut last);
+        assert_eq!(last, 3);
     }
 }

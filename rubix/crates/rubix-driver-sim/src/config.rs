@@ -21,6 +21,9 @@ pub struct SimConfig {
     pub baseline: f64,
     /// Peak deviation from `baseline`.
     pub amplitude: f64,
+    /// Bound on the outbound `cur` buffer. Under publish backpressure the oldest
+    /// queued samples drop (latest-wins) and are counted — never silently lost.
+    pub cur_capacity: usize,
 }
 
 /// The driver-specific `config` blob, decoded from `RUBIX_DRIVER_CONFIG`.
@@ -34,6 +37,8 @@ struct ConfigBlob {
     baseline: f64,
     #[serde(default = "default_amplitude")]
     amplitude: f64,
+    #[serde(default = "default_cur_capacity")]
+    cur_capacity: usize,
 }
 
 fn default_period_secs() -> u64 {
@@ -44,6 +49,9 @@ fn default_baseline() -> f64 {
 }
 fn default_amplitude() -> f64 {
     2.0
+}
+fn default_cur_capacity() -> usize {
+    64
 }
 
 impl SimConfig {
@@ -73,6 +81,7 @@ impl SimConfig {
             period: Duration::from_secs(blob.period_secs),
             baseline: blob.baseline,
             amplitude: blob.amplitude,
+            cur_capacity: blob.cur_capacity,
         })
     }
 }

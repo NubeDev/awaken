@@ -13,6 +13,7 @@ mod config;
 mod liveliness;
 mod scoped;
 mod simulate;
+mod write;
 
 use config::SimConfig;
 use scoped::ScopedSession;

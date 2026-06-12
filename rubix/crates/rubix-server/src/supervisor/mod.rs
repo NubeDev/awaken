@@ -6,6 +6,7 @@
 mod backoff;
 mod error;
 mod health;
+mod manifests;
 mod reap;
 mod spawn;
 mod supervise;
@@ -13,6 +14,7 @@ mod supervise;
 pub use backoff::Backoff;
 pub use error::SupervisorError;
 pub use health::liveliness_key;
+pub use manifests::load_manifests;
 pub use spawn::{ENV_DRIVER_CAPS, ENV_DRIVER_CONFIG, ENV_DRIVER_NAME};
 
 use rubix_driver::DriverManifest;
@@ -91,6 +93,7 @@ mod tests {
         let result = Supervisor::launch(session, vec![bad_manifest()]);
         match result {
             Err(SupervisorError::Manifest(name, _)) => assert_eq!(name, "bacnet"),
+            Err(e) => panic!("expected Manifest error, got {e:?}"),
             Ok(_) => panic!("expected invalid manifest to fail closed"),
         }
     }

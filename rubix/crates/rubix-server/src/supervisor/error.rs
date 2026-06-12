@@ -6,4 +6,6 @@ use rubix_driver::DriverError;
 pub enum SupervisorError {
     #[error("driver `{0}` manifest invalid: {1}")]
     Manifest(String, #[source] DriverError),
+    #[error("loading driver manifests: {0}")]
+    Manifests(String),
 }

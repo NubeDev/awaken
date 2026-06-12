@@ -23,4 +23,11 @@ impl ZenohBus {
     pub(super) fn session(&self) -> &Session {
         &self.session
     }
+
+    /// A clone of the underlying zenoh session, for components that declare
+    /// their own keyexprs on the same mesh (e.g. the driver supervisor watching
+    /// liveliness tokens). Sessions are `Arc`-backed, so this is cheap.
+    pub fn session_clone(&self) -> Session {
+        (*self.session).clone()
+    }
 }

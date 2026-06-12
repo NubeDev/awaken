@@ -1,6 +1,7 @@
 use rubix_query::QueryEngine;
 use rubix_server::bus::ZenohBus;
 use rubix_server::store::Store;
+use rubix_server::supervisor::{load_manifests, Supervisor};
 use rubix_server::{app, AppState};
 
 fn env_or(key: &str, default: &str) -> String {
@@ -27,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
 
     let store = Store::open(std::path::Path::new(&db_path))?;
 
+    let mut supervisor: Option<Supervisor> = None;
     let bus = if env_or("RUBIX_ZENOH", "1") == "0" {
         tracing::info!("zenoh disabled (RUBIX_ZENOH=0); HTTP-only mode");
         None
@@ -34,6 +36,18 @@ async fn main() -> anyhow::Result<()> {
         let bus = ZenohBus::open(store.clone()).await?;
         bus.serve().await?;
         tracing::info!("zenoh data plane up: cur pub/sub, write + his queryables");
+
+        // Spawn manifest-described drivers on the same mesh. The supervisor
+        // watches their liveliness tokens, so it must share the bus session.
+        let drivers_path = env_or("RUBIX_DRIVERS", "drivers.json");
+        let manifests = load_manifests(std::path::Path::new(&drivers_path))?;
+        if manifests.is_empty() {
+            tracing::info!(path = %drivers_path, "no driver manifests; supervisor idle");
+        } else {
+            let names: Vec<_> = manifests.iter().map(|m| m.identity.name.clone()).collect();
+            supervisor = Some(Supervisor::launch(bus.session_clone(), manifests)?);
+            tracing::info!(drivers = ?names, "driver supervisor launched");
+        }
         Some(bus)
     };
 
@@ -55,6 +69,21 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path, "rubix server listening");
-    axum::serve(listener, app(state)).await?;
+    axum::serve(listener, app(state))
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    // Stop supervised drivers cleanly so liveliness tokens clear before exit.
+    if let Some(supervisor) = supervisor {
+        tracing::info!("stopping driver supervisor");
+        supervisor.shutdown().await;
+    }
     Ok(())
+}
+
+/// Resolve on Ctrl-C (SIGINT). Drives axum's graceful shutdown so the
+/// supervisor can stop drivers on the way out.
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
+    tracing::info!("shutdown signal received");
 }

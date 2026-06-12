@@ -17,6 +17,7 @@ rubix-flow.workspace = true
 rubix-query.workspace = true
 rubix-tools.workspace = true
 awaken-runtime-contract.workspace = true
+awaken-runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

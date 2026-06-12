@@ -60,12 +60,36 @@ async fn main() -> anyhow::Result<()> {
         Some(engine)
     };
 
-    let state = AppState {
+    let mut state = AppState {
         store,
         bus,
         query,
+        agent: None,
         ai_min_priority,
     };
+
+    // Embed the awaken agent over the BMS tools when enabled. The genai
+    // provider reads its API key from env at run time, so this only requires a
+    // key when a chat turn actually calls the model.
+    if env_or("RUBIX_AI", "0") == "1" {
+        let provider = env_or("RUBIX_AI_PROVIDER", "openai");
+        let model_id = env_or("RUBIX_AI_MODEL_ID", "gpt-4o-mini");
+        let upstream = env_or("RUBIX_AI_MODEL", &model_id);
+        let max_rounds: usize = env_or("RUBIX_AI_MAX_ROUNDS", "8")
+            .parse()
+            .map_err(|e| anyhow::anyhow!("RUBIX_AI_MAX_ROUNDS must be a positive integer: {e}"))?;
+        let runtime = rubix_server::agent::build_runtime(
+            &state, &provider, &model_id, &upstream, max_rounds,
+        )?;
+        state.agent = Some(std::sync::Arc::new(runtime));
+        tracing::info!(
+            provider = %provider,
+            model = %model_id,
+            "embedded agent up: POST /api/v1/agent/chat"
+        );
+    } else {
+        tracing::info!("agent disabled (RUBIX_AI != 1)");
+    }
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(%addr, db = %db_path, "rubix server listening");

@@ -37,6 +37,7 @@ impl TestApp {
             store,
             bus: None,
             query: None,
+            agent: None,
             ai_min_priority: 13,
         };
         let app = Self {
@@ -56,6 +57,7 @@ impl TestApp {
             store,
             bus: Some(bus.clone()),
             query: None,
+            agent: None,
             ai_min_priority: 13,
         };
         let app = Self {
@@ -76,6 +78,7 @@ impl TestApp {
             store,
             bus: None,
             query: Some(query),
+            agent: None,
             ai_min_priority: 13,
         };
         Self {
@@ -91,6 +94,7 @@ impl TestApp {
             store,
             bus,
             query: None,
+            agent: None,
             ai_min_priority: 13,
         };
         Self {

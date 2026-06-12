@@ -3,6 +3,7 @@
 mod api_tests {
     mod harness;
 
+    mod agent;
     mod bus;
     mod command;
     mod flow;

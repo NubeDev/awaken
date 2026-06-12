@@ -39,6 +39,7 @@ reflow_network = "0.2"
 reflow_actor = "0.2"
 reflow_actor_macro = "0.2"
 awaken-runtime-contract = "0.6"
+awaken-runtime = "0.6"
 schemars = "1"
 
 [workspace.lints.rust]

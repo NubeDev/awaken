@@ -73,6 +73,10 @@ async fn write_queryable_commands_priority_array() {
     let _point = app.create_point(&equip, "cmd", "fan").await;
 
     let client = client_session().await;
+    let sub = client
+        .declare_subscriber("bus2/s2/ahu-3/fan/cur")
+        .await
+        .expect("subscribe");
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     let replies = client
@@ -83,6 +87,15 @@ async fn write_queryable_commands_priority_array() {
 
     let point: Value = first_ok(replies).await;
     assert_eq!(point["cur_value"], json!(true));
+
+    // A bus-driven write republishes the effective value on `cur`.
+    let sample = tokio::time::timeout(Duration::from_secs(3), sub.recv_async())
+        .await
+        .expect("cur sample within timeout")
+        .expect("sample");
+    let cur: Value =
+        serde_json::from_slice(&sample.payload().to_bytes()).expect("decode cur payload");
+    assert_eq!(cur, json!(true));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

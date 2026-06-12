@@ -7,17 +7,18 @@ use std::sync::Arc;
 use reflow_actor::Actor;
 
 use crate::node::{
-    AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, WritePointActor,
+    AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, TriggerActor, WritePointActor,
 };
 use crate::port::PointAccess;
 
 /// Built-in rubix component names available to boards.
-pub const COMPONENTS: [&str; 5] = [
+pub const COMPONENTS: [&str; 6] = [
     "read_point",
     "write_point",
     "query_his",
     "emit_spark",
     "agent_call",
+    "trigger",
 ];
 
 /// Construct the actor for a component name, or `None` if unknown.
@@ -28,6 +29,7 @@ pub fn make_actor(component: &str, access: Arc<dyn PointAccess>) -> Option<Arc<d
         "query_his" => Some(Arc::new(QueryHisActor::new(access))),
         "emit_spark" => Some(Arc::new(EmitSparkActor::new(access))),
         "agent_call" => Some(Arc::new(AgentCallActor::new(access))),
+        "trigger" => Some(Arc::new(TriggerActor::new(access))),
         _ => None,
     }
 }

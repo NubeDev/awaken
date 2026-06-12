@@ -22,9 +22,11 @@ fn default_priority() -> u8 {
 }
 
 impl ZenohBus {
-    /// Declare `**/write` and `**/his/**` queryables and spawn drain loops.
-    /// Returns after the queryables are registered; the loops run detached.
+    /// Declare `**/cur` subscriber and `**/write` / `**/his/**` queryables;
+    /// spawn drain loops. Returns after all are registered; the loops run
+    /// detached.
     pub async fn serve(&self) -> anyhow::Result<()> {
+        self.subscribe_cur().await?;
         self.serve_write().await?;
         self.serve_his().await?;
         Ok(())

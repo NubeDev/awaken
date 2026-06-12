@@ -21,6 +21,7 @@ pub mod his;
 pub mod mcp;
 pub mod profile;
 pub mod scheduler;
+pub mod seed;
 pub mod store;
 pub mod supervisor;
 pub mod tools;

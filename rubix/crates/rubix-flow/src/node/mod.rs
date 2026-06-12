@@ -7,6 +7,7 @@ mod agent_call;
 mod emit_spark;
 mod query_his;
 mod read_point;
+mod trigger;
 mod value_msg;
 mod write_point;
 
@@ -14,4 +15,5 @@ pub use agent_call::AgentCallActor;
 pub use emit_spark::EmitSparkActor;
 pub use query_his::QueryHisActor;
 pub use read_point::ReadPointActor;
+pub use trigger::TriggerActor;
 pub use write_point::WritePointActor;

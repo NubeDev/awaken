@@ -66,6 +66,49 @@ async fn cur_ingest_publishes_on_zenoh() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn driver_cur_publication_lands_in_the_store() {
+    // A separate peer session stands in for a protocol driver publishing `cur`.
+    // The server's `**/cur` subscriber must resolve the keyexpr to the point and
+    // ingest the sample (cur_value + a history row). This is the inbound half of
+    // the data plane — the outbound half is `cur_ingest_publishes_on_zenoh`.
+    let (app, _bus) = TestApp::with_bus().await;
+    let site = app.create_site_with("busc", "sc").await;
+    let equip = app.create_equip(&site).await;
+    let point = app.create_point(&equip, "sensor", "temp").await;
+
+    let driver = client_session().await;
+    // Let scouting connect the driver peer to the server before publishing.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    driver
+        .put("busc/sc/ahu-3/temp/cur", serde_json::to_vec(&21.5).unwrap())
+        .await
+        .expect("driver publish cur");
+
+    // Poll the point until the subscriber has ingested the sample.
+    let mut landed = None;
+    for _ in 0..30 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let (_, body) = app
+            .request("GET", &format!("/api/v1/points/{point}"), None)
+            .await;
+        if !body["point"]["cur_value"].is_null() {
+            landed = Some(body);
+            break;
+        }
+    }
+    let body = landed.expect("driver cur sample landed in the store within 3s");
+    assert_eq!(body["point"]["cur_value"], json!(21.5));
+
+    // And it produced a history row.
+    let (status, his) = app
+        .request("GET", &format!("/api/v1/points/{point}/his?limit=10"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(his.as_array().expect("his array").len(), 1, "{his}");
+    assert_eq!(his[0]["value"], json!(21.5));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn write_queryable_commands_priority_array() {
     let (app, _bus) = TestApp::with_bus().await;
     let site = app.create_site_with("bus2", "s2").await;

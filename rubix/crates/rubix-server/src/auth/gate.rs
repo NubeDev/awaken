@@ -57,6 +57,33 @@ impl RequestPrincipal {
         }
     }
 
+    /// Authorize a read of a domain resource at `org`/`site` (the natural key of
+    /// a [`rubix_core::Site`]). Passes when auth is disabled or the principal's
+    /// scope covers the org/site.
+    pub fn authorize_site_read(&self, org: &str, site: &str) -> Result<(), AuthError> {
+        match &self.0 {
+            None => Ok(()),
+            Some(p) if p.scope.covers_resource(org, site) => Ok(()),
+            Some(p) => Err(AuthError::Forbidden(format!(
+                "subject `{}` may not read site `{org}/{site}`",
+                p.subject
+            ))),
+        }
+    }
+
+    /// Authorize a write of a domain resource at `org`/`site`. Requires a
+    /// write-capable role whose scope covers the org/site.
+    pub fn authorize_site_write(&self, org: &str, site: &str) -> Result<(), AuthError> {
+        match &self.0 {
+            None => Ok(()),
+            Some(p) if p.role.can_write() && p.scope.covers_resource(org, site) => Ok(()),
+            Some(p) => Err(AuthError::Forbidden(format!(
+                "subject `{}` may not write site `{org}/{site}`",
+                p.subject
+            ))),
+        }
+    }
+
     /// Require any authenticated caller (used by routes with no per-resource
     /// scope). A no-op when auth is disabled.
     pub fn require_authenticated(&self) -> Result<&Principal, AuthError> {

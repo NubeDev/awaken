@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::api::blocking::blocking;
+use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
 
@@ -23,14 +24,19 @@ pub struct CreateSite {
 }
 
 #[utoipa::path(post, path = "/api/v1/sites", request_body = CreateSite, tag = "sites",
-    responses((status = 201, body = Site), (status = 400, body = ErrorBody), (status = 409, body = ErrorBody)))]
+    security(("bearer" = [])),
+    responses((status = 201, body = Site), (status = 400, body = ErrorBody),
+              (status = 401, body = ErrorBody), (status = 403, body = ErrorBody),
+              (status = 409, body = ErrorBody)))]
 pub(crate) async fn create_site(
     State(state): State<AppState>,
+    principal: RequestPrincipal,
     Json(req): Json<CreateSite>,
 ) -> Result<(StatusCode, Json<Site>), ApiError> {
     validate_slug(&req.org)?;
     validate_slug(&req.slug)?;
     req.tags.validate()?;
+    principal.authorize_site_write(&req.org, &req.slug)?;
     let site = Site {
         id: Uuid::new_v4(),
         org: req.org,

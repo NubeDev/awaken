@@ -14,6 +14,7 @@ mod runs;
 mod sites;
 mod sparks;
 mod tag_query;
+mod tokens;
 mod widgets;
 
 pub use openapi::ApiDoc;
@@ -38,5 +39,6 @@ pub fn router(state: AppState) -> Router {
         .merge(boards::router())
         .merge(agent::router())
         .merge(runs::router())
+        .merge(tokens::router())
         .with_state(state)
 }

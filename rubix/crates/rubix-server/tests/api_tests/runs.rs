@@ -33,6 +33,7 @@ fn app_with_write(priority: u8) -> (Router, tempfile::TempDir) {
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let script = [
         ProviderScriptEvent::ToolCall {

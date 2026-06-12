@@ -52,6 +52,7 @@ fn app_with_script(
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let executor = Arc::new(ScriptedLlmExecutor::new(script));
     let runtime =
@@ -140,6 +141,7 @@ async fn chat_is_unavailable_when_agent_disabled() {
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let router = app(state);
     let (status, _) = post(

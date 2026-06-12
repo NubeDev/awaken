@@ -15,6 +15,8 @@ pub enum ApiError {
     #[error("{0}")]
     Forbidden(String),
     #[error("{0}")]
+    Unauthorized(String),
+    #[error("{0}")]
     Unavailable(&'static str),
     #[error("internal error")]
     Internal(#[from] anyhow::Error),
@@ -50,6 +52,7 @@ impl ApiError {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
+            ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             ApiError::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -71,5 +74,18 @@ impl IntoResponse for ApiError {
 impl From<rubix_core::CoreError> for ApiError {
     fn from(err: rubix_core::CoreError) -> Self {
         ApiError::BadRequest(err.to_string())
+    }
+}
+
+impl From<crate::auth::AuthError> for ApiError {
+    fn from(err: crate::auth::AuthError) -> Self {
+        use crate::auth::AuthError;
+        match err {
+            AuthError::MissingToken | AuthError::InvalidToken(_) => {
+                ApiError::Unauthorized(err.to_string())
+            }
+            AuthError::Forbidden(msg) => ApiError::Forbidden(msg),
+            AuthError::Misconfigured(msg) => ApiError::Internal(anyhow::anyhow!(msg)),
+        }
     }
 }

@@ -4,7 +4,9 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
+use jsonwebtoken::jwk::JwkSet;
 use rubix_query::{HisTier, QueryEngine};
+use rubix_server::auth::{Authenticator, JwksVerifier};
 use rubix_server::bus::ZenohBus;
 use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
@@ -147,6 +149,74 @@ impl TestApp {
             router: app(state),
             _dir: dir,
         }
+    }
+
+    /// Build with auth enforced (cloud posture). The JWKS is empty, so OIDC JWT
+    /// verification always fails closed — tests drive the PAT path, which needs
+    /// no key material. Hands back the store so a test can seed a PAT directly.
+    pub fn with_auth() -> (Self, Store) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        let authenticator = Authenticator::new(
+            JwksVerifier::from_keys(JwkSet { keys: vec![] }, "https://issuer.test"),
+            store.clone(),
+        );
+        let state = AppState {
+            profile: Profile::defaults(ProfileKind::Edge),
+            store: store.clone(),
+            bus: None,
+            query: None,
+            his_tier: None,
+            agent: None,
+            ai_min_priority: 13,
+            ai_escalation_floor: 1,
+            authenticator: Some(authenticator),
+        };
+        let app = Self {
+            router: app(state),
+            _dir: dir,
+        };
+        (app, store)
+    }
+
+    /// Like [`request`](Self::request) but presents a bearer token.
+    pub async fn request_as(
+        &self,
+        method: &str,
+        uri: &str,
+        bearer: &str,
+        body: Option<Value>,
+    ) -> (StatusCode, Value) {
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("authorization", format!("Bearer {bearer}"));
+        let body = match body {
+            Some(json) => {
+                builder = builder.header("content-type", "application/json");
+                Body::from(json.to_string())
+            }
+            None => Body::empty(),
+        };
+        let response = self
+            .router
+            .clone()
+            .oneshot(builder.body(body).expect("request"))
+            .await
+            .expect("response");
+        let status = response.status();
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        let json = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).expect("json body")
+        };
+        (status, json)
     }
 
     fn build(bus: Option<ZenohBus>) -> Self {

@@ -57,6 +57,7 @@ async fn agent_call_board_activates_an_agent_run() {
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let script = [ProviderScriptEvent::ToolCall {
         id: "c1".into(),
@@ -130,6 +131,7 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let script = [
         ProviderScriptEvent::ToolCall {

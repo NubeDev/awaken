@@ -36,6 +36,7 @@ async fn published_spark_activates_an_agent_run() {
         agent: None,
         ai_min_priority: 13,
         ai_escalation_floor: 1,
+        authenticator: None,
     };
     let script = [ProviderScriptEvent::ToolCall {
         id: "c1".into(),

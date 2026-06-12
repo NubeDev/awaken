@@ -11,6 +11,7 @@ use rubix_core::{
     Widget, WidgetKind,
 };
 use rubix_server::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
+use rubix_server::auth::{pat, Role, Scope, TokenRecord};
 use rubix_server::scheduler::{BoardRecord, Trigger};
 use rubix_core::Equip;
 use rubix_flow::BoardGraph;
@@ -260,6 +261,35 @@ fn run_suite(store: &Store) {
         .settle_suspended_run(&run.id, RunStatus::Resumed)
         .is_err());
     assert_eq!(store.get_run(&run.id).unwrap().status, RunStatus::Resumed);
+
+    // Tokens: issue, look up by secret hash (the verifier's path), revoke.
+    let minted = pat::mint();
+    let token = TokenRecord {
+        id: minted.id.clone(),
+        secret_hash: minted.secret_hash.clone(),
+        name: "driver-1".into(),
+        role: Role::Service,
+        scope: Scope::org("nube"),
+        created_at: Utc::now(),
+        revoked_at: None,
+    };
+    store.create_token(&token).unwrap();
+    assert_eq!(store.list_tokens().unwrap().len(), 1);
+    let found = store
+        .token_by_hash(&minted.secret_hash)
+        .unwrap()
+        .expect("token by hash");
+    assert!(found.is_active());
+    assert_eq!(found.role, Role::Service);
+    assert_eq!(found.scope, Scope::org("nube"));
+    store.revoke_token(&minted.id).unwrap();
+    let revoked = store
+        .token_by_hash(&minted.secret_hash)
+        .unwrap()
+        .expect("token still present after revoke");
+    assert!(!revoked.is_active());
+    // Revoking an absent token is a not-found error.
+    assert!(store.revoke_token("nonexistent").is_err());
 
     // Cascade: deleting the site removes its dependents.
     store.delete_site(s.id).unwrap();

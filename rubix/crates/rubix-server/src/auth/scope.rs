@@ -70,6 +70,17 @@ impl Scope {
             && level_covers(&self.team, &target.team)
             && level_covers(&self.site, &target.site)
     }
+
+    /// True when this scope authorizes access to a domain resource living at
+    /// `org`/`site`. Domain sites carry org + slug but no team (a team is a
+    /// principal grouping, not a property of a site — a team→site mapping is
+    /// tenancy data this layer does not own). So resource gating compares the
+    /// org and site levels only; a principal bound to a team still reaches its
+    /// org's resources.
+    pub fn covers_resource(&self, org: &str, site: &str) -> bool {
+        level_covers(&self.org, &Some(org.to_string()))
+            && level_covers(&self.site, &Some(site.to_string()))
+    }
 }
 
 /// One hierarchy level: a `None` bound on the grant is a wildcard (covers any
@@ -118,6 +129,21 @@ mod tests {
         assert!(s.covers(&scope(Some("nube"), Some("ops"), Some("hq"))));
         assert!(!s.covers(&scope(Some("nube"), Some("ops"), Some("dc1"))));
         assert!(!s.covers(&scope(Some("nube"), Some("facilities"), Some("hq"))));
+    }
+
+    #[test]
+    fn covers_resource_ignores_team_grouping() {
+        // A team-scoped principal still reaches its org's sites: the team is a
+        // principal grouping, not a property of the site.
+        let team = scope(Some("nube"), Some("ops"), None);
+        assert!(team.covers_resource("nube", "hq"));
+        assert!(!team.covers_resource("acme", "hq"));
+        // A site-bound principal only reaches its own site.
+        let site = scope(Some("nube"), Some("ops"), Some("hq"));
+        assert!(site.covers_resource("nube", "hq"));
+        assert!(!site.covers_resource("nube", "dc1"));
+        // Global reaches anything.
+        assert!(Scope::global().covers_resource("acme", "dc9"));
     }
 
     #[test]

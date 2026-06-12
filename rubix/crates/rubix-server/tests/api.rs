@@ -5,6 +5,7 @@ mod api_tests {
 
     mod agent;
     mod agent_call;
+    mod auth;
     mod boards;
     mod bus;
     mod command;

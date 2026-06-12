@@ -15,6 +15,19 @@ use awaken_runtime::engine::{ProviderScriptEvent, ScriptedLlmExecutor};
 use awaken_runtime::run::RunActivation;
 use awaken_runtime_contract::contract::inference::StopReason;
 use awaken_runtime_contract::contract::message::Message;
+use rubix_server::agent::{
+    build_scoped_runtime, run_and_persist, runtime_for_scope, RunOrigin, RunStatus, RuntimeBlueprint,
+    AGENT_ID,
+};
+use rubix_server::bus::ZenohBus;
+use rubix_server::dispatch::Dispatcher;
+use rubix_server::profile::{Profile, ProfileKind};
+use rubix_server::store::Store;
+use rubix_server::AppState;
+use rubix_tools::TenantScope;
+use serde_json::{json, Value};
+
+use super::harness::TestApp;
 
 /// A scripted turn that commands the named fan at priority 14 (at/below the
 /// agent ceiling, so it does not suspend), followed by a closing chat response
@@ -34,19 +47,6 @@ fn command_then_end(point: &str) -> [ProviderScriptEvent; 2] {
         },
     ]
 }
-use rubix_server::agent::{
-    build_scoped_runtime, run_and_persist, runtime_for_scope, RunOrigin, RunStatus, RuntimeBlueprint,
-    AGENT_ID,
-};
-use rubix_server::bus::ZenohBus;
-use rubix_server::dispatch::Dispatcher;
-use rubix_server::profile::{Profile, ProfileKind};
-use rubix_server::store::Store;
-use rubix_server::AppState;
-use rubix_tools::TenantScope;
-use serde_json::{json, Value};
-
-use super::harness::TestApp;
 
 /// Build an `AppState` over `store` with a scripted blueprint and an unscoped
 /// boot runtime (the dispatcher rebuilds a scoped runtime per spark). The script

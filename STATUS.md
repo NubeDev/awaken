@@ -228,8 +228,16 @@ File-layout discipline holds: no source file exceeds 400 lines.
       `SELECT keyexpr, cur_value FROM points_cur`. Local-store backed (cur values
       land in `points` on every write). **Remaining:** the cross-mesh variant
       backed by zenoh `get` (pull live values from peer nodes that own the keys).
-- [ ] `his` `TableProvider` over **Parquet partitions** via `object_store`
-      (edge + cloud tiers). History is SQLite-only today — no Parquet, no tiering.
+- [x] `his` `TableProvider` over **Parquet partitions** via `object_store`: a
+      two-tier `his` surface. SQLite is the hot/recent tier; aged rows flush into
+      dated per-point Parquet partitions (`his/point=<id>/date=<day>/<flush>.parquet`)
+      on an `object_store` local-filesystem tier (`RUBIX_HIS_PARQUET`). The `his`
+      `TableProvider` (`rubix-query`) unions both tiers, so `/query` and
+      `/his/rollup` read across the boundary unchanged. `POST /api/v1/his/flush`
+      ages rows (read → write Parquet → delete) on operator/scheduler demand.
+      **Remaining:** partition predicate pushdown (reads all partitions today),
+      a cloud/remote `object_store` tier (constructor-only — code is generic over
+      `ObjectStore`), and edge→cloud replication.
 - [ ] Postgres federation (cloud relational tables: users, teams, config).
 - [ ] Flight SQL surface.
 
@@ -278,6 +286,8 @@ cargo clippy --workspace --all-targets
 Env:
 - `RUBIX_DB`, `RUBIX_ADDR`, `RUBIX_AI_MIN_PRIORITY`, `RUBIX_AI_ESCALATION_FLOOR`
 - `RUBIX_ZENOH` (0=off), `RUBIX_QUERY` (0=off)
+- `RUBIX_HIS_PARQUET` (local dir path; enables the Parquet `his` cold tier +
+  `/his/flush`. Unset = SQLite-only `his`)
 - `RUBIX_DRIVERS` (driver-manifest JSON path; default `drivers.json`)
 - `RUBIX_AI` (1=embed agent), `RUBIX_AI_PROVIDER`, `RUBIX_AI_MODEL_ID`,
   `RUBIX_AI_MODEL`, `RUBIX_AI_MAX_ROUNDS`

@@ -8,6 +8,7 @@ import { useActiveSite } from '@/hooks/use-active-site'
 import { DemandChart } from './components/demand-chart'
 import { EquipmentHealth } from './components/equipment-health'
 import { KpiRow } from './components/kpi-row'
+import { PointsBreakdown } from './components/points-breakdown'
 import { RecentSparks } from './components/recent-sparks'
 
 export function Dashboard() {
@@ -38,10 +39,11 @@ export function Dashboard() {
           <KpiRow siteId={site?.id} />
           <div className='grid gap-4 lg:grid-cols-3'>
             <DemandChart siteId={site?.id} />
-            <RecentSparks siteId={site?.id} />
+            <PointsBreakdown siteId={site?.id} />
           </div>
           <div className='grid gap-4 lg:grid-cols-3'>
             <EquipmentHealth siteId={site?.id} />
+            <RecentSparks siteId={site?.id} />
           </div>
         </div>
       </Main>

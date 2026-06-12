@@ -15,6 +15,22 @@
   }
   body {
     @apply min-h-svh w-full bg-background text-foreground has-[div[data-variant='inset']]:bg-sidebar;
+    font-family: var(--font-geist);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv01', 'cv03', 'ss01';
+    letter-spacing: -0.006em;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+  }
+  /* tabular figures for metric values */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Override Radix scroll locking for sticky headers */

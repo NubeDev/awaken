@@ -1,4 +1,5 @@
 import { type LucideIcon, TrendingDown, TrendingUp } from 'lucide-react'
+import { Sparkline } from '@/components/charts/sparkline'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -10,10 +11,22 @@ type KpiCardProps = {
   delta?: string
   deltaDir?: 'up' | 'down'
   sub?: string
+  spark?: number[]
+  sparkColor?: string
 }
 
 /** Compact KPI stat card used across the dashboard header row. */
-export function KpiCard({ label, value, unit, icon: Icon, delta, deltaDir, sub }: KpiCardProps) {
+export function KpiCard({
+  label,
+  value,
+  unit,
+  icon: Icon,
+  delta,
+  deltaDir,
+  sub,
+  spark,
+  sparkColor,
+}: KpiCardProps) {
   const up = deltaDir === 'up'
   return (
     <Card className='gap-3 p-4'>
@@ -34,9 +47,16 @@ export function KpiCard({ label, value, unit, icon: Icon, delta, deltaDir, sub }
           </span>
         ) : null}
       </div>
-      <div className='flex items-baseline gap-1'>
-        <span className='tabular text-2xl leading-none font-semibold tracking-tight'>{value}</span>
-        {unit ? <span className='text-muted-foreground text-[13px] font-medium'>{unit}</span> : null}
+      <div className='flex items-end justify-between gap-2'>
+        <div className='flex items-baseline gap-1'>
+          <span className='tabular text-2xl leading-none font-semibold tracking-tight'>{value}</span>
+          {unit ? (
+            <span className='text-muted-foreground text-[13px] font-medium'>{unit}</span>
+          ) : null}
+        </div>
+        {spark && spark.length > 1 ? (
+          <Sparkline data={spark} color={sparkColor} />
+        ) : null}
       </div>
       {sub ? <div className='text-muted-foreground text-[11.5px]'>{sub}</div> : null}
     </Card>

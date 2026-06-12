@@ -22,9 +22,14 @@ export function Points() {
   const { site } = useActiveSite()
   const { equip: equipParam } = route.useSearch()
   const { data: equips = [] } = useEquips(site?.id)
+  // Site-wide points let us default to an equip that actually has points,
+  // so the detail panel (priority-array showcase) isn't empty on first load.
+  const { data: sitePoints = [] } = usePoints({ siteId: site?.id })
 
   const [equipId, setEquipId] = useState<Uuid | undefined>(equipParam)
-  const activeEquip = equips.find((e) => e.id === equipId) ?? equips[0]
+  const defaultEquipId = sitePoints[0]?.equip_id ?? equips[0]?.id
+  const activeEquip =
+    equips.find((e) => e.id === (equipId ?? defaultEquipId)) ?? equips[0]
 
   useEffect(() => {
     if (equipParam) setEquipId(equipParam)

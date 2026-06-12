@@ -32,7 +32,11 @@ pub(crate) async fn ingest_cur(
         ts: req.ts.unwrap_or_else(Utc::now),
         value: req.value,
     };
-    Ok(Json(
-        blocking(move || Ok(state.store.ingest_cur(id, &sample)?)).await?,
-    ))
+    let store = state.store.clone();
+    let (point, keyexpr) =
+        blocking(move || Ok((store.ingest_cur(id, &sample)?, store.point_keyexpr(id)?))).await?;
+    if let Some(bus) = &state.bus {
+        bus.publish_cur(&keyexpr, point.cur_value.as_ref()).await;
+    }
+    Ok(Json(point))
 }

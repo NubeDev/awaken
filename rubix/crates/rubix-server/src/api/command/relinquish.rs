@@ -2,10 +2,9 @@
 
 use axum::extract::{Path, State};
 use axum::Json;
-use chrono::Utc;
 use uuid::Uuid;
 
-use crate::api::blocking::blocking;
+use super::apply::command_and_publish;
 use crate::api::points::response::PointResponse;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -19,12 +18,6 @@ pub(crate) async fn relinquish_point(
     State(state): State<AppState>,
     Path((id, priority)): Path<(Uuid, u8)>,
 ) -> Result<Json<PointResponse>, ApiError> {
-    Ok(Json(
-        blocking(move || {
-            let point = state.store.command_point(id, priority, None, Utc::now())?;
-            let keyexpr = state.store.point_keyexpr(id)?;
-            Ok(PointResponse { keyexpr, point })
-        })
-        .await?,
-    ))
+    let response = command_and_publish(&state, id, priority, None).await?;
+    Ok(Json(response))
 }

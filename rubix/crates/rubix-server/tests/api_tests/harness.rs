@@ -4,6 +4,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
+use rubix_server::bus::ZenohBus;
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use serde_json::Value;
@@ -16,10 +17,33 @@ pub struct TestApp {
 
 impl TestApp {
     pub fn new() -> Self {
+        Self::build(None)
+    }
+
+    /// Build with a live zenoh bus whose queryables serve the same store.
+    pub async fn with_bus() -> (Self, ZenohBus) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        let bus = ZenohBus::open(store.clone()).await.expect("open bus");
+        bus.serve().await.expect("serve bus");
+        let state = AppState {
+            store,
+            bus: Some(bus.clone()),
+            ai_min_priority: 13,
+        };
+        let app = Self {
+            router: app(state),
+            _dir: dir,
+        };
+        (app, bus)
+    }
+
+    fn build(bus: Option<ZenohBus>) -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
         let state = AppState {
             store,
+            bus,
             ai_min_priority: 13,
         };
         Self {
@@ -64,12 +88,18 @@ impl TestApp {
     }
 
     pub async fn create_site(&self) -> String {
+        self.create_site_with("nube", "hq").await
+    }
+
+    /// Create a site with an explicit org/slug so concurrent bus tests get
+    /// non-colliding keyexprs on the shared zenoh mesh.
+    pub async fn create_site_with(&self, org: &str, slug: &str) -> String {
         let (status, body) = self
             .request(
                 "POST",
                 "/api/v1/sites",
                 Some(serde_json::json!({
-                    "org": "nube", "slug": "hq", "display_name": "HQ",
+                    "org": org, "slug": slug, "display_name": slug,
                     "tags": {"site": true}
                 })),
             )

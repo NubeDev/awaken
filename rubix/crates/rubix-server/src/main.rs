@@ -1,3 +1,4 @@
+use rubix_server::bus::ZenohBus;
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 
@@ -24,8 +25,20 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let store = Store::open(std::path::Path::new(&db_path))?;
+
+    let bus = if env_or("RUBIX_ZENOH", "1") == "0" {
+        tracing::info!("zenoh disabled (RUBIX_ZENOH=0); HTTP-only mode");
+        None
+    } else {
+        let bus = ZenohBus::open(store.clone()).await?;
+        bus.serve().await?;
+        tracing::info!("zenoh data plane up: cur pub/sub, write + his queryables");
+        Some(bus)
+    };
+
     let state = AppState {
         store,
+        bus,
         ai_min_priority,
     };
 

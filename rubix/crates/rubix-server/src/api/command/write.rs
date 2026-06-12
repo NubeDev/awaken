@@ -2,14 +2,13 @@
 
 use axum::extract::{Path, State};
 use axum::Json;
-use chrono::Utc;
 use rubix_core::PointValue;
 use serde::Deserialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::apply::command_and_publish;
 use super::source::{check_agent_priority, WriteSource};
-use crate::api::blocking::blocking;
 use crate::api::points::response::PointResponse;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -38,14 +37,6 @@ pub(crate) async fn write_point(
     Json(req): Json<WriteRequest>,
 ) -> Result<Json<PointResponse>, ApiError> {
     check_agent_priority(&state, req.source, req.priority)?;
-    Ok(Json(
-        blocking(move || {
-            let point = state
-                .store
-                .command_point(id, req.priority, Some(req.value), Utc::now())?;
-            let keyexpr = state.store.point_keyexpr(id)?;
-            Ok(PointResponse { keyexpr, point })
-        })
-        .await?,
-    ))
+    let response = command_and_publish(&state, id, req.priority, Some(req.value)).await?;
+    Ok(Json(response))
 }

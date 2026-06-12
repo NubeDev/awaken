@@ -1,5 +1,6 @@
 //! Point command routes (priority-array write path) — wiring only.
 
+pub(crate) mod apply;
 pub(crate) mod cur;
 pub(crate) mod relinquish;
 pub(crate) mod source;

@@ -3,6 +3,7 @@
 mod api_tests {
     mod harness;
 
+    mod bus;
     mod command;
     mod his;
     mod points;

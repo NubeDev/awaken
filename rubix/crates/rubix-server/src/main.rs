@@ -12,6 +12,23 @@ fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
+/// Open the DataFusion query surface over a Postgres target (cloud profile).
+/// The canonical tables federate from Postgres through the connector.
+#[cfg(feature = "cloud")]
+async fn open_postgres_query(url: &str) -> anyhow::Result<QueryEngine> {
+    let engine = QueryEngine::open_postgres(url).await?;
+    tracing::info!("datafusion query surface up (postgres federation): POST /api/v1/query");
+    Ok(engine)
+}
+
+/// On a build without the cloud profile a Postgres target is unreachable —
+/// `Store::connect` rejects it before this point — so this path is never taken;
+/// it exists only to keep the query wiring total on the edge build.
+#[cfg(not(feature = "cloud"))]
+async fn open_postgres_query(_url: &str) -> anyhow::Result<QueryEngine> {
+    anyhow::bail!("postgres query surface requires the cloud profile")
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -110,11 +127,10 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("query engine disabled (RUBIX_QUERY=0)");
         None
     } else if Store::is_postgres_target(&db_path) {
-        // The DataFusion surface is SQLite-backed; Postgres federation is a
-        // separate workstream. Under a Postgres store the query engine stays
-        // off rather than reading a stale SQLite file.
-        tracing::info!("query engine off: datafusion has no postgres provider yet");
-        None
+        // The cloud profile federates the canonical tables from Postgres through
+        // the DataFusion connector. The Parquet `his` cold tier is an edge/SQLite
+        // tiering concept; the Postgres surface reads `his` straight from the DB.
+        Some(open_postgres_query(&db_path).await?)
     } else {
         let mut engine = QueryEngine::open(std::path::Path::new(&db_path)).await?;
         if let Some(tier) = &his_tier {

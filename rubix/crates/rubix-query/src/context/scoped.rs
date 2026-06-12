@@ -33,7 +33,8 @@ impl QueryEngine {
         // never collide) and admits a row only when its owner is in scope. The
         // join sides are aliased so the otherwise-ambiguous `id` is qualified.
         let sites = self
-            .canonical_dataframe(&ctx, "sites")?
+            .canonical_dataframe(&ctx, "sites")
+            .await?
             .filter(
                 col("org")
                     .eq(lit(scope.org()))
@@ -47,18 +48,21 @@ impl QueryEngine {
 
         let equips = self
             .semijoin(&ctx, "equips", "scoped_equips", "site_id", sites, "scoped_sites")
+            .await
             .map_err(register_err)?;
         ctx.register_table("equips", equips.clone().into_view())
             .map_err(register_err)?;
 
         let points = self
             .semijoin(&ctx, "points", "scoped_points", "equip_id", equips, "scoped_equips")
+            .await
             .map_err(register_err)?;
         ctx.register_table("points", points.clone().into_view())
             .map_err(register_err)?;
 
         let his = self
             .semijoin(&ctx, "his", "scoped_his", "point_id", points, "scoped_points")
+            .await
             .map_err(register_err)?;
         ctx.register_table("his", his.into_view())
             .map_err(register_err)?;
@@ -73,6 +77,7 @@ impl QueryEngine {
             .map_err(register_err)?;
         let sparks = self
             .semijoin(&ctx, "sparks", "scoped_sparks", "site_id", scoped_sites, "scoped_sites")
+            .await
             .map_err(register_err)?;
         ctx.register_table("sparks", sparks.into_view())
             .map_err(register_err)?;
@@ -88,7 +93,7 @@ impl QueryEngine {
     /// dataframe on `child.fk == parent.id`, keeping only the child's rows whose
     /// owner is in scope (and only the child's columns). Both sides are aliased
     /// so the shared `id` column is unambiguous in the join predicate.
-    fn semijoin(
+    async fn semijoin(
         &self,
         ctx: &SessionContext,
         child_table: &'static str,
@@ -99,6 +104,7 @@ impl QueryEngine {
     ) -> Result<datafusion::dataframe::DataFrame, datafusion::error::DataFusionError> {
         let child = self
             .canonical_dataframe(ctx, child_table)
+            .await
             .map_err(|e| datafusion::error::DataFusionError::External(Box::new(e)))?
             .alias(child_alias)?;
         let on = qualified(child_alias, fk).eq(qualified(parent_alias, "id"));

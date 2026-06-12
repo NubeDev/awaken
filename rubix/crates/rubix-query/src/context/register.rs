@@ -9,18 +9,16 @@ use datafusion::prelude::SessionContext;
 use super::tables::CANONICAL;
 use super::QueryEngine;
 use crate::error::QueryError;
-use crate::his::HisTable;
-use crate::provider::SqliteTable;
 
 impl QueryEngine {
     /// Build a fresh context with each canonical table registered under its
     /// bare name (so `SELECT * FROM points` resolves directly). Schema is read
-    /// from SQLite at call time, so empty tables still expose their columns.
-    /// Derived views (e.g. `points_cur`) are registered over those tables.
+    /// from the backing store at call time, so empty tables still expose their
+    /// columns. Derived views (e.g. `points_cur`) are registered over them.
     pub(crate) async fn session(&self) -> Result<SessionContext, QueryError> {
         let ctx = SessionContext::new();
         for &table in CANONICAL {
-            let provider = self.canonical_provider(table)?;
+            let provider = self.canonical_provider(table).await?;
             ctx.register_table(table, provider)
                 .map_err(|source| QueryError::Register { table, source })?;
         }
@@ -28,31 +26,25 @@ impl QueryEngine {
         Ok(ctx)
     }
 
-    /// The raw `TableProvider` for one canonical table. `his` resolves through
-    /// the two-tier union provider when a Parquet cold tier is attached; every
-    /// other canonical table (and `his` without a tier) is the live SQLite
-    /// provider.
-    pub(crate) fn canonical_provider(
+    /// The raw `TableProvider` for one canonical table from the backing store
+    /// (SQLite or Postgres). For SQLite, `his` resolves through the two-tier
+    /// union provider when a Parquet cold tier is attached.
+    pub(crate) async fn canonical_provider(
         &self,
         table: &'static str,
     ) -> Result<Arc<dyn TableProvider>, QueryError> {
-        if table == "his" {
-            if let Some(tier) = &self.his_tier {
-                return Ok(Arc::new(HisTable::new(self.pool.clone(), tier.store())));
-            }
-        }
-        Ok(Arc::new(SqliteTable::try_new(self.pool.clone(), table)?))
+        self.source.canonical_provider(table, &self.his_tier).await
     }
 
     /// A `DataFrame` reading one canonical table's raw provider in `ctx`. Used
     /// to build tenant-filtered scoped views whose plan embeds the provider
     /// inline, so the raw table is never registered under a nameable name.
-    pub(crate) fn canonical_dataframe(
+    pub(crate) async fn canonical_dataframe(
         &self,
         ctx: &SessionContext,
         table: &'static str,
     ) -> Result<DataFrame, QueryError> {
-        let provider = self.canonical_provider(table)?;
+        let provider = self.canonical_provider(table).await?;
         ctx.read_table(provider)
             .map_err(|source| QueryError::Register { table, source })
     }

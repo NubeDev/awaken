@@ -17,8 +17,9 @@ path = "src/main.rs"
 default = ["edge"]
 edge = []
 # The cloud profile adds the Postgres store backend (STACK-DEISGN.md "Postgres
-# (cloud), SQLite (edge)"). The edge build never compiles the Postgres client.
-cloud = ["dep:postgres", "dep:r2d2_postgres"]
+# (cloud), SQLite (edge)") and the DataFusion Postgres federation surface. The
+# edge build never compiles the Postgres client or connector.
+cloud = ["dep:postgres", "dep:r2d2_postgres", "rubix-query/cloud"]
 
 [dependencies]
 rubix-core.workspace = true

@@ -252,8 +252,17 @@ File-layout discipline holds: no source file exceeds 400 lines.
       publisher, spawned and health-checked by the supervisor in a live test.
 
 ### Platform / deployment
-- [ ] **Edge/cloud profiles**: single binary, cargo-feature + runtime-config
-      selected. No feature split exists yet (one build, all features compiled in).
+- [x] **Edge/cloud profiles**: single binary, cargo-feature + runtime-config
+      selected. `rubix-server` has `edge` (default) / `cloud` cargo features; a
+      build with neither fails `compile_error!`. `RUBIX_PROFILE` selects among
+      the compiled profiles at boot (rejects an uncompiled or unknown profile).
+      A `Profile` config (`profile` module) centralizes per-profile defaults —
+      store kind (SQLite/Postgres), history tier, driver supervision, auth
+      required — read once and threaded into `AppState`. Edge preserves today's
+      behavior exactly; cloud boots but fails closed when it would need a backend
+      that is not in this build yet (Postgres store → clear boot error). The
+      heavy cloud backends (Postgres, auth) attach behind this seam in later
+      work.
 - [ ] **Auth**: OIDC/JWT middleware, RBAC org→team→site scoping, PATs/service
       accounts. None present.
 - [ ] **UI**: React flow canvas + dashboard pages, served by axum. None present.
@@ -284,6 +293,8 @@ cargo clippy --workspace --all-targets
 ```
 
 Env:
+- `RUBIX_PROFILE` (`edge` default / `cloud`; selects among the compiled-in
+  profile features — see `--features edge`/`--features cloud`)
 - `RUBIX_DB`, `RUBIX_ADDR`, `RUBIX_AI_MIN_PRIORITY`, `RUBIX_AI_ESCALATION_FLOOR`
 - `RUBIX_ZENOH` (0=off), `RUBIX_QUERY` (0=off)
 - `RUBIX_HIS_PARQUET` (local dir path; enables the Parquet `his` cold tier +

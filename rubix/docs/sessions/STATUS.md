@@ -14,7 +14,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-01 | `agent_call` board node → embedded agent | ✅ | 2026-06-12T09:44:18Z | 2026-06-12T10:35:00Z | 47221b45 |
 | WS-02 | Persistent run registry + resume endpoint (HITL) | ✅ | 2026-06-12T10:10:09Z | 2026-06-12T11:40:00Z | 92f2d912 |
 | WS-03 | Parquet history `TableProvider` (object_store tiering) | ✅ | 2026-06-12T10:35:35Z | 2026-06-12T12:20:00Z | 2b717955 |
-| WS-04 | Edge/cloud profiles (cargo features + runtime config) | 🔵 | 2026-06-12T11:00:13Z | | |
+| WS-04 | Edge/cloud profiles (cargo features + runtime config) | ✅ | 2026-06-12T11:00:13Z | 2026-06-12T11:33:26Z | (pending) |
 | WS-05 | Postgres backend for the cloud profile | ⬜ | | | |
 | WS-06 | Auth: OIDC/JWT middleware + RBAC org→team→site | ⬜ | | | |
 | WS-07 | Tenancy: org/site → awaken `ScopeId` | ⬜ | | | |

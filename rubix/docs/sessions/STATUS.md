@@ -17,7 +17,7 @@ Queue order is dependency order — earlier rows ship contracts later rows build
 | WS-04 | Edge/cloud profiles (cargo features + runtime config) | ✅ | 2026-06-12T11:00:13Z | 2026-06-12T11:33:26Z | a5648944 |
 | WS-05 | Postgres backend for the cloud profile | ✅ | 2026-06-12T11:40:11Z | 2026-06-12T12:55:00Z | 200269f6 |
 | WS-06 | Auth: OIDC/JWT middleware + RBAC org→team→site | ✅ | 2026-06-12T12:10:30Z | 2026-06-12T13:40:00Z | b7ec6d06 |
-| WS-07 | Tenancy: org/site → awaken `ScopeId` | ⬜ | | | |
+| WS-07 | Tenancy: org/site → awaken `ScopeId` | ✅ | 2026-06-12T12:30:31Z | 2026-06-12T13:21:00Z | 385f0e1d |
 | WS-08 | Outbound MCP adapter (BMS tools to external agents) | ⬜ | | | |
 | WS-09 | Scoped zenoh session per driver + reference driver binary | ⬜ | | | |
 | WS-10 | Write ack/backpressure protocol + bounded buffers | ⬜ | | | |

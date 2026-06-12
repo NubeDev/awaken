@@ -52,3 +52,25 @@ now captures the suspend from the event stream and `cancel_by_run_id`s the loop 
   tables and their DDL/migrations live. Likely its own workstream.
 - **Committed so far:** WS-05 store backend committed on `rubix-gaps` (200269f6); WS-05 is Done for its
   own scope (store contract green on SQLite and Postgres). This entry is a follow-up, not a WS-05 blocker.
+
+---
+
+### 2026-06-12 — WS-07 — tenant-scoped runs withhold the `query` SQL tool (fail-closed)
+- **What's blocked:** A tenant-scoped agent run (chat with a sited principal, or a dispatched spark)
+  gets the BMS read/write/his/board/widget tools confined to its `{org}/{site}`, but the SQL `query`
+  tool is **omitted** from the scoped tool set (`build_tools_scoped` returns no query tool when
+  `scope.is_some()`). So a scoped run cannot run ad-hoc SQL at all, rather than running SQL confined
+  to its tenant.
+- **Why (the ambiguity / missing dep / guardrail conflict):** The `query` tool runs free-form SQL
+  through the DataFusion engine over the canonical tables; there is no tenant-aware view/row-filter
+  subsystem to safely scope that SQL to one `{org}/{site}` without a query rewriter or per-tenant
+  views. Shipping an unscoped query tool inside a scoped run would be a cross-tenant read hole, so it
+  is withheld (fail-closed) until a tenant-aware query surface exists. Unscoped runs (no principal
+  site, no spark tenant) keep the full tool set including `query`.
+- **What the human must decide/provide:** whether scoped runs get a tenant-filtered query surface
+  (DataFusion views keyed by `{org}/{site}`, or a SQL rewriter that injects the tenant predicate),
+  or query stays operator-only and out of scoped agent reach. Couples with WS-05's Postgres
+  federation follow-up (the query engine subsystem).
+- **Committed so far:** WS-07 committed on `rubix-gaps` (c96f6996, 2bccee07, 385f0e1d); WS-07 is Done
+  for its own scope (point/board/widget tools enforce the tenant boundary; cross-tenant denial is
+  tested on both paths). This entry is a follow-up, not a WS-07 blocker.

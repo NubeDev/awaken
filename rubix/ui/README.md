@@ -100,6 +100,26 @@ Start the server
   pnpm run dev
 ```
 
+## Rubix dev loop (real API, seeded portfolio)
+
+The UI runs against the live `rubix-server` with the demo building portfolio
+seeded as real store rows (no fake data). Three commands:
+
+```bash
+# 1. backend on :8088, store seeded with the demo portfolio (dev-gated, idempotent)
+cd rubix && cargo run -p rubix-server -- --seed-dev
+
+# 2. UI on :5180, real mode (/api proxied to :8088)
+VITE_DEMO=0 pnpm -C rubix/ui dev
+
+# 3. (optional) capture the look-freeze reference screenshots into docs/reference/
+node rubix/ui/scripts/screenshot.mjs
+```
+
+`--seed-dev` is dev-only and idempotent — re-running upserts by slug, so it
+never duplicates. Set `CHOKIDAR_USEPOLLING=true` if file-watching hits inotify
+limits.
+
 ## Sponsoring this project ❤️
 
 If you find this project helpful or use this in your own work, consider [sponsoring me](https://github.com/sponsors/satnaing) to support development and maintenance. You can [buy me a coffee](https://buymeacoffee.com/satnaing) as well. Don’t worry, every penny helps. Thank you! 🙏

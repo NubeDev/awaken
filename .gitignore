@@ -53,6 +53,8 @@ docs/book/mermaid-init.js
 !apps/www/public/assets/admin-console/**/*.png
 # ...and Playwright visual-regression baselines (one per surface × theme × locale).
 !e2e/tests/**/*-snapshots/**/*.png
+# ...and the rubix UI look-freeze reference captures (docs/sessions/ui/UI-02.md).
+!rubix/ui/docs/reference/**/*.png
 coverage_err.log
 .dev/
 # Design-reference repos kept on disk only (e.g. flow-like) — never committed.

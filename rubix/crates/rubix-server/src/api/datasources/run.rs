@@ -21,6 +21,7 @@ use utoipa::ToSchema;
 use rubix_datasource::Param;
 
 use super::registry_or_unavailable;
+use crate::api::time_range::{resolve_request_range, TimeRangeBody};
 use crate::api::UnitsCtx;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -41,6 +42,18 @@ pub struct DatasourceQueryRequest {
     /// text (docs/design/variables-and-templating.md §2). Omit for no variables.
     #[serde(default)]
     pub variables: Vec<QueryVariable>,
+    /// The dashboard time range the time macros (`$__from`/`$__to`/
+    /// `$__timeFilter`/`$__timeGroup`/`$__interval`) bind against. Bounds are
+    /// absolute RFC 3339 instants or relative tokens (`now`, `now-6h`, `now/d`)
+    /// resolved against one server-frozen `now`
+    /// (docs/design/time-range-and-refresh.md §4). Omit for a query with no time
+    /// macro — behaviour is then unchanged.
+    #[serde(default)]
+    pub time_range: Option<TimeRangeBody>,
+    /// The bucket width in seconds for `$__timeGroup`/`$__interval`. Omit to let
+    /// the server derive one from the range.
+    #[serde(default)]
+    pub interval_secs: Option<u32>,
     /// Optional per-column quantity declarations (WS-11). A column with a
     /// `quantity` is converted at the response edge into the caller's preferred
     /// unit (honouring the `Accept-Units` header); untagged columns pass through
@@ -80,9 +93,12 @@ pub(crate) async fn run_query(
 ) -> Result<Json<DatasourceResultBody>, ApiError> {
     let registry = registry_or_unavailable(&state)?;
     let mut params = super::parse_params(req.params)?;
-    // Lower variable tokens into placeholders numbered after the caller's
-    // positional `params`, then append their bound values to the same list.
-    let lowered = lower(&req.sql, &req.variables, params.len())
+    // Resolve the range against one server-frozen `now` so every time macro in
+    // this request shares a single instant.
+    let time = resolve_request_range(req.time_range.as_ref(), req.interval_secs)?;
+    // Lower variable and time tokens into placeholders numbered after the
+    // caller's positional `params`, then append their bound values to the list.
+    let lowered = lower(&req.sql, &req.variables, params.len(), time.as_ref())
         .map_err(|e| ApiError::BadRequest(e.to_string()))?;
     params.extend(lowered.params.iter().map(bound_to_param));
     let executor = registry.executor(&id)?;
@@ -96,8 +112,9 @@ pub(crate) async fn run_query(
 }
 
 /// Map an engine [`BoundParam`] onto a datasource [`Param`]. The engine's value
-/// set is a subset of the datasource's (it carries no timestamp variant — time
-/// macros are a separate concern), so this is total.
+/// set maps one-to-one onto the datasource's, including the time-macro
+/// [`BoundParam::Timestamp`] (bound as the external engine's temporal type so a
+/// range bound compares as an instant), so this is total.
 fn bound_to_param(bound: &BoundParam) -> Param {
     match bound {
         BoundParam::Null => Param::Null,
@@ -105,6 +122,7 @@ fn bound_to_param(bound: &BoundParam) -> Param {
         BoundParam::Int(i) => Param::Int(*i),
         BoundParam::Float(f) => Param::Float(*f),
         BoundParam::Text(s) => Param::Text(s.clone()),
+        BoundParam::Timestamp(s) => Param::Timestamp(s.clone()),
     }
 }
 

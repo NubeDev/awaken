@@ -491,6 +491,19 @@ export interface QueryVariable {
   value: VariableValue
 }
 
+/**
+ * `rubix-server::TimeRangeBody` — the dashboard time range a query's time macros
+ * (`$__from`/`$__to`/`$__timeFilter`/`$__timeGroup`/`$__interval`) bind against
+ * (docs/design/time-range-and-refresh.md §4). `from`/`to` are absolute RFC 3339
+ * instants or relative tokens (`now`, `now-6h`, `now/d`); the server resolves
+ * them against one frozen `now` so every widget in a refresh shares an instant.
+ * The bounds bind as parameters — they never splice into SQL.
+ */
+export interface TimeRangeBody {
+  from: string
+  to: string
+}
+
 /** A single DataFusion `/query` result row: column name -> value. */
 export type QueryRow = Record<string, PointValue | null>
 

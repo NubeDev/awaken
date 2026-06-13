@@ -9,7 +9,7 @@
 //! [`TimeContext`] is what the macros lower into bound parameters; the raw
 //! tokens never reach SQL.
 
-use chrono::{DateTime, Duration, DurationRound, TimeZone, Utc};
+use chrono::{DateTime, Duration, DurationRound, Utc};
 
 use super::error::InterpolateError;
 
@@ -183,15 +183,10 @@ fn bad_token(token: &str) -> InterpolateError {
     }
 }
 
-/// The Unix epoch as a UTC instant, a convenience for callers building a spec.
-#[allow(dead_code)]
-fn epoch() -> DateTime<Utc> {
-    Utc.timestamp_opt(0, 0).single().expect("epoch is valid")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     fn now() -> DateTime<Utc> {
         // 2026-06-13T14:30:45Z — a non-aligned instant so rounding is visible.
@@ -296,10 +291,5 @@ mod tests {
         // binds once it is a resolved instant).
         let err = resolve_bound("'); DROP TABLE his; --", now()).unwrap_err();
         assert!(matches!(err, InterpolateError::BadTimeToken { .. }));
-    }
-
-    #[test]
-    fn epoch_is_unix_zero() {
-        assert_eq!(epoch().timestamp(), 0);
     }
 }

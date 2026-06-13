@@ -18,7 +18,8 @@ pub use context::{QueryEngine, QueryScope};
 pub use error::QueryError;
 pub use his::{write_partitions, HisRow, HisTier};
 pub use interpolate::{
-    lower, BoundParam, InterpolateError, Lowered, QueryVariable, Scalar, VarValue,
+    lower, resolve_time_range, BoundParam, InterpolateError, Lowered, QueryVariable, Scalar,
+    TimeContext, TimeRangeSpec, VarValue,
 };
 pub use rollup::{Aggregate, Interval, RollupSpec};
 pub use sql::{ensure_read_only, QueryRows};

@@ -22,6 +22,7 @@ mod sites;
 mod sparks;
 mod tag_query;
 mod teams;
+mod time_range;
 mod units_ctx;
 mod tokens;
 mod users;

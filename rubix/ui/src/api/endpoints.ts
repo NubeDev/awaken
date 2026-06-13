@@ -43,6 +43,7 @@ import type {
   ProvisionOrg,
   QueryResult,
   QueryVariable,
+  TimeRangeBody,
   ResolvedPreferences,
   UnitsDocument,
   CreateDashboard,
@@ -261,6 +262,15 @@ export const query = {
       units?: 'preferred' | 'canonical'
       /** Resolved variables the server binds into the SQL (injection-safe). */
       variables?: QueryVariable[]
+      /**
+       * The dashboard time range the time macros bind against. The server
+       * resolves the (possibly relative) bounds against one frozen `now`
+       * (docs/design/time-range-and-refresh.md §4).
+       */
+      timeRange?: TimeRangeBody
+      /** Bucket width in seconds for `$__timeGroup`/`$__interval`; omit to let
+       * the server derive one from the range. */
+      intervalSecs?: number
     }
   ) =>
     request<QueryResult>('/api/v1/query', {
@@ -268,6 +278,8 @@ export const query = {
       body: {
         sql,
         ...(opts?.variables?.length ? { variables: opts.variables } : {}),
+        ...(opts?.timeRange ? { time_range: opts.timeRange } : {}),
+        ...(opts?.intervalSecs != null ? { interval_secs: opts.intervalSecs } : {}),
       },
       headers: opts?.units ? { 'accept-units': opts.units } : undefined,
     }),

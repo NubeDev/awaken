@@ -11,7 +11,8 @@ use crate::store::{GrantRecord, TeamRecord, UserRecord};
 
 use super::{
     agent, boards, command, dashboards, datasources, equips, grants, health, his, orgs, points,
-    preferences, query, rules, runs, sites, sparks, teams, tokens, users, whoami, widgets,
+    preferences, query, rules, runs, sites, sparks, teams, time_range, tokens, users, whoami,
+    widgets,
 };
 
 /// Registers the `bearer` HTTP security scheme so routes can mark themselves
@@ -149,6 +150,7 @@ impl Modify for BearerSecurity {
         datasources::run::DatasourceQueryRequest, datasources::run::DatasourceResultBody,
         datasources::named::NamedQueryRequest,
         query::run::QueryRequest, query::run::QueryResponse,
+        time_range::TimeRangeBody,
         rubix_query::QueryVariable, rubix_query::VarValue, rubix_query::Scalar,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard,
         rubix_core::Variable, rubix_core::VariableKind, rubix_core::VariableConfig,

@@ -36,6 +36,7 @@ use super::actor_base::{config_str, error_out, ActorBase};
 use crate::port::PointAccess;
 use crate::rubix_node;
 
+pub use self::frame::frame_from_his;
 pub use self::severity::spark_severity as map_severity;
 
 /// Default cap on the input frame: a rule folds a bounded, query-capped window,

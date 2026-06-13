@@ -19,7 +19,7 @@ pub use board::{
 };
 pub use error::FlowError;
 pub use node::{
-    map_severity, AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, RuleActor,
-    TriggerActor, WritePointActor,
+    frame_from_his, map_severity, AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor,
+    RuleActor, TriggerActor, WritePointActor,
 };
 pub use port::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};

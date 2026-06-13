@@ -16,6 +16,6 @@ pub use agent_call::AgentCallActor;
 pub use emit_spark::EmitSparkActor;
 pub use query_his::QueryHisActor;
 pub use read_point::ReadPointActor;
-pub use rule::{map_severity, RuleActor};
+pub use rule::{frame_from_his, map_severity, RuleActor};
 pub use trigger::TriggerActor;
 pub use write_point::WritePointActor;

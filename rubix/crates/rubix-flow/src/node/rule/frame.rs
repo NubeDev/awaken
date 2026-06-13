@@ -17,8 +17,8 @@ use rubix_rules::arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 use rubix_rules::{Frame, RecordBatch, SchemaRef};
 
 /// Column names the rule frame exposes to scripts (`df.rolling_mean("ts", …)`).
-pub(super) const TS_COL: &str = "ts";
-pub(super) const VALUE_COL: &str = "value";
+pub const TS_COL: &str = "ts";
+pub const VALUE_COL: &str = "value";
 
 /// Why a frame could not be built from a node input.
 #[derive(Debug)]
@@ -62,6 +62,20 @@ pub(super) fn frame_from_samples(
         });
     }
 
+    frame_from_his(&samples).map_err(FrameError::Decode)
+}
+
+/// Build the canonical rule [`Frame`] (`ts` timestamp, `value` float64) from
+/// already-resolved history samples — the same two-column shape the board `rule`
+/// node folds, exposed for callers that resolve rows themselves (the server's
+/// dry-run endpoint resolves a point's history and reuses this so a dry-run sees
+/// the identical frame a live board would). Caps/truncation are the caller's
+/// concern: this builds the frame from whatever rows it is given.
+///
+/// A non-numeric sample value (a string point) becomes a null in `value`; the
+/// timestamp is always present. Errors with a decode message if a timestamp is
+/// out of the representable nanosecond range or the batch cannot be assembled.
+pub fn frame_from_his(samples: &[HisSample]) -> Result<Frame, String> {
     let schema: SchemaRef = Arc::new(Schema::new(vec![
         Field::new(
             TS_COL,
@@ -76,7 +90,7 @@ pub(super) fn frame_from_samples(
         .map(|s| s.ts.timestamp_nanos_opt())
         .collect::<Option<Vec<_>>>()
         .map(|v| TimestampNanosecondArray::from(v).with_timezone("UTC"))
-        .ok_or_else(|| FrameError::Decode("sample timestamp out of representable range".into()))?;
+        .ok_or_else(|| "sample timestamp out of representable range".to_string())?;
 
     let value = Float64Array::from(
         samples
@@ -86,7 +100,7 @@ pub(super) fn frame_from_samples(
     );
 
     let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(ts), Arc::new(value)])
-        .map_err(|e| FrameError::Decode(e.to_string()))?;
+        .map_err(|e| e.to_string())?;
 
     Ok(Frame::new(schema, vec![batch]))
 }

@@ -3,6 +3,7 @@
 
 pub(crate) mod create;
 pub(crate) mod delete;
+pub(crate) mod dry_run;
 pub(crate) mod dto;
 pub(crate) mod get;
 pub(crate) mod list;
@@ -19,6 +20,12 @@ pub(super) fn router() -> Router<AppState> {
         .route(
             "/api/v1/orgs/{org}/rules",
             post(create::create_rule).get(list::list_rules),
+        )
+        // Static segment registered before `{name}` so the dry-run path is never
+        // captured as a rule named "dry-run".
+        .route(
+            "/api/v1/orgs/{org}/rules/dry-run",
+            post(dry_run::dry_run_rule),
         )
         .route(
             "/api/v1/orgs/{org}/rules/{name}",

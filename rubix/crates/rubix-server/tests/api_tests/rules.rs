@@ -206,3 +206,129 @@ async fn missing_stored_rule_fails_closed_no_spark() {
         .await;
     assert!(sparks.as_array().unwrap().is_empty());
 }
+
+// --- dry-run (RULES_ENGINE debugger spine) ----------------------------------
+
+const TEMP_KEYEXPR: &str = "nube/hq/ahu-3/temp";
+
+#[tokio::test]
+async fn dry_run_inline_flags_and_returns_frame() {
+    // The seeded point has one sample at 30.0. A flagging inline rule returns a
+    // flagged verdict plus the frame it saw, so the UI can chart the input.
+    let app = TestApp::new();
+    seed_point(&app).await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({
+                "script": "finding(\"warning\", \"hot\").with_value(30.0)",
+                "point": TEMP_KEYEXPR,
+                "limit": 100
+            })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["result"]["flagged"], true);
+    assert_eq!(body["result"]["severity"], "warning");
+    assert_eq!(body["result"]["message"], "hot");
+    assert_eq!(body["result"]["value"], 30.0);
+    assert_eq!(body["frame"]["row_count"], 1);
+    assert_eq!(body["frame"]["rows"][0]["value"], 30.0);
+}
+
+#[tokio::test]
+async fn dry_run_clear_returns_unflagged() {
+    let app = TestApp::new();
+    seed_point(&app).await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({ "script": "clear()", "point": TEMP_KEYEXPR })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["result"]["flagged"], false);
+}
+
+#[tokio::test]
+async fn dry_run_stored_rule_resolves_by_name() {
+    let app = TestApp::new();
+    seed_point(&app).await;
+    create_rule(&app, "temp-high", "finding(\"fault\", \"stored hit\")").await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({ "rule": "temp-high", "point": TEMP_KEYEXPR })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["result"]["flagged"], true);
+    assert_eq!(body["result"]["severity"], "fault");
+    assert_eq!(body["result"]["message"], "stored hit");
+}
+
+#[tokio::test]
+async fn dry_run_compile_error_is_bad_request() {
+    let app = TestApp::new();
+    seed_point(&app).await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({ "script": "this is not valid rhai (((", "point": TEMP_KEYEXPR })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+}
+
+#[tokio::test]
+async fn dry_run_without_point_runs_on_empty_frame() {
+    // No `point` is a compile/shape check: the rule runs over an empty frame.
+    let app = TestApp::new();
+
+    let (status, body) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({ "script": "clear()" })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["result"]["flagged"], false);
+    assert_eq!(body["frame"]["row_count"], 0);
+}
+
+#[tokio::test]
+async fn dry_run_requires_exactly_one_source() {
+    let app = TestApp::new();
+
+    let (status, _) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    let (status, _) = app
+        .request(
+            "POST",
+            &format!("/api/v1/orgs/{ORG}/rules/dry-run"),
+            Some(json!({ "script": "clear()", "rule": "temp-high" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

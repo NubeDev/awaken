@@ -62,6 +62,11 @@ import type {
   Uuid,
   Widget,
   WriteRequest,
+  NavNode,
+  CreateNavNode,
+  PatchNavNode,
+  EntityTags,
+  TagEntityKind,
 } from './types'
 
 export const sites = {
@@ -438,4 +443,37 @@ export const grants = {
     request<Grant[]>(`/api/v1/dashboards/${id}/grants`, { signal }),
   grantDashboard: (id: Uuid, body: CreateDashboardGrant) =>
     request<Grant>(`/api/v1/dashboards/${id}/grants`, { method: 'POST', body }),
+}
+
+export const nav = {
+  /** The org's nav tree, server-filtered to nodes the caller holds `view` on
+   *  (docs/design/page-context-and-nav.md §6). Returned flat in tree order. */
+  list: (org: string, signal?: AbortSignal) =>
+    request<NavNode[]>('/api/v1/nav', { query: { org }, signal }),
+  get: (id: Uuid, signal?: AbortSignal) =>
+    request<NavNode>(`/api/v1/nav/${id}`, { signal }),
+  create: (body: CreateNavNode) =>
+    request<NavNode>('/api/v1/nav', { method: 'POST', body }),
+  patch: (id: Uuid, body: PatchNavNode) =>
+    request<NavNode>(`/api/v1/nav/${id}`, { method: 'PATCH', body }),
+  remove: (id: Uuid) =>
+    request<void>(`/api/v1/nav/${id}`, { method: 'DELETE' }),
+}
+
+export const tags = {
+  /** An entity's full tag set. */
+  get: (kind: TagEntityKind, id: Uuid, signal?: AbortSignal) =>
+    request<EntityTags>(`/api/v1/tags/${kind}/${id}`, { signal }),
+  /** Full-replace an entity's tag set; enforces the entity's own `edit` authz. */
+  put: (kind: TagEntityKind, id: Uuid, body: EntityTags) =>
+    request<EntityTags>(`/api/v1/tags/${kind}/${id}`, { method: 'PUT', body }),
+  /** Reverse lookup: which entities of a kind carry tags, with their sets. */
+  entities: (kind: TagEntityKind, org: string, signal?: AbortSignal) =>
+    request<Record<string, EntityTags>>(`/api/v1/tags/entities/${kind}`, {
+      query: { org },
+      signal,
+    }),
+  /** Distinct tag keys in use (authoring autocomplete). */
+  keys: (kind: TagEntityKind, org: string, signal?: AbortSignal) =>
+    request<string[]>('/api/v1/tags/keys', { query: { org, kind }, signal }),
 }

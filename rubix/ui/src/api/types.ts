@@ -954,3 +954,10 @@ export interface PatchNavNode {
  * present-but-unset key. The `PUT` replaces the set wholesale.
  */
 export type EntityTags = Record<string, string | null>
+
+/**
+ * `rubix_core::TagEntityKind` — the entity kinds that carry behaviour-affecting
+ * tags (docs/design/page-context-and-nav.md §3). A closed set; the server
+ * rejects any other kind path segment.
+ */
+export type TagEntityKind = 'dashboard'

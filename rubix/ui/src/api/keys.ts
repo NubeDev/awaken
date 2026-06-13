@@ -54,4 +54,10 @@ export const qk = {
   grants: (org?: string, resourceRef?: string) =>
     ['grants', org ?? 'all', resourceRef ?? 'all'] as const,
   dashboardGrants: (id: Uuid) => ['grants', 'dashboard', id] as const,
+  /** The org's nav tree (server-filtered to `view`-granted nodes). */
+  nav: (org?: string) => ['nav', org ?? 'all'] as const,
+  navNode: (id: Uuid) => ['nav', 'node', id] as const,
+  /** An entity's tag set (key per kind+id). */
+  entityTags: (kind: string, id: Uuid) => ['tags', kind, id] as const,
+  tagKeys: (kind: string, org: string) => ['tags', 'keys', kind, org] as const,
 }

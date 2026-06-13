@@ -10,7 +10,8 @@ use awaken_runtime::AgentRuntime;
 use awaken_runtime_contract::contract::message::Message;
 use chrono::Utc;
 use rubix_core::{HisSample, PointValue, Spark};
-use rubix_flow::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};
+use rubix_datasource::{DatasourceRegistry, Param, Params};
+use rubix_flow::{AgentOutcome, AgentRequest, DatasourceQuery, PointAccess, SparkDraft};
 use uuid::Uuid;
 
 use crate::agent::AGENT_ID;
@@ -32,6 +33,10 @@ pub struct StorePointAccess {
     /// Tenant scope a `rule` node resolves stored rules through. `None` makes a
     /// stored-rule node fail closed (an inline-script node runs regardless).
     org: Option<String>,
+    /// External datasources a `datasource` node reads through. `None` makes a
+    /// `datasource` node fail closed (no datasource manifest loaded, or a board
+    /// access — the agent's own `run_board` — that deliberately withholds it).
+    datasources: Option<Arc<DatasourceRegistry>>,
 }
 
 impl StorePointAccess {
@@ -41,6 +46,7 @@ impl StorePointAccess {
             bus: None,
             agent: None,
             org: None,
+            datasources: None,
         }
     }
 
@@ -51,6 +57,7 @@ impl StorePointAccess {
             bus,
             agent: None,
             org: None,
+            datasources: None,
         }
     }
 
@@ -66,6 +73,15 @@ impl StorePointAccess {
     /// stored-rule node fails closed.
     pub fn with_org(mut self, org: Option<String>) -> Self {
         self.org = org;
+        self
+    }
+
+    /// Add the datasource registry so a `datasource` node can read external SQL.
+    /// Chained on the board-run paths (HTTP `run_board`, the scheduler); absent
+    /// (no manifest, or the agent's own board access), a `datasource` node fails
+    /// closed.
+    pub fn with_datasources(mut self, datasources: Option<Arc<DatasourceRegistry>>) -> Self {
+        self.datasources = datasources;
         self
     }
 }
@@ -162,6 +178,40 @@ impl PointAccess for StorePointAccess {
         })
     }
 
+    /// Run a `datasource` node's read against the external engine under the
+    /// *strict* cap policy and return the `{ columns, rows, breached }` blob.
+    /// Fails closed when no datasource registry is wired (no manifest, or the
+    /// agent's own board access). The port is synchronous and a board only runs
+    /// inside a Tokio runtime, so we bridge the async executor with
+    /// `block_in_place` + `block_on`, the same pattern as an awaited
+    /// `agent_call`. Strict: a cap breach is an error here (the spark path must
+    /// not fold a truncated grid into a finding — docs "Truncation on the spark
+    /// path").
+    fn query_datasource(
+        &self,
+        datasource: &str,
+        query: DatasourceQuery,
+        params: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        let registry = self.datasources.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("datasource: no datasource registry on this board access")
+        })?;
+        let params = parse_params(params)?;
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let executor = registry.executor(datasource)?;
+                let raw = match &query {
+                    DatasourceQuery::Sql(sql) => executor.execute(sql, &params).await?,
+                    DatasourceQuery::Named(name) => executor.invoke_named(name, &params).await?,
+                };
+                // Strict (spark) path: turn a cap breach into an error rather
+                // than handing a partial grid downstream.
+                executor.strict(raw)
+            })
+        })?;
+        Ok(serde_json::to_value(result)?)
+    }
+
     fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {
         let agent = self.agent_or_fail()?.clone();
         let result = tokio::task::block_in_place(|| {
@@ -185,6 +235,26 @@ impl StorePointAccess {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("agent_call: no agent runtime on this board access"))
     }
+}
+
+/// Parse a `datasource` node's JSON `params` (a `[{type,value}, …]` array) into
+/// the typed [`Params`] the executor binds positionally. A non-array or a
+/// malformed entry is a board-authoring error surfaced on the node's `error`
+/// port, never spliced into SQL.
+fn parse_params(params: serde_json::Value) -> anyhow::Result<Params> {
+    let arr = match params {
+        serde_json::Value::Array(arr) => arr,
+        // A bare `null`/absent params is "no parameters" — the common case for a
+        // parameterless query — rather than an error.
+        serde_json::Value::Null => Vec::new(),
+        other => anyhow::bail!("datasource: `params` must be a JSON array, got {other}"),
+    };
+    arr.into_iter()
+        .map(|v| {
+            serde_json::from_value::<Param>(v)
+                .map_err(|e| anyhow::anyhow!("datasource: invalid parameter: {e}"))
+        })
+        .collect()
 }
 
 /// Activation for an `agent_call` request: a single user turn on the named

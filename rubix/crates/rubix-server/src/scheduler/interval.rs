@@ -7,14 +7,7 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
-use std::sync::Arc;
-
-use awaken_runtime::AgentRuntime;
-
-use super::evaluate::evaluate;
-use super::outputs::BoardOutputs;
-use crate::bus::ZenohBus;
-use crate::store::Store;
+use super::evaluate::{evaluate, BoardRunDeps};
 
 /// Drive one interval board until shutdown. Owns no graph: it looks the board
 /// up by slug each tick, so disabling or deleting the board makes the next
@@ -22,10 +15,7 @@ use crate::store::Store;
 pub(super) async fn run_interval(
     slug: String,
     seconds: u64,
-    store: Store,
-    bus: Option<ZenohBus>,
-    agent: Option<Arc<AgentRuntime>>,
-    outputs: BoardOutputs,
+    deps: BoardRunDeps,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let mut ticker = tokio::time::interval(Duration::from_secs(seconds));
@@ -38,13 +28,13 @@ pub(super) async fn run_interval(
         tokio::select! {
             _ = ticker.tick() => {
                 let lookup = {
-                    let store = store.clone();
+                    let store = deps.store.clone();
                     let slug = slug.clone();
                     tokio::task::spawn_blocking(move || store.get_board(&slug)).await
                 };
                 match lookup {
                     Ok(Ok(board)) if board.is_scheduled() => {
-                        evaluate(&slug, &board.graph, &store, &bus, &agent, &outputs).await;
+                        evaluate(&slug, &board.graph, &deps).await;
                     }
                     Ok(Ok(_)) => {
                         tracing::debug!(board = %slug, "interval board disabled; skipping tick");

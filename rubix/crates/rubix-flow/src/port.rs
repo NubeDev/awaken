@@ -54,6 +54,21 @@ pub struct AgentOutcome {
     pub steps: usize,
 }
 
+/// What a `datasource` board node asks an external datasource to run. Either
+/// operator-authored native SQL (the widget/spark trust tier) or an
+/// operator-registered named query invoked by name — both supplied in the board
+/// definition, never end-user input (docs/design/datasources.md "Query
+/// authoring tiers"). Kept as a flow-local intent so `rubix-flow` need not depend
+/// on the `rubix-datasource` engine crate (the same boundary that keeps it free
+/// of axum/sqlite/zenoh); the host maps it onto the executor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DatasourceQuery {
+    /// Operator-authored native SQL with `$1`-style placeholders.
+    Sql(String),
+    /// An operator-registered named query, invoked by name.
+    Named(String),
+}
+
 /// Read/command/query access to points, addressed by zenoh keyexpr prefix
 /// (`{org}/{site}/{equip-path}/{point}`) so graphs reference points the same
 /// way the bus and tags do. Also the sink for rule-board findings (sparks) and
@@ -106,5 +121,27 @@ pub trait PointAccess: Send + Sync + 'static {
     /// store and runs regardless.
     fn rule_store(&self) -> Option<Arc<dyn RuleStore>> {
         None
+    }
+
+    /// Run a read against an external datasource for a `datasource` board node
+    /// and return the `{ columns, rows, breached }` blob as JSON (the same shape
+    /// `query_his` emits, so a downstream `rule` node folds it identically).
+    ///
+    /// `params` is the JSON parameter array (`[{type,value}, …]`) bound
+    /// positionally — never spliced into SQL. This is the *strict* (spark) path:
+    /// a result that breaches the datasource's caps is an `Err`, not a truncated
+    /// grid, because a spark folding partial rows into a finding can silently
+    /// reach a wrong conclusion (docs/design/datasources.md "Truncation on the
+    /// spark path"). The default rejects it, so a `PointAccess` with no
+    /// datasource registry (test fakes, the agent's own board access) makes a
+    /// `datasource` node fail closed; the server's registry-backed impl
+    /// overrides it.
+    fn query_datasource(
+        &self,
+        _datasource: &str,
+        _query: DatasourceQuery,
+        _params: serde_json::Value,
+    ) -> anyhow::Result<serde_json::Value> {
+        anyhow::bail!("datasource: this point access has no datasource registry")
     }
 }

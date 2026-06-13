@@ -54,3 +54,31 @@ async fn describe_unavailable_when_no_datasources_configured() {
 
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
 }
+
+/// A board `datasource` node fails closed when no datasource registry is wired:
+/// the run succeeds (200) but the node emits on its `error` port rather than
+/// `output`, so a spark folding the (absent) grid into a finding never fires.
+/// This is the board-side mirror of the routes' 503.
+#[tokio::test]
+async fn datasource_board_node_fails_closed_without_a_registry() {
+    let app = TestApp::new();
+
+    let board = json!({
+        "board": {
+            "nodes": [
+                {"id": "ds", "component": "datasource",
+                 "config": {"datasource": "historian", "sql": "SELECT 1"}}
+            ],
+            "connections": []
+        }
+    });
+    let (status, body) = app.request("POST", "/api/v1/boards/run", Some(board)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let outputs = body["outputs"].as_array().expect("outputs array");
+    let ds = outputs
+        .iter()
+        .find(|o| o["node"] == "ds")
+        .expect("datasource node output present");
+    assert_eq!(ds["port"], "error", "fails closed on the error port: {ds}");
+}

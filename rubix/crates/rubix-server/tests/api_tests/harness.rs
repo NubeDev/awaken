@@ -37,7 +37,7 @@ impl TestApp {
     pub fn with_state() -> (Self, AppState) {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
-        let scheduler = Scheduler::launch(store.clone(), None, None, Vec::new());
+        let scheduler = Scheduler::launch(store.clone(), None, None, None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,
@@ -65,7 +65,7 @@ impl TestApp {
     pub fn with_escalation_floor(floor: u8) -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
-        let scheduler = Scheduler::launch(store.clone(), None, None, Vec::new());
+        let scheduler = Scheduler::launch(store.clone(), None, None, None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,
@@ -300,7 +300,7 @@ impl TestApp {
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
         // A live scheduler so board create/enable register a loop and the
         // `/outputs` endpoint reads a real cache — the boards tests rely on this.
-        let scheduler = Scheduler::launch(store.clone(), bus.clone(), None, Vec::new());
+        let scheduler = Scheduler::launch(store.clone(), bus.clone(), None, None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,

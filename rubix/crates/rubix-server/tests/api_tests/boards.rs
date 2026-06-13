@@ -234,7 +234,7 @@ async fn scheduler_interval_fires_a_board() {
     };
     store.create_board(&record).expect("store board");
 
-    let scheduler = Scheduler::launch(store.clone(), None, None, vec![record]);
+    let scheduler = Scheduler::launch(store.clone(), None, None, None, vec![record]);
     assert_eq!(scheduler.active(), 1);
 
     // Within ~3s (first tick lands at 1s) the board should have commanded fan.

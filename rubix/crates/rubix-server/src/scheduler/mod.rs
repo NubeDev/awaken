@@ -25,9 +25,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use awaken_runtime::AgentRuntime;
+use rubix_datasource::DatasourceRegistry;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
+use self::evaluate::BoardRunDeps;
 use crate::bus::ZenohBus;
 use crate::store::Store;
 
@@ -50,8 +52,26 @@ struct SchedulerInner {
     store: Store,
     bus: Option<ZenohBus>,
     agent: Option<Arc<AgentRuntime>>,
+    /// External datasources backing `datasource` nodes in scheduled boards.
+    /// `None` when no manifest is loaded; such a board's `datasource` node fails
+    /// closed at run time.
+    datasources: Option<Arc<DatasourceRegistry>>,
     outputs: BoardOutputs,
     tasks: Mutex<HashMap<String, BoardTask>>,
+}
+
+impl SchedulerInner {
+    /// The backend services every scheduled board run binds to. Cloned per loop
+    /// so each detached task owns its own handles.
+    fn board_run_deps(&self) -> BoardRunDeps {
+        BoardRunDeps {
+            store: self.store.clone(),
+            bus: self.bus.clone(),
+            agent: self.agent.clone(),
+            datasources: self.datasources.clone(),
+            outputs: self.outputs.clone(),
+        }
+    }
 }
 
 impl Scheduler {
@@ -64,6 +84,7 @@ impl Scheduler {
         store: Store,
         bus: Option<ZenohBus>,
         agent: Option<Arc<AgentRuntime>>,
+        datasources: Option<Arc<DatasourceRegistry>>,
         boards: Vec<BoardRecord>,
     ) -> Self {
         let scheduler = Self {
@@ -71,6 +92,7 @@ impl Scheduler {
                 store,
                 bus,
                 agent,
+                datasources,
                 outputs: BoardOutputs::new(),
                 tasks: Mutex::new(HashMap::new()),
             }),
@@ -109,25 +131,18 @@ impl Scheduler {
         let (shutdown, rx) = watch::channel(false);
         let inner = self.inner.clone();
         let slug = board.slug.clone();
+        let deps = inner.board_run_deps();
         let handle = match board.trigger.clone() {
             Trigger::Manual => return, // filtered out by is_scheduled
-            Trigger::Interval { seconds } => tokio::spawn(interval::run_interval(
-                slug.clone(),
-                seconds,
-                inner.store.clone(),
-                inner.bus.clone(),
-                inner.agent.clone(),
-                inner.outputs.clone(),
-                rx,
-            )),
+            Trigger::Interval { seconds } => {
+                tokio::spawn(interval::run_interval(slug.clone(), seconds, deps, rx))
+            }
             Trigger::Subscription { key } => match &inner.bus {
                 Some(bus) => tokio::spawn(subscribe::run_subscription(
                     slug.clone(),
                     key,
                     bus.clone(),
-                    inner.store.clone(),
-                    inner.agent.clone(),
-                    inner.outputs.clone(),
+                    deps,
                     rx,
                 )),
                 None => {

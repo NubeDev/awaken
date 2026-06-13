@@ -4,6 +4,7 @@
 
 pub mod actor_base;
 mod agent_call;
+mod datasource;
 mod emit_spark;
 mod query_his;
 mod read_point;
@@ -13,6 +14,7 @@ mod value_msg;
 mod write_point;
 
 pub use agent_call::AgentCallActor;
+pub use datasource::DatasourceActor;
 pub use emit_spark::EmitSparkActor;
 pub use query_his::QueryHisActor;
 pub use read_point::ReadPointActor;

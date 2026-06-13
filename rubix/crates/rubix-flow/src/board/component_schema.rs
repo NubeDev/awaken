@@ -236,6 +236,30 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
             ],
         },
         ComponentSchema {
+            component: "datasource".into(),
+            label: "Datasource Query".into(),
+            description: "Run a read-only query against an external SQL datasource \
+                          (TimescaleDB/Postgres) as a JSON grid."
+                .into(),
+            kind: Source,
+            inports: vec![PortSchema::new("trigger", "trigger", PortType::Flow)],
+            outports: vec![
+                PortSchema::new("output", "output", PortType::Object),
+                PortSchema::new("error", "error", PortType::Error),
+            ],
+            config: vec![
+                ConfigField::new("datasource", "Datasource", String, true)
+                    .with_help("Registered datasource id to read from."),
+                ConfigField::new("sql", "SQL", String, false)
+                    .with_help("Native SQL with $1-style params; set this or `named`, not both."),
+                ConfigField::new("named", "Named query", String, false).with_help(
+                    "Operator-registered named query to invoke; set this or `sql`, not both.",
+                ),
+                ConfigField::new("params", "Params", Json, false)
+                    .with_help("JSON array of typed bound parameters ([{type,value}, …])."),
+            ],
+        },
+        ComponentSchema {
             component: "rule".into(),
             label: "Rule".into(),
             description: "Evaluate a sandboxed rule over query rows; flag a finding.".into(),

@@ -29,7 +29,8 @@ pub(crate) async fn run_stored_board(
     let access = Arc::new(
         StorePointAccess::with_bus(state.store.clone(), state.bus.clone())
             .with_agent(state.agent.clone())
-            .with_org(board.graph.tenant_org()),
+            .with_org(board.graph.tenant_org())
+            .with_datasources(state.datasources.clone()),
     );
     let outputs = board
         .graph

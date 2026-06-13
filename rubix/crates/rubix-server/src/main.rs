@@ -257,6 +257,7 @@ async fn main() -> anyhow::Result<()> {
             state.store.clone(),
             state.bus.clone(),
             state.agent.clone(),
+            state.datasources.clone(),
             scheduled,
         );
         tracing::info!(boards = scheduler.active(), "board scheduler running");

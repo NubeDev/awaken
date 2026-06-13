@@ -22,4 +22,4 @@ pub use node::{
     frame_from_his, map_severity, AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor,
     RuleActor, TriggerActor, WritePointActor,
 };
-pub use port::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};
+pub use port::{AgentOutcome, AgentRequest, DatasourceQuery, PointAccess, SparkDraft};

@@ -4,28 +4,21 @@
 //! graph is re-read from the store per sample so a republished version takes
 //! effect without restarting the subscriber.
 
-use std::sync::Arc;
-
-use awaken_runtime::AgentRuntime;
 use futures::StreamExt;
 use tokio::sync::watch;
 
-use super::evaluate::evaluate;
-use super::outputs::BoardOutputs;
+use super::evaluate::{evaluate, BoardRunDeps};
 use crate::bus::ZenohBus;
-use crate::store::Store;
 
 /// Drive one subscription board until shutdown. A declare failure is logged
 /// and the loop exits — the board simply won't fire, surfaced in the log,
-/// rather than crashing the scheduler. The bus backs both the subscriber and
-/// the board's `emit_spark` publishing.
+/// rather than crashing the scheduler. The bus backs both the subscriber (passed
+/// concretely) and, via `deps.bus`, the board's `emit_spark` publishing.
 pub(super) async fn run_subscription(
     slug: String,
     key: String,
     bus: ZenohBus,
-    store: Store,
-    agent: Option<Arc<AgentRuntime>>,
-    outputs: BoardOutputs,
+    deps: BoardRunDeps,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let subscriber = match bus.session_clone().declare_subscriber(&key).await {
@@ -42,21 +35,13 @@ pub(super) async fn run_subscription(
                 match sample {
                     Some(_) => {
                         let lookup = {
-                            let store = store.clone();
+                            let store = deps.store.clone();
                             let slug = slug.clone();
                             tokio::task::spawn_blocking(move || store.get_board(&slug)).await
                         };
                         match lookup {
                             Ok(Ok(board)) if board.is_scheduled() => {
-                                evaluate(
-                                    &slug,
-                                    &board.graph,
-                                    &store,
-                                    &Some(bus.clone()),
-                                    &agent,
-                                    &outputs,
-                                )
-                                .await;
+                                evaluate(&slug, &board.graph, &deps).await;
                             }
                             Ok(Ok(_)) => {}
                             Ok(Err(e)) => {

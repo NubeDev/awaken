@@ -1,7 +1,9 @@
 //! Schema migration: an existing SQLite file on an older shape must evolve in
 //! place when opened, never lose data, and never require deletion.
 
-use rubix_server::store::Store;
+use chrono::Utc;
+use rubix_server::auth::AdminLevel;
+use rubix_server::store::{Store, TeamRecord, UserRecord};
 
 /// Build a pre-dashboards database by hand (the v0 shape: `widgets` with no
 /// `dashboard_id`, no `dashboards` table), seed a site and a widget, then open
@@ -153,4 +155,79 @@ fn opening_a_v2_db_scopes_flows_and_rules() {
     // Re-open is idempotent (version stays at latest, no error).
     let store2 = Store::open(&path).unwrap();
     assert_eq!(store2.list_rules("kfc", None).unwrap().len(), 1);
+}
+
+/// v4 — RBAC identity. A v3-shape DB (no users/teams/memberships/grants tables)
+/// must gain them on open, keep existing data, stamp `user_version = 4`, and let
+/// the new tables round-trip. Re-opening is a no-op.
+#[test]
+fn opening_a_v3_db_adds_rbac_identity_tables() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("v3.db");
+    let site_id = uuid::Uuid::new_v4();
+
+    // A v3-shape DB: the base tables exist (sites here stands in for prior data)
+    // but none of the v4 RBAC tables do. Stamp it explicitly at v3.
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE sites (
+                id BLOB PRIMARY KEY, org TEXT NOT NULL, slug TEXT NOT NULL,
+                display_name TEXT NOT NULL, tags TEXT NOT NULL, created_at TEXT NOT NULL,
+                UNIQUE (org, slug)
+            );
+            ",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sites VALUES (?1,'acme','hq','Acme HQ','{}','2026-01-01T00:00:00Z')",
+            rusqlite::params![site_id],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 3").unwrap();
+    }
+
+    let store = Store::open(&path).unwrap();
+
+    // The pre-existing site survived (no destructive step).
+    assert_eq!(store.list_sites(None).unwrap().len(), 1, "site preserved");
+
+    // The new tables exist and round-trip. Seed a user + team + membership.
+    let user_id = uuid::Uuid::new_v4();
+    store
+        .create_user(&UserRecord {
+            id: user_id,
+            org: "acme".into(),
+            subject: "sub-1".into(),
+            email: "a@acme.test".into(),
+            display_name: "Admin".into(),
+            admin_level: AdminLevel::OrgAdmin,
+            created_at: Utc::now(),
+        })
+        .unwrap();
+    let team_id = uuid::Uuid::new_v4();
+    store
+        .create_team(&TeamRecord {
+            id: team_id,
+            org: "acme".into(),
+            slug: "ops".into(),
+            name: "Ops".into(),
+            created_at: Utc::now(),
+        })
+        .unwrap();
+    store.add_team_member(team_id, user_id).unwrap();
+
+    assert_eq!(store.list_users("acme").unwrap().len(), 1);
+    assert_eq!(store.team_ids_for_user(user_id).unwrap(), vec![team_id]);
+    assert_eq!(
+        store.user_by_subject("sub-1").unwrap().unwrap().admin_level,
+        AdminLevel::OrgAdmin
+    );
+
+    // `user_version` was bumped to the latest (4) — re-open is a clean no-op and
+    // the seeded rows persist.
+    let store2 = Store::open(&path).unwrap();
+    assert_eq!(store2.list_users("acme").unwrap().len(), 1);
+    assert_eq!(store2.list_teams("acme").unwrap().len(), 1);
 }

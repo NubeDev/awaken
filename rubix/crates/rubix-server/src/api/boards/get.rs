@@ -6,7 +6,7 @@ use axum::Json;
 
 use super::dto::{BoardScope, BoardView};
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::may_read_scope;
+use crate::api::scope_auth::may_read_board;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -25,7 +25,7 @@ pub(crate) async fn get_board(
     let store = state.store.clone();
     let board =
         blocking(move || Ok(store.get_board(&scope.org, scope.site_id, &slug)?)).await?;
-    if !may_read_scope(&principal, &state.store, &board.org, board.site_id) {
+    if !may_read_board(&principal, &state.store, &board.org, board.site_id, &board.slug) {
         return Err(ApiError::NotFound("board"));
     }
     Ok(Json(board.into()))

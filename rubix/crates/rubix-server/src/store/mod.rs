@@ -12,6 +12,7 @@ mod command;
 mod dashboards;
 mod equips;
 mod error;
+mod grants;
 mod his;
 mod his_flush;
 mod keyexpr;
@@ -26,12 +27,17 @@ mod runs;
 mod schema;
 mod sites;
 mod sparks;
+mod teams;
 mod tokens;
+mod users;
 mod widgets;
 
 pub use error::StoreError;
+pub use grants::{GrantRecord, Permission, SubjectKind};
 pub use keyexpr::PointKey;
 pub use open::Store;
 pub use rules::RuleRecord;
+pub use teams::TeamRecord;
+pub use users::UserRecord;
 
 pub(crate) type Result<T> = std::result::Result<T, StoreError>;

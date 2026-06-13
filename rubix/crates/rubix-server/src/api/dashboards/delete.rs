@@ -4,7 +4,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use uuid::Uuid;
 
-use super::authorize_dashboard_write;
+use super::authorize_dashboard_write_existing;
 use crate::api::blocking::blocking;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
@@ -21,7 +21,13 @@ pub(crate) async fn delete_dashboard(
 ) -> Result<StatusCode, ApiError> {
     let store = state.store.clone();
     let current = blocking(move || Ok(store.get_dashboard(id)?)).await?;
-    authorize_dashboard_write(&principal, &state.store, &current.org, current.site_id)?;
+    authorize_dashboard_write_existing(
+        &principal,
+        &state.store,
+        &current.org,
+        current.site_id,
+        id,
+    )?;
     blocking(move || Ok(state.store.delete_dashboard(id)?)).await?;
     Ok(StatusCode::NO_CONTENT)
 }

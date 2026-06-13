@@ -25,7 +25,10 @@ import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenti
 import { Route as AuthenticatedOOrgRouteRouteImport } from './routes/_authenticated/o/$org/route'
 import { Route as AuthenticatedOOrgIndexRouteImport } from './routes/_authenticated/o/$org/index'
 import { Route as AuthenticatedOOrgDashboardsIndexRouteImport } from './routes/_authenticated/o/$org/dashboards/index'
+import { Route as AuthenticatedOOrgSettingsTeamsRouteImport } from './routes/_authenticated/o/$org/settings/teams'
 import { Route as AuthenticatedOOrgSettingsOrgsRouteImport } from './routes/_authenticated/o/$org/settings/orgs'
+import { Route as AuthenticatedOOrgSettingsMembersRouteImport } from './routes/_authenticated/o/$org/settings/members'
+import { Route as AuthenticatedOOrgSettingsAccessRouteImport } from './routes/_authenticated/o/$org/settings/access'
 import { Route as AuthenticatedOOrgSSiteSlugRouteRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/route'
 import { Route as AuthenticatedOOrgDashboardsDashSlugIndexRouteImport } from './routes/_authenticated/o/$org/dashboards/$dashSlug/index'
 import { Route as AuthenticatedOOrgDashboardsDashSlugEditRouteImport } from './routes/_authenticated/o/$org/dashboards/$dashSlug/edit'
@@ -122,10 +125,28 @@ const AuthenticatedOOrgDashboardsIndexRoute =
     path: '/dashboards/',
     getParentRoute: () => AuthenticatedOOrgRouteRoute,
   } as any)
+const AuthenticatedOOrgSettingsTeamsRoute =
+  AuthenticatedOOrgSettingsTeamsRouteImport.update({
+    id: '/settings/teams',
+    path: '/settings/teams',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
 const AuthenticatedOOrgSettingsOrgsRoute =
   AuthenticatedOOrgSettingsOrgsRouteImport.update({
     id: '/settings/orgs',
     path: '/settings/orgs',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgSettingsMembersRoute =
+  AuthenticatedOOrgSettingsMembersRouteImport.update({
+    id: '/settings/members',
+    path: '/settings/members',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgSettingsAccessRoute =
+  AuthenticatedOOrgSettingsAccessRouteImport.update({
+    id: '/settings/access',
+    path: '/settings/access',
     getParentRoute: () => AuthenticatedOOrgRouteRoute,
   } as any)
 const AuthenticatedOOrgSSiteSlugRouteRoute =
@@ -205,7 +226,10 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/o/$org/': typeof AuthenticatedOOrgIndexRoute
   '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/o/$org/settings/teams': typeof AuthenticatedOOrgSettingsTeamsRoute
   '/o/$org/dashboards/': typeof AuthenticatedOOrgDashboardsIndexRoute
   '/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
   '/o/$org/dashboards/$dashSlug/': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
@@ -231,7 +255,10 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/o/$org': typeof AuthenticatedOOrgIndexRoute
   '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/o/$org/settings/teams': typeof AuthenticatedOOrgSettingsTeamsRoute
   '/o/$org/dashboards': typeof AuthenticatedOOrgDashboardsIndexRoute
   '/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
   '/o/$org/dashboards/$dashSlug': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
@@ -261,7 +288,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/o/$org/': typeof AuthenticatedOOrgIndexRoute
   '/_authenticated/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/_authenticated/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/_authenticated/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/_authenticated/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/_authenticated/o/$org/settings/teams': typeof AuthenticatedOOrgSettingsTeamsRoute
   '/_authenticated/o/$org/dashboards/': typeof AuthenticatedOOrgDashboardsIndexRoute
   '/_authenticated/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
   '/_authenticated/o/$org/dashboards/$dashSlug/': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
@@ -291,7 +321,10 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/o/$org/'
     | '/o/$org/s/$siteSlug'
+    | '/o/$org/settings/access'
+    | '/o/$org/settings/members'
     | '/o/$org/settings/orgs'
+    | '/o/$org/settings/teams'
     | '/o/$org/dashboards/'
     | '/o/$org/dashboards/$dashSlug/edit'
     | '/o/$org/dashboards/$dashSlug/'
@@ -317,7 +350,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/o/$org'
     | '/o/$org/s/$siteSlug'
+    | '/o/$org/settings/access'
+    | '/o/$org/settings/members'
     | '/o/$org/settings/orgs'
+    | '/o/$org/settings/teams'
     | '/o/$org/dashboards'
     | '/o/$org/dashboards/$dashSlug/edit'
     | '/o/$org/dashboards/$dashSlug'
@@ -346,7 +382,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/o/$org/'
     | '/_authenticated/o/$org/s/$siteSlug'
+    | '/_authenticated/o/$org/settings/access'
+    | '/_authenticated/o/$org/settings/members'
     | '/_authenticated/o/$org/settings/orgs'
+    | '/_authenticated/o/$org/settings/teams'
     | '/_authenticated/o/$org/dashboards/'
     | '/_authenticated/o/$org/dashboards/$dashSlug/edit'
     | '/_authenticated/o/$org/dashboards/$dashSlug/'
@@ -483,11 +522,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOOrgDashboardsIndexRouteImport
       parentRoute: typeof AuthenticatedOOrgRouteRoute
     }
+    '/_authenticated/o/$org/settings/teams': {
+      id: '/_authenticated/o/$org/settings/teams'
+      path: '/settings/teams'
+      fullPath: '/o/$org/settings/teams'
+      preLoaderRoute: typeof AuthenticatedOOrgSettingsTeamsRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
     '/_authenticated/o/$org/settings/orgs': {
       id: '/_authenticated/o/$org/settings/orgs'
       path: '/settings/orgs'
       fullPath: '/o/$org/settings/orgs'
       preLoaderRoute: typeof AuthenticatedOOrgSettingsOrgsRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/settings/members': {
+      id: '/_authenticated/o/$org/settings/members'
+      path: '/settings/members'
+      fullPath: '/o/$org/settings/members'
+      preLoaderRoute: typeof AuthenticatedOOrgSettingsMembersRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/settings/access': {
+      id: '/_authenticated/o/$org/settings/access'
+      path: '/settings/access'
+      fullPath: '/o/$org/settings/access'
+      preLoaderRoute: typeof AuthenticatedOOrgSettingsAccessRouteImport
       parentRoute: typeof AuthenticatedOOrgRouteRoute
     }
     '/_authenticated/o/$org/s/$siteSlug': {
@@ -617,7 +677,10 @@ const AuthenticatedOOrgSSiteSlugRouteRouteWithChildren =
 interface AuthenticatedOOrgRouteRouteChildren {
   AuthenticatedOOrgIndexRoute: typeof AuthenticatedOOrgIndexRoute
   AuthenticatedOOrgSSiteSlugRouteRoute: typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  AuthenticatedOOrgSettingsAccessRoute: typeof AuthenticatedOOrgSettingsAccessRoute
+  AuthenticatedOOrgSettingsMembersRoute: typeof AuthenticatedOOrgSettingsMembersRoute
   AuthenticatedOOrgSettingsOrgsRoute: typeof AuthenticatedOOrgSettingsOrgsRoute
+  AuthenticatedOOrgSettingsTeamsRoute: typeof AuthenticatedOOrgSettingsTeamsRoute
   AuthenticatedOOrgDashboardsIndexRoute: typeof AuthenticatedOOrgDashboardsIndexRoute
   AuthenticatedOOrgDashboardsDashSlugEditRoute: typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
   AuthenticatedOOrgDashboardsDashSlugIndexRoute: typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
@@ -628,7 +691,11 @@ const AuthenticatedOOrgRouteRouteChildren: AuthenticatedOOrgRouteRouteChildren =
     AuthenticatedOOrgIndexRoute: AuthenticatedOOrgIndexRoute,
     AuthenticatedOOrgSSiteSlugRouteRoute:
       AuthenticatedOOrgSSiteSlugRouteRouteWithChildren,
+    AuthenticatedOOrgSettingsAccessRoute: AuthenticatedOOrgSettingsAccessRoute,
+    AuthenticatedOOrgSettingsMembersRoute:
+      AuthenticatedOOrgSettingsMembersRoute,
     AuthenticatedOOrgSettingsOrgsRoute: AuthenticatedOOrgSettingsOrgsRoute,
+    AuthenticatedOOrgSettingsTeamsRoute: AuthenticatedOOrgSettingsTeamsRoute,
     AuthenticatedOOrgDashboardsIndexRoute:
       AuthenticatedOOrgDashboardsIndexRoute,
     AuthenticatedOOrgDashboardsDashSlugEditRoute:

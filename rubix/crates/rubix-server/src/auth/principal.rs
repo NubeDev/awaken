@@ -4,16 +4,22 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 use super::scope::Scope;
 
-/// A caller's role. Coarser than the scope: `Operator` is an authenticated human
-/// (full read/write within scope), `Service` is a non-interactive account (a
-/// driver, the embedded agent's own surface), `Viewer` is read-only. The
-/// per-route gate combines this with the [`Scope`].
+/// A caller's role. Coarser than the scope: `Admin` is an administrator (manages
+/// users/teams/grants at a covering scope — global = super-admin, org = org-admin),
+/// `Operator` is an authenticated human (full read/write within scope), `Service`
+/// is a non-interactive account (a driver, the embedded agent's own surface),
+/// `Viewer` is read-only. The per-route gate combines this with the [`Scope`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Role {
+    /// Manages users/teams/grants at a covering scope; also read-write. A global
+    /// (`org: None`) `Admin` is a super-admin; an org-scoped `Admin` is an
+    /// org-admin (see [`Role::can_admin`]).
+    Admin,
     /// Read-write within scope; an interactive human operator.
     Operator,
     /// Non-interactive machine account (PAT/service account, driver, agent).
@@ -26,6 +32,7 @@ impl Role {
     /// Parse the canonical token; unknown roles fail closed (`None`).
     pub fn parse(s: &str) -> Option<Self> {
         match s {
+            "admin" => Some(Role::Admin),
             "operator" => Some(Role::Operator),
             "service" => Some(Role::Service),
             "viewer" => Some(Role::Viewer),
@@ -36,16 +43,25 @@ impl Role {
     /// The canonical lowercase token.
     pub fn as_str(self) -> &'static str {
         match self {
+            Role::Admin => "admin",
             Role::Operator => "operator",
             Role::Service => "service",
             Role::Viewer => "viewer",
         }
     }
 
-    /// True when the role may mutate state (operators and service accounts).
-    /// Viewers are read-only; a write route rejects them regardless of scope.
+    /// True when the role may mutate state (admins, operators and service
+    /// accounts). Viewers are read-only; a write route rejects them regardless
+    /// of scope.
     pub fn can_write(self) -> bool {
-        matches!(self, Role::Operator | Role::Service)
+        matches!(self, Role::Admin | Role::Operator | Role::Service)
+    }
+
+    /// True when the role may manage identity/authorization (users, teams,
+    /// grants). Only [`Role::Admin`]; combined with scope cover to distinguish
+    /// super-admin (global) from org-admin (org-scoped) by the gate.
+    pub fn can_admin(self) -> bool {
+        matches!(self, Role::Admin)
     }
 }
 
@@ -59,6 +75,15 @@ pub struct Principal {
     pub scope: Scope,
     /// The caller's coarse role.
     pub role: Role,
+    /// The resolved `users` row id, when the subject maps to a user. `None` for
+    /// pure-token principals (service PATs with no user row). Direct grants
+    /// (`user:<id>`) match against this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<Uuid>,
+    /// Teams the resolved user belongs to. Empty for pure-token principals. Team
+    /// grants (`team:<id>`) match against these.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub team_ids: Vec<Uuid>,
 }
 
 impl Principal {
@@ -85,9 +110,13 @@ mod tests {
             assert_eq!(Role::parse(role.as_str()), Some(role));
         }
         assert!(Role::parse("root").is_none());
+        assert!(Role::Admin.can_write());
         assert!(Role::Operator.can_write());
         assert!(Role::Service.can_write());
         assert!(!Role::Viewer.can_write());
+        assert!(Role::Admin.can_admin());
+        assert!(!Role::Operator.can_admin());
+        assert!(!Role::Viewer.can_admin());
     }
 
     #[test]
@@ -96,6 +125,8 @@ mod tests {
             subject: "u1".into(),
             scope: Scope::org("nube"),
             role: Role::Viewer,
+            user_id: None,
+            team_ids: Vec::new(),
         };
         let target = Scope::org("nube");
         assert!(p.may_read(&target));
@@ -108,6 +139,8 @@ mod tests {
             subject: "u1".into(),
             scope: Scope::org("nube"),
             role: Role::Operator,
+            user_id: None,
+            team_ids: Vec::new(),
         };
         assert!(!p.may_read(&Scope::org("acme")));
         assert!(!p.may_write(&Scope::org("acme")));

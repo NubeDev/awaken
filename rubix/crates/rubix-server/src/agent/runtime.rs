@@ -114,6 +114,21 @@ impl RuntimeBlueprint {
             executor,
         }
     }
+
+    /// The configured provider (e.g. `openai`).
+    pub fn provider(&self) -> &str {
+        &self.provider
+    }
+
+    /// The configured model id (e.g. `gpt-4o-mini`).
+    pub fn model_id(&self) -> &str {
+        &self.model_id
+    }
+
+    /// Tool-call loop bound per run.
+    pub fn max_rounds(&self) -> usize {
+        self.max_rounds
+    }
 }
 
 /// Build a runtime whose BMS tools are confined to `scope`. A `None` scope

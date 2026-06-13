@@ -7,10 +7,11 @@ use utoipa::{Modify, OpenApi};
 use crate::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
 use crate::auth::{Role, Scope, TokenRecord};
 use crate::error::ErrorBody;
+use crate::store::{GrantRecord, TeamRecord, UserRecord};
 
 use super::{
-    agent, boards, command, dashboards, datasources, equips, health, his, orgs, points, query,
-    rules, runs, sites, sparks, tokens, widgets,
+    agent, boards, command, dashboards, datasources, equips, grants, health, his, orgs, points,
+    query, rules, runs, sites, sparks, teams, tokens, users, whoami, widgets,
 };
 
 /// Registers the `bearer` HTTP security scheme so routes can mark themselves
@@ -44,6 +45,7 @@ impl Modify for BearerSecurity {
     ),
     paths(
         health::healthz,
+        whoami::whoami,
         sites::create::create_site,
         sites::list::list_sites,
         sites::get::get_site,
@@ -93,6 +95,7 @@ impl Modify for BearerSecurity {
         rules::delete::delete_rule,
         rules::referencing::referencing_rules,
         agent::chat::chat,
+        agent::status::status,
         widgets::create::create_widget,
         widgets::list::list_widgets,
         widgets::get::get_widget,
@@ -110,8 +113,28 @@ impl Modify for BearerSecurity {
         tokens::create::create_token,
         tokens::list::list_tokens,
         tokens::revoke::revoke_token,
+        users::list_users,
+        users::create_user,
+        users::get_user,
+        users::patch_user,
+        users::delete_user,
+        teams::list_teams,
+        teams::create_team,
+        teams::get_team,
+        teams::patch_team,
+        teams::delete_team,
+        teams::list_members,
+        teams::add_member,
+        teams::remove_member,
+        grants::list_grants,
+        grants::create_grant,
+        grants::delete_grant,
+        grants::list_dashboard_grants,
+        grants::create_dashboard_grant,
     ),
     components(schemas(ErrorBody, RunRecord, RunStatus, RunOrigin, PendingWrite,
+        whoami::Whoami,
+        agent::status::AgentStatus,
         runs::resume::ResumeResponse, TokenRecord, Role, Scope,
         tokens::create::IssueToken, tokens::create::IssuedToken,
         boards::components::ComponentView, boards::components::PortView,
@@ -121,7 +144,11 @@ impl Modify for BearerSecurity {
         datasources::run::DatasourceQueryRequest, datasources::run::DatasourceResultBody,
         datasources::named::NamedQueryRequest,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard,
-        widgets::patch::PatchWidget))
+        widgets::patch::PatchWidget,
+        UserRecord, TeamRecord, GrantRecord,
+        users::CreateUser, users::PatchUser,
+        teams::CreateTeam, teams::PatchTeam, teams::AddMember,
+        grants::CreateGrant, grants::CreateDashboardGrant))
 )]
 pub struct ApiDoc;
 

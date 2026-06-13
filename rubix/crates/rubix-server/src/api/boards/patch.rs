@@ -8,7 +8,7 @@ use axum::Json;
 
 use super::dto::{BoardScope, BoardView, PatchBoard};
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_board_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -25,7 +25,7 @@ pub(crate) async fn patch_board(
     Query(scope): Query<BoardScope>,
     Json(req): Json<PatchBoard>,
 ) -> Result<Json<BoardView>, ApiError> {
-    authorize_scope_write(&principal, &state.store, &scope.org, scope.site_id)?;
+    authorize_board_write(&principal, &state.store, &scope.org, scope.site_id, &slug)?;
     let store = state.store.clone();
     let board = blocking(move || {
         Ok(store.update_board(

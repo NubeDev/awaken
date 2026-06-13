@@ -5,10 +5,12 @@
 
 use crate::store::Store;
 
+use super::admin_level::AdminLevel;
 use super::error::AuthError;
 use super::jwks::JwksVerifier;
 use super::pat;
-use super::principal::Principal;
+use super::principal::{Principal, Role};
+use super::scope::Scope;
 
 /// Verifies bearer tokens. Holds the JWKS verifier (OIDC path) and a store
 /// handle (PAT path). Cheap to clone; one per process, carried in `AppState`.
@@ -16,21 +18,83 @@ use super::principal::Principal;
 pub struct Authenticator {
     jwks: JwksVerifier,
     store: Store,
+    /// Bootstrap super-admin subject (`RUBIX_SUPERADMIN_SUBJECT`). When set, this
+    /// subject resolves to a global [`Role::Admin`] even without a `users` row.
+    superadmin_subject: Option<String>,
 }
 
 impl Authenticator {
     pub fn new(jwks: JwksVerifier, store: Store) -> Self {
-        Self { jwks, store }
+        Self {
+            jwks,
+            store,
+            superadmin_subject: std::env::var("RUBIX_SUPERADMIN_SUBJECT")
+                .ok()
+                .filter(|s| !s.trim().is_empty()),
+        }
     }
 
     /// Verify a raw bearer string (the value after `Bearer `). Routes a PAT to
-    /// the store and everything else to the JWKS verifier.
+    /// the store and everything else to the JWKS verifier, then enriches the
+    /// resolved principal with its user identity, team memberships, and admin
+    /// tier.
     pub fn verify(&self, bearer: &str) -> Result<Principal, AuthError> {
-        if pat::looks_like_pat(bearer) {
-            self.verify_pat(bearer)
+        let principal = if pat::looks_like_pat(bearer) {
+            self.verify_pat(bearer)?
         } else {
-            self.jwks.verify(bearer)
+            self.jwks.verify(bearer)?
+        };
+        Ok(self.enrich(principal))
+    }
+
+    /// Resolve `principal.subject` to a `users` row and fold the result into the
+    /// principal: populate `user_id`/`team_ids` (the Layer-2 grant subjects) and
+    /// elevate the role per the user's `admin_level`. The bootstrap super-admin
+    /// subject is honored even with no user row, and a first-user fallback makes
+    /// the first authenticated subject a super-admin when the table is empty.
+    /// A subject with no user row and no bootstrap match keeps its token role —
+    /// fully backward compatible with pure-token service accounts.
+    fn enrich(&self, mut principal: Principal) -> Principal {
+        match self.store.user_by_subject(&principal.subject) {
+            Ok(Some(user)) => {
+                principal.user_id = Some(user.id);
+                principal.team_ids = self.store.team_ids_for_user(user.id).unwrap_or_default();
+                match user.admin_level {
+                    AdminLevel::SuperAdmin => {
+                        principal.role = Role::Admin;
+                        principal.scope = Scope::global();
+                    }
+                    AdminLevel::OrgAdmin => {
+                        principal.role = Role::Admin;
+                        principal.scope = Scope::org(user.org);
+                    }
+                    AdminLevel::None => {}
+                }
+            }
+            // No user row: honor the bootstrap super-admin (explicit env, or the
+            // first-user fallback on a fresh deployment), else leave as-is.
+            _ => {
+                if self.is_bootstrap_superadmin(&principal) {
+                    principal.role = Role::Admin;
+                    principal.scope = Scope::global();
+                }
+            }
         }
+        principal
+    }
+
+    /// True when `principal` should be treated as a super-admin without a user
+    /// row: it matches the explicit `RUBIX_SUPERADMIN_SUBJECT` bootstrap.
+    ///
+    /// Bootstrap is intentionally **explicit-only**. An implicit "first caller on
+    /// an empty `users` table is super-admin" fallback was considered and
+    /// rejected: it would silently elevate every scoped operator on a fresh
+    /// deployment (which has no users yet) to global admin, dissolving tenant
+    /// confinement until the first user row lands. The env var is reproducible
+    /// and carries no such footgun; seed the first admin with it (or with a
+    /// pre-provisioned `users` row), not by accident of ordering.
+    fn is_bootstrap_superadmin(&self, principal: &Principal) -> bool {
+        self.superadmin_subject.as_deref() == Some(principal.subject.as_str())
     }
 
     /// Verify a PAT: re-hash the presented secret, look the row up, reject a

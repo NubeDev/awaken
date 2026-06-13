@@ -39,6 +39,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 3,
         step: migrate_v3_board_rule_scope,
     },
+    Migration {
+        version: 4,
+        step: migrate_v4_rbac_identity,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -167,6 +171,58 @@ fn migrate_v3_board_rule_scope(tx: &rusqlite::Transaction<'_>) -> rusqlite::Resu
         CREATE UNIQUE INDEX IF NOT EXISTS idx_rules_site_name
             ON rules (org, site_id, name) WHERE site_id IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
+        ",
+    )
+}
+
+/// v4 — RBAC identity + ACL: `users`, `teams`, `memberships`, and `grants`.
+/// These are new tables only (no existing data to migrate), so the step is pure
+/// `CREATE TABLE IF NOT EXISTS` — a no-op on a fresh database (the base schema
+/// already created them) and additive on a legacy one. The shapes mirror
+/// [`super::schema::SCHEMA_SQLITE`] exactly; keep them in sync. See
+/// `docs/design/authz-rbac.md`.
+fn migrate_v4_rbac_identity(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS users (
+            id           TEXT PRIMARY KEY,
+            org          TEXT NOT NULL,
+            subject      TEXT NOT NULL,
+            email        TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            admin_level  TEXT NOT NULL DEFAULT 'none',
+            created_at   TEXT NOT NULL,
+            UNIQUE (subject),
+            UNIQUE (org, email)
+        );
+        CREATE TABLE IF NOT EXISTS teams (
+            id         TEXT PRIMARY KEY,
+            org        TEXT NOT NULL,
+            slug       TEXT NOT NULL,
+            name       TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (org, slug)
+        );
+        CREATE TABLE IF NOT EXISTS memberships (
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+            PRIMARY KEY (user_id, team_id)
+        );
+        CREATE TABLE IF NOT EXISTS grants (
+            id            TEXT PRIMARY KEY,
+            org           TEXT NOT NULL,
+            subject_kind  TEXT NOT NULL,
+            subject_id    TEXT NOT NULL,
+            resource_kind TEXT NOT NULL,
+            resource_ref  TEXT NOT NULL,
+            permission    TEXT NOT NULL,
+            created_at    TEXT NOT NULL,
+            UNIQUE (org, subject_kind, subject_id, resource_kind, resource_ref, permission)
+        );
+        CREATE INDEX IF NOT EXISTS idx_users_org ON users (org, email);
+        CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
+        CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
+        CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
         ",
     )
 }

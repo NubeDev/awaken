@@ -22,10 +22,17 @@ import type {
   PatchSite,
   PatchWidget,
   ProvisionOrg,
+  RunStatus,
   UpdateRule,
   Uuid,
   Widget,
   WriteRequest,
+  CreateUser,
+  PatchUser,
+  CreateTeam,
+  PatchTeam,
+  CreateGrant,
+  CreateDashboardGrant,
 } from './types'
 
 const LIVE_INTERVAL = 5_000
@@ -181,11 +188,15 @@ export function useSparks(siteId?: Uuid) {
   })
 }
 
-/** Poll the run list while any run is suspended so the approval queue stays live. */
-export function useRuns() {
+/**
+ * Agent runs, optionally narrowed to one lifecycle status (server-side
+ * `?status=`). Polls while any returned run is suspended so the approval queue
+ * stays live without a manual refresh.
+ */
+export function useRuns(status?: RunStatus) {
   return useQuery({
-    queryKey: qk.runs,
-    queryFn: ({ signal }) => api.runs.list(signal),
+    queryKey: qk.runsByStatus(status),
+    queryFn: ({ signal }) => api.runs.list(status, signal),
     refetchInterval: (query) =>
       (query.state.data ?? []).some((r) => r.status === 'suspended')
         ? LIVE_INTERVAL
@@ -275,6 +286,19 @@ export function useIngestPoint() {
 
 export function useAgentChat() {
   return useMutation({ mutationFn: api.agent.chat })
+}
+
+/**
+ * The embedded agent's config (enabled, provider/model, priority gate). Global
+ * and env-set at boot, so it rarely changes — a long stale time avoids
+ * refetching on every Runs-page mount.
+ */
+export function useAgentStatus() {
+  return useQuery({
+    queryKey: qk.agentStatus,
+    queryFn: ({ signal }) => api.agent.status(signal),
+    staleTime: 60_000,
+  })
 }
 
 /**
@@ -600,5 +624,162 @@ export function useDeleteRule(org: string | undefined) {
 export function useDryRunRule(org: string | undefined) {
   return useMutation({
     mutationFn: (body: DryRunRequest) => api.rules.dryRun(org as string, body),
+  })
+}
+
+// --- Authorization ------------------------------------------------------------
+
+/**
+ * The caller's resolved identity + capabilities. Read once at boot to render
+ * permission-aware chrome (admin nav, disabled write controls). Cached long —
+ * identity does not change within a session. On the open dev server this
+ * resolves to a synthetic global operator (`auth_enabled: false`).
+ */
+export function useWhoami() {
+  return useQuery({
+    queryKey: qk.whoami,
+    queryFn: ({ signal }) => api.auth.whoami(signal),
+    staleTime: Infinity,
+  })
+}
+
+// --- RBAC admin surfaces: users, teams, grants (authz-rbac.md increment E) -----
+
+export function useUsers(org: string | undefined) {
+  return useQuery({
+    queryKey: qk.users(org),
+    queryFn: ({ signal }) => api.users.list(org as string, signal),
+    enabled: Boolean(org),
+  })
+}
+
+export function useCreateUser(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateUser) => api.users.create(org, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+export function usePatchUser(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: Uuid; body: PatchUser }) =>
+      api.users.patch(org, id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+export function useDeleteUser(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: Uuid) => api.users.remove(org, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['teams'] })
+    },
+  })
+}
+
+export function useTeams(org: string | undefined) {
+  return useQuery({
+    queryKey: qk.teams(org),
+    queryFn: ({ signal }) => api.teams.list(org as string, signal),
+    enabled: Boolean(org),
+  })
+}
+
+export function useCreateTeam(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateTeam) => api.teams.create(org, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  })
+}
+
+export function usePatchTeam(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: Uuid; body: PatchTeam }) =>
+      api.teams.patch(org, id, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  })
+}
+
+export function useDeleteTeam(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: Uuid) => api.teams.remove(org, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  })
+}
+
+/** The members of a team. */
+export function useTeamMembers(org: string, teamId: Uuid | undefined) {
+  return useQuery({
+    queryKey: qk.teamMembers(org, teamId as Uuid),
+    queryFn: ({ signal }) => api.teams.members(org, teamId as Uuid, signal),
+    enabled: Boolean(teamId),
+  })
+}
+
+export function useAddTeamMember(org: string, teamId: Uuid) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: Uuid) => api.teams.addMember(org, teamId, userId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: qk.teamMembers(org, teamId) }),
+  })
+}
+
+export function useRemoveTeamMember(org: string, teamId: Uuid) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: Uuid) => api.teams.removeMember(org, teamId, userId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: qk.teamMembers(org, teamId) }),
+  })
+}
+
+/** Grants in an org, optionally filtered to one resource ref. */
+export function useGrants(org: string | undefined, resourceRef?: string) {
+  return useQuery({
+    queryKey: qk.grants(org, resourceRef),
+    queryFn: ({ signal }) => api.grants.list(org as string, resourceRef, signal),
+    enabled: Boolean(org),
+  })
+}
+
+export function useCreateGrant(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateGrant) => api.grants.create(org, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['grants'] }),
+  })
+}
+
+export function useDeleteGrant(org: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: Uuid) => api.grants.remove(org, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['grants'] }),
+  })
+}
+
+/** Grants pinned to a single dashboard (the Access page's per-resource view). */
+export function useDashboardGrants(id: Uuid | undefined) {
+  return useQuery({
+    queryKey: qk.dashboardGrants(id as Uuid),
+    queryFn: ({ signal }) => api.grants.forDashboard(id as Uuid, signal),
+    enabled: Boolean(id),
+  })
+}
+
+export function useGrantDashboard(dashboardId: Uuid) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateDashboardGrant) =>
+      api.grants.grantDashboard(dashboardId, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['grants'] }),
   })
 }

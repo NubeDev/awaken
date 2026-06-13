@@ -115,6 +115,21 @@ export interface ChatResponse {
   run_id?: string
 }
 
+/**
+ * `rubix-server::AgentStatus` — read-only view of the process-global agent
+ * config (env-configured at boot; not per-org and not editable from the UI).
+ * Model fields are absent when `enabled` is false.
+ */
+export interface AgentStatus {
+  enabled: boolean
+  provider?: string
+  model?: string
+  max_rounds?: number
+  min_priority: number
+  escalation_floor: number
+  dispatch_ready: boolean
+}
+
 /** `rubix-server::RunOrigin` — what raised a run. */
 export type RunOrigin = 'chat' | 'dispatch' | 'mcp'
 
@@ -571,4 +586,115 @@ export interface DryRunRequest {
 export interface DryRunResponse {
   result: RuleResult
   frame: FrameSummary
+}
+
+// --- Authorization (RBAC) -----------------------------------------------------
+
+/** `rubix-server::Role` — the caller's coarse role. `admin` (super- or org-admin
+ *  by scope) additionally unlocks the identity/authorization management surfaces. */
+export type Role = 'admin' | 'operator' | 'service' | 'viewer'
+
+/** `rubix-server::Scope` — the org/team/site a principal is confined to; omitted
+ *  levels are global (an unset `org` is a global/super-admin principal). */
+export interface Scope {
+  org?: string
+  team?: string
+  site?: string
+}
+
+/**
+ * `rubix-server::Whoami` — the resolved identity of the caller (`GET
+ * /api/v1/whoami`). The UI reads this once at boot to render permission-aware
+ * chrome. `auth_enabled` is false on the open dev server (then `subject` is
+ * `"dev"` and the principal is a synthetic global operator).
+ */
+export interface Whoami {
+  subject: string
+  scope: Scope
+  role: Role
+  can_write: boolean
+  /** True when the caller may manage users/teams/grants (org- or super-admin).
+   *  The Members/Teams/Access surfaces gate on this. */
+  can_admin: boolean
+  auth_enabled: boolean
+}
+
+// --- RBAC: users, teams, memberships, grants (authz-rbac.md increments B–E) ---
+
+/** `rubix-server::AdminLevel` — a user's admin tier. */
+export type AdminLevel = 'none' | 'org_admin' | 'super_admin'
+
+/** `rubix-server::store::UserRecord`. */
+export interface User {
+  id: Uuid
+  org: string
+  subject: string
+  email: string
+  display_name: string
+  admin_level: AdminLevel
+  created_at: IsoTimestamp
+}
+
+export interface CreateUser {
+  subject: string
+  email: string
+  display_name: string
+  admin_level?: AdminLevel
+}
+
+export interface PatchUser {
+  email?: string
+  display_name?: string
+  admin_level?: AdminLevel
+}
+
+/** `rubix-server::store::TeamRecord`. */
+export interface Team {
+  id: Uuid
+  org: string
+  slug: string
+  name: string
+  created_at: IsoTimestamp
+}
+
+export interface CreateTeam {
+  slug: string
+  name: string
+}
+
+export interface PatchTeam {
+  name?: string
+}
+
+/** Grant subject + permission, mirroring `rubix-server::store`. */
+export type SubjectKind = 'user' | 'team'
+export type Permission = 'read' | 'write' | 'admin'
+
+/** `rubix-server::store::GrantRecord` — a Layer-2 ACL row. `resource_ref` is
+ *  `dashboard:<id>` / `board:<org>/<site?>/<slug>` / `rule:<org>/<site?>/<name>`
+ *  or `*` (all-of-kind within the org). */
+export interface Grant {
+  id: Uuid
+  org: string
+  subject_kind: SubjectKind
+  subject_id: string
+  resource_kind: string
+  resource_ref: string
+  permission: Permission
+  created_at: IsoTimestamp
+}
+
+export interface CreateGrant {
+  subject_kind: SubjectKind
+  subject_id: string
+  resource_kind: string
+  resource_ref: string
+  permission: Permission
+}
+
+/** Grant body addressed at a dashboard in the path (kind/ref implied). */
+export interface CreateDashboardGrant {
+  subject_kind: SubjectKind
+  subject_id: string
+  permission: Permission
 }

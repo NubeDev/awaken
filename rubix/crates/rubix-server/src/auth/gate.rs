@@ -86,6 +86,29 @@ impl RequestPrincipal {
         }
     }
 
+    /// Require an admin (super-admin or org-admin) whose scope covers `org`.
+    /// Gates the identity/authorization management surfaces (users, teams,
+    /// grants).
+    ///
+    /// Unlike the resource gates above, this is **not** a no-op when auth is
+    /// disabled: management routes demand a real principal, so a dev/edge server
+    /// with no principal is *denied* rather than waved through. This is a
+    /// deliberate deviation from the open-by-default convention, scoped to
+    /// management mutations (`docs/design/authz-rbac.md`). super-admin = global
+    /// `Admin`; org-admin = `Admin` whose scope covers `org`.
+    pub fn require_admin(&self, org: &str) -> Result<&Principal, AuthError> {
+        match &self.0 {
+            Some(p) if p.role.can_admin() && p.scope.covers(&Scope::org(org)) => Ok(p),
+            Some(p) => Err(AuthError::Forbidden(format!(
+                "subject `{}` is not an admin of org `{org}`",
+                p.subject
+            ))),
+            None => Err(AuthError::Forbidden(
+                "management route requires an authenticated admin".into(),
+            )),
+        }
+    }
+
     /// Require any authenticated caller (used by routes with no per-resource
     /// scope). A no-op when auth is disabled.
     pub fn require_authenticated(&self) -> Result<&Principal, AuthError> {
@@ -108,7 +131,35 @@ mod tests {
             subject: "u1".into(),
             scope,
             role,
+            user_id: None,
+            team_ids: Vec::new(),
         }))
+    }
+
+    #[test]
+    fn require_admin_demands_real_covering_admin() {
+        // Auth-off (no principal) is denied — management is not open-by-default.
+        assert!(matches!(
+            RequestPrincipal(None).require_admin("nube"),
+            Err(AuthError::Forbidden(_))
+        ));
+        // Org-admin covers its own org, not a sibling.
+        let org_admin = principal(Scope::org("nube"), Role::Admin);
+        assert!(org_admin.require_admin("nube").is_ok());
+        assert!(matches!(
+            org_admin.require_admin("acme"),
+            Err(AuthError::Forbidden(_))
+        ));
+        // Super-admin (global Admin) covers any org.
+        let super_admin = principal(Scope::global(), Role::Admin);
+        assert!(super_admin.require_admin("nube").is_ok());
+        assert!(super_admin.require_admin("acme").is_ok());
+        // A non-admin role is denied even at a covering scope.
+        let op = principal(Scope::global(), Role::Operator);
+        assert!(matches!(
+            op.require_admin("nube"),
+            Err(AuthError::Forbidden(_))
+        ));
     }
 
     #[test]

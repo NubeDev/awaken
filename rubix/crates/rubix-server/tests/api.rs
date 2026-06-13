@@ -5,6 +5,7 @@ mod api_tests {
 
     mod agent;
     mod agent_call;
+    mod agent_status;
     mod auth;
     mod boards;
     mod bus;
@@ -18,6 +19,7 @@ mod api_tests {
     mod orgs;
     mod points;
     mod query;
+    mod rbac;
     mod rollup;
     mod rules;
     mod runs;
@@ -26,5 +28,6 @@ mod api_tests {
     mod sparks;
     mod tenancy;
     mod tools;
+    mod whoami;
     mod widgets;
 }

@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use super::dto::{BoardView, CreateBoard};
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_board_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::scheduler::BoardRecord;
@@ -35,7 +35,7 @@ pub(crate) async fn create_board(
     validate_slug(&req.org)?;
     validate_slug(&req.slug)?;
     req.trigger.validate().map_err(ApiError::BadRequest)?;
-    authorize_scope_write(&principal, &state.store, &req.org, req.site_id)?;
+    authorize_board_write(&principal, &state.store, &req.org, req.site_id, "*")?;
     let store = state.store.clone();
     let record = blocking(move || {
         let version = store.next_board_version(&req.org, req.site_id, &req.slug)?;

@@ -43,6 +43,18 @@ CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 SEED ?=
 SEED_FLAG := $(if $(SEED),-- --seed-dev,)
 
+# Embedded agent. Off by default (the server boots with RUBIX_AI=0). Set AI=1 to
+# turn on /agent/chat, spark dispatch, and the agent status surface. The model
+# provider reads its key from the environment at run time, so export the key in
+# your shell first — never put it in this file or any committed file. Example:
+#   export OPENAI_API_KEY=sk-...   # in your shell, not here
+#   make dev AI=1
+# Override provider/model/gate with the usual RUBIX_AI_* vars on the CLI.
+AI ?=
+ifeq ($(AI),1)
+export RUBIX_AI := 1
+endif
+
 .PHONY: build dev dev-be dev-ui test test-be test-ui lint fmt \
         build-be build-ui clean kill
 

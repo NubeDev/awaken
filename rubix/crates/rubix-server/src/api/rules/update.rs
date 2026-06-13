@@ -6,7 +6,7 @@ use axum::Json;
 
 use super::dto::{RuleScope, RuleView, UpdateRule};
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_rule_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -24,7 +24,7 @@ pub(crate) async fn update_rule(
     principal: RequestPrincipal,
     Json(req): Json<UpdateRule>,
 ) -> Result<Json<RuleView>, ApiError> {
-    authorize_scope_write(&principal, &state.store, &org, scope.site_id)?;
+    authorize_rule_write(&principal, &state.store, &org, scope.site_id, &name)?;
     let rule = blocking(move || {
         Ok(state
             .store

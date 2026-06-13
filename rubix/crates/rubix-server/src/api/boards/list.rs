@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use super::dto::BoardView;
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::may_read_scope;
+use crate::api::scope_auth::may_read_board;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -34,7 +34,7 @@ pub(crate) async fn list_boards(
     let boards = blocking(move || Ok(store.latest_boards(&q.org, q.site_id)?)).await?;
     let visible = boards
         .into_iter()
-        .filter(|b| may_read_scope(&principal, &state.store, &b.org, b.site_id))
+        .filter(|b| may_read_board(&principal, &state.store, &b.org, b.site_id, &b.slug))
         .map(BoardView::from)
         .collect();
     Ok(Json(visible))

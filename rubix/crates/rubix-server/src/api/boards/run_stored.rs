@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::dto::BoardScope;
 use super::run::RunBoardResponse;
-use crate::api::scope_auth::may_read_scope;
+use crate::api::scope_auth::may_read_board;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::flow::StorePointAccess;
@@ -34,7 +34,7 @@ pub(crate) async fn run_stored_board(
     let board = tokio::task::spawn_blocking(move || store.get_board(&org, site_id, &lookup_slug))
         .await
         .map_err(|e| ApiError::Internal(e.into()))??;
-    if !may_read_scope(&principal, &state.store, &board.org, board.site_id) {
+    if !may_read_board(&principal, &state.store, &board.org, board.site_id, &board.slug) {
         return Err(ApiError::NotFound("board"));
     }
     let access = Arc::new(

@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 
 use super::dto::RuleScope;
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_rule_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -23,7 +23,7 @@ pub(crate) async fn delete_rule(
     Query(scope): Query<RuleScope>,
     principal: RequestPrincipal,
 ) -> Result<StatusCode, ApiError> {
-    authorize_scope_write(&principal, &state.store, &org, scope.site_id)?;
+    authorize_rule_write(&principal, &state.store, &org, scope.site_id, &name)?;
     blocking(move || Ok(state.store.delete_rule(&org, scope.site_id, &name)?)).await?;
     Ok(StatusCode::NO_CONTENT)
 }

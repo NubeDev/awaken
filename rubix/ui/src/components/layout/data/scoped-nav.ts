@@ -1,14 +1,21 @@
 import {
   Building,
   Database,
+  KeyRound,
   LayoutDashboard,
   Network,
   ScrollText,
   Sparkles,
+  Users,
+  UserCog,
   Workflow,
   Zap,
 } from 'lucide-react'
 import { type NavGroup } from '../types'
+
+/** Nav item titles that require `whoami.can_admin`; the sidebar hides these for
+ *  non-admins. Kept here so the gate and the items stay in one place. */
+export const ADMIN_NAV_TITLES = ['Members', 'Teams', 'Access'] as const
 
 /**
  * Build the sidebar nav with concrete, scope-aware URLs. Org-level entries point
@@ -51,7 +58,12 @@ export function scopedNavGroups(
     },
     {
       title: 'Manage',
-      items: [{ title: 'Orgs & Sites', url: o('/settings/orgs'), icon: Building }],
+      items: [
+        { title: 'Orgs & Sites', url: o('/settings/orgs'), icon: Building },
+        { title: 'Members', url: o('/settings/members'), icon: UserCog },
+        { title: 'Teams', url: o('/settings/teams'), icon: Users },
+        { title: 'Access', url: o('/settings/access'), icon: KeyRound },
+      ],
     },
   ]
 }

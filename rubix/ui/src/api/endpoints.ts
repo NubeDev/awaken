@@ -5,6 +5,16 @@
  */
 import { request } from './client'
 import type {
+  Whoami,
+  User,
+  CreateUser,
+  PatchUser,
+  Team,
+  CreateTeam,
+  PatchTeam,
+  Grant,
+  CreateGrant,
+  CreateDashboardGrant,
   BoardGraph,
   BoardView,
   ComponentView,
@@ -13,6 +23,7 @@ import type {
   CreatePoint,
   CreateRule,
   CreateSite,
+  AgentStatus,
   ChatRequest,
   ChatResponse,
   CurRequest,
@@ -36,6 +47,7 @@ import type {
   Dashboard,
   PatchDashboard,
   ResumeResponse,
+  RunStatus,
   RuleView,
   RunBoardResponse,
   RunRecord,
@@ -131,8 +143,8 @@ export const sparks = {
 }
 
 export const runs = {
-  list: (signal?: AbortSignal) =>
-    request<RunRecord[]>('/api/v1/runs', { signal }),
+  list: (status?: RunStatus, signal?: AbortSignal) =>
+    request<RunRecord[]>('/api/v1/runs', { query: { status }, signal }),
   get: (id: string, signal?: AbortSignal) =>
     request<RunRecord>(`/api/v1/runs/${id}`, { signal }),
   resume: (id: string) =>
@@ -144,6 +156,8 @@ export const runs = {
 export const agent = {
   chat: (body: ChatRequest) =>
     request<ChatResponse>('/api/v1/agent/chat', { method: 'POST', body }),
+  status: (signal?: AbortSignal) =>
+    request<AgentStatus>('/api/v1/agent/status', { signal }),
 }
 
 // Flows (boards) are scoped to an org + optional site, like dashboards. The
@@ -275,4 +289,65 @@ export const rules = {
       method: 'POST',
       body,
     }),
+}
+
+export const auth = {
+  /** The caller's resolved identity + capabilities (permission-aware UI chrome). */
+  whoami: (signal?: AbortSignal) =>
+    request<Whoami>('/api/v1/whoami', { signal }),
+}
+
+// --- RBAC admin surfaces (Members / Teams / Access). Admin-gated server-side. ---
+
+export const users = {
+  list: (org: string, signal?: AbortSignal) =>
+    request<User[]>(`/api/v1/orgs/${org}/users`, { signal }),
+  get: (org: string, id: Uuid, signal?: AbortSignal) =>
+    request<User>(`/api/v1/orgs/${org}/users/${id}`, { signal }),
+  create: (org: string, body: CreateUser) =>
+    request<User>(`/api/v1/orgs/${org}/users`, { method: 'POST', body }),
+  patch: (org: string, id: Uuid, body: PatchUser) =>
+    request<User>(`/api/v1/orgs/${org}/users/${id}`, { method: 'PATCH', body }),
+  remove: (org: string, id: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/users/${id}`, { method: 'DELETE' }),
+}
+
+export const teams = {
+  list: (org: string, signal?: AbortSignal) =>
+    request<Team[]>(`/api/v1/orgs/${org}/teams`, { signal }),
+  get: (org: string, id: Uuid, signal?: AbortSignal) =>
+    request<Team>(`/api/v1/orgs/${org}/teams/${id}`, { signal }),
+  create: (org: string, body: CreateTeam) =>
+    request<Team>(`/api/v1/orgs/${org}/teams`, { method: 'POST', body }),
+  patch: (org: string, id: Uuid, body: PatchTeam) =>
+    request<Team>(`/api/v1/orgs/${org}/teams/${id}`, { method: 'PATCH', body }),
+  remove: (org: string, id: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/teams/${id}`, { method: 'DELETE' }),
+  members: (org: string, id: Uuid, signal?: AbortSignal) =>
+    request<User[]>(`/api/v1/orgs/${org}/teams/${id}/members`, { signal }),
+  addMember: (org: string, id: Uuid, userId: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/teams/${id}/members`, {
+      method: 'POST',
+      body: { user_id: userId },
+    }),
+  removeMember: (org: string, id: Uuid, userId: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/teams/${id}/members/${userId}`, {
+      method: 'DELETE',
+    }),
+}
+
+export const grants = {
+  list: (org: string, resourceRef?: string, signal?: AbortSignal) =>
+    request<Grant[]>(`/api/v1/orgs/${org}/grants`, {
+      query: { resource_ref: resourceRef },
+      signal,
+    }),
+  create: (org: string, body: CreateGrant) =>
+    request<Grant>(`/api/v1/orgs/${org}/grants`, { method: 'POST', body }),
+  remove: (org: string, id: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/grants/${id}`, { method: 'DELETE' }),
+  forDashboard: (id: Uuid, signal?: AbortSignal) =>
+    request<Grant[]>(`/api/v1/dashboards/${id}/grants`, { signal }),
+  grantDashboard: (id: Uuid, body: CreateDashboardGrant) =>
+    request<Grant>(`/api/v1/dashboards/${id}/grants`, { method: 'POST', body }),
 }

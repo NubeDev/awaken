@@ -1,4 +1,4 @@
-import { useRuns, useSparks } from '@/api/hooks'
+import { useRuns, useSparks, useWhoami } from '@/api/hooks'
 import { useScope } from '@/context/scope-provider'
 import { useLayout } from '@/context/layout-provider'
 import {
@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/sidebar'
 import { AppTitle } from './app-title'
 import { sidebarData } from './data/sidebar-data'
-import { scopedNavGroups } from './data/scoped-nav'
+import { ADMIN_NAV_TITLES, scopedNavGroups } from './data/scoped-nav'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
 import { SiteSwitcher } from './site-switcher'
@@ -23,6 +23,8 @@ export function AppSidebar() {
   const fallbackSiteSlug = sites.find((s) => s.org === org)?.slug
   const { data: sparks = [] } = useSparks(site?.id)
   const { data: runs = [] } = useRuns()
+  const { data: whoami } = useWhoami()
+  const canAdmin = whoami?.can_admin ?? false
   const openSparks = sparks.filter((s) => !s.acknowledged).length
   const awaitingRuns = runs.filter((r) => r.status === 'suspended').length
 
@@ -35,11 +37,20 @@ export function AppSidebar() {
   // selected) so a click stays within the current tenant.
   const navGroups = scopedNavGroups(org, site?.slug, fallbackSiteSlug).map((group) => ({
     ...group,
-    items: group.items.map((item) =>
-      navBadges[item.title]
-        ? { ...item, badge: String(navBadges[item.title]) }
-        : item
-    ),
+    items: group.items
+      // Hide the RBAC management items unless the caller is an admin.
+      .filter(
+        (item) =>
+          canAdmin ||
+          !ADMIN_NAV_TITLES.includes(
+            item.title as (typeof ADMIN_NAV_TITLES)[number]
+          )
+      )
+      .map((item) =>
+        navBadges[item.title]
+          ? { ...item, badge: String(navBadges[item.title]) }
+          : item
+      ),
   }))
 
   return (

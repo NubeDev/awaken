@@ -43,6 +43,11 @@ impl TokenRecord {
             subject: self.id.clone(),
             scope: self.scope.clone(),
             role: self.role,
+            // A bare token carries no user identity; verify enriches the
+            // principal with `user_id`/`team_ids` when the subject maps to a
+            // `users` row (see [`super::verify`]).
+            user_id: None,
+            team_ids: Vec::new(),
         }
     }
 }

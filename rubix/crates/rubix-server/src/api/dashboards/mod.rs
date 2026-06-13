@@ -31,44 +31,58 @@ pub(super) fn router() -> Router<AppState> {
 }
 
 use rubix_core::Dashboard;
+use uuid::Uuid;
 
+use crate::api::scope_auth::{authorize_resource_write, may_read_resource, resource_ref};
 use crate::auth::RequestPrincipal;
 use crate::error::ApiError;
 use crate::store::Store;
 
-/// Authorize a read of `dashboard`: a site-scoped board checks the owning
-/// site's org/slug; an org overview checks the org scope. Returns whether the
-/// caller may see it (used both to gate a single get and to filter a list).
+/// The Layer-2 grant address of an existing dashboard (`dashboard:<id>`).
+fn dashboard_ref(id: Uuid) -> String {
+    resource_ref("dashboard", &id.to_string())
+}
+
+/// Authorize a read of `dashboard` via the two-layer check: Layer-1 scope-role
+/// (site-scoped → owning site's org/slug; org overview → org scope) OR a Layer-2
+/// read grant on this dashboard. Used both to gate a single get and to filter a
+/// list (a granted member sees it even without scope read).
 pub(crate) fn may_read_dashboard(
     principal: &RequestPrincipal,
     store: &Store,
     dashboard: &Dashboard,
 ) -> bool {
-    match dashboard.site_id {
-        Some(site_id) => match store.get_site(site_id) {
-            Ok(site) => principal.authorize_site_read(&site.org, &site.slug).is_ok(),
-            Err(_) => false,
-        },
-        None => principal
-            .authorize_read(&crate::auth::Scope::org(&dashboard.org))
-            .is_ok(),
-    }
+    may_read_resource(
+        principal,
+        store,
+        &dashboard.org,
+        dashboard.site_id,
+        "dashboard",
+        &dashboard_ref(dashboard.id),
+    )
 }
 
-/// Authorize a write of `dashboard` (create/patch/delete), same scoping as
-/// [`may_read_dashboard`] but requiring a write-capable role.
+/// Authorize a write of a dashboard (patch/delete of an existing one) via the
+/// two-layer check. `id` addresses the dashboard for the Layer-2 grant lookup.
+pub(crate) fn authorize_dashboard_write_existing(
+    principal: &RequestPrincipal,
+    store: &Store,
+    org: &str,
+    site_id: Option<Uuid>,
+    id: Uuid,
+) -> Result<(), ApiError> {
+    authorize_resource_write(principal, store, org, site_id, "dashboard", &dashboard_ref(id))
+}
+
+/// Authorize creation of a new dashboard. There is no resource id to grant
+/// against yet, so this is Layer-1 only (a `dashboard:*` wildcard grant within
+/// the scope also authorizes it via the two-layer path).
 pub(crate) fn authorize_dashboard_write(
     principal: &RequestPrincipal,
     store: &Store,
     org: &str,
-    site_id: Option<uuid::Uuid>,
+    site_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
-    match site_id {
-        Some(site_id) => {
-            let site = store.get_site(site_id)?;
-            principal.authorize_site_write(&site.org, &site.slug)?;
-        }
-        None => principal.authorize_write(&crate::auth::Scope::org(org))?,
-    }
-    Ok(())
+    // `*` lets a "writes all dashboards in this org" wildcard grant create, too.
+    authorize_resource_write(principal, store, org, site_id, "dashboard", "*")
 }

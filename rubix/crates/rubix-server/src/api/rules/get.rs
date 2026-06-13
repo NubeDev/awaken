@@ -6,7 +6,8 @@ use axum::Json;
 
 use super::dto::{RuleScope, RuleView};
 use crate::api::blocking::blocking;
-use crate::auth::{RequestPrincipal, Scope};
+use crate::api::scope_auth::may_read_rule;
+use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
 
@@ -21,7 +22,9 @@ pub(crate) async fn get_rule(
     Query(scope): Query<RuleScope>,
     principal: RequestPrincipal,
 ) -> Result<Json<RuleView>, ApiError> {
-    principal.authorize_read(&Scope::org(&org))?;
+    if !may_read_rule(&principal, &state.store, &org, scope.site_id, &name) {
+        return Err(ApiError::NotFound("rule"));
+    }
     let rule =
         blocking(move || Ok(state.store.load_rule_exact(&org, scope.site_id, &name)?)).await?;
     Ok(Json(rule.into()))

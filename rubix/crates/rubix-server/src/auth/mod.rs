@@ -14,6 +14,7 @@ pub mod gate;
 pub mod middleware;
 pub mod pat;
 
+mod admin_level;
 mod claims;
 mod jwks;
 mod principal;
@@ -21,6 +22,7 @@ mod scope;
 mod token_record;
 mod verify;
 
+pub use admin_level::AdminLevel;
 pub use config::{AuthConfig, ConfigError};
 pub use error::AuthError;
 pub use gate::RequestPrincipal;

@@ -47,6 +47,10 @@ impl Claims {
             subject: self.sub,
             scope,
             role,
+            // The JWT path yields a bare principal; verify enriches it with
+            // `user_id`/`team_ids` from the resolved `users` row.
+            user_id: None,
+            team_ids: Vec::new(),
         })
     }
 }

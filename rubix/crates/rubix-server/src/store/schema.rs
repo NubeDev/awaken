@@ -121,6 +121,49 @@ CREATE TABLE IF NOT EXISTS tokens (
     revoked_at  TEXT,
     UNIQUE (secret_hash)
 );
+-- RBAC identity: a user is an account keyed by its verified token `subject`
+-- (OIDC `sub` or PAT id). `admin_level` is the user's admin tier (none/org_admin/
+-- super_admin). `org` is the home org. See docs/design/authz-rbac.md.
+CREATE TABLE IF NOT EXISTS users (
+    id           TEXT PRIMARY KEY,
+    org          TEXT NOT NULL,
+    subject      TEXT NOT NULL,
+    email        TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    admin_level  TEXT NOT NULL DEFAULT 'none',
+    created_at   TEXT NOT NULL,
+    UNIQUE (subject),
+    UNIQUE (org, email)
+);
+CREATE TABLE IF NOT EXISTS teams (
+    id         TEXT PRIMARY KEY,
+    org        TEXT NOT NULL,
+    slug       TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (org, slug)
+);
+-- Many-to-many user↔team. Rows vanish with either side (cascade).
+CREATE TABLE IF NOT EXISTS memberships (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, team_id)
+);
+-- Layer-2 ACL: a grant pins a permission on a resource (or `*`) for a subject
+-- (user or team). Grants ADD access; they never subtract. `resource_ref` is a
+-- textual address (`dashboard:<uuid>`, `board:<org>/<site?>/<slug>`,
+-- `rule:<org>/<site?>/<name>`, or `*`). See docs/design/authz-rbac.md.
+CREATE TABLE IF NOT EXISTS grants (
+    id            TEXT PRIMARY KEY,
+    org           TEXT NOT NULL,
+    subject_kind  TEXT NOT NULL,
+    subject_id    TEXT NOT NULL,
+    resource_kind TEXT NOT NULL,
+    resource_ref  TEXT NOT NULL,
+    permission    TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    UNIQUE (org, subject_kind, subject_id, resource_kind, resource_ref, permission)
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -129,6 +172,10 @@ CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC
 -- idx_widgets_dashboard is created by migration v1 (column added there for legacy files).
 CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
+CREATE INDEX IF NOT EXISTS idx_users_org ON users (org, email);
+CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
+CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
+CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
 ";
 
 /// Postgres dialect of the same schema. Identifiers and shapes mirror
@@ -264,6 +311,42 @@ CREATE TABLE IF NOT EXISTS tokens (
     revoked_at  TEXT,
     UNIQUE (secret_hash)
 );
+-- RBAC identity + ACL (mirrors SCHEMA_SQLITE; see docs/design/authz-rbac.md).
+CREATE TABLE IF NOT EXISTS users (
+    id           TEXT PRIMARY KEY,
+    org          TEXT NOT NULL,
+    subject      TEXT NOT NULL,
+    email        TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    admin_level  TEXT NOT NULL DEFAULT 'none',
+    created_at   TEXT NOT NULL,
+    UNIQUE (subject),
+    UNIQUE (org, email)
+);
+CREATE TABLE IF NOT EXISTS teams (
+    id         TEXT PRIMARY KEY,
+    org        TEXT NOT NULL,
+    slug       TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (org, slug)
+);
+CREATE TABLE IF NOT EXISTS memberships (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, team_id)
+);
+CREATE TABLE IF NOT EXISTS grants (
+    id            TEXT PRIMARY KEY,
+    org           TEXT NOT NULL,
+    subject_kind  TEXT NOT NULL,
+    subject_id    TEXT NOT NULL,
+    resource_kind TEXT NOT NULL,
+    resource_ref  TEXT NOT NULL,
+    permission    TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    UNIQUE (org, subject_kind, subject_id, resource_kind, resource_ref, permission)
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -272,4 +355,8 @@ CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC
 CREATE INDEX IF NOT EXISTS idx_widgets_dashboard ON widgets (dashboard_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
+CREATE INDEX IF NOT EXISTS idx_users_org ON users (org, email);
+CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
+CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
+CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
 ";

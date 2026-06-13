@@ -12,7 +12,7 @@ use axum::extract::{Path, Query, State};
 use axum::Json;
 
 use super::dto::BoardScope;
-use crate::api::scope_auth::may_read_scope;
+use crate::api::scope_auth::may_read_board;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::scheduler::PortOutput;
@@ -33,27 +33,15 @@ pub(crate) async fn board_outputs(
     // row, so a deleted board still returns (an empty, cleared list) rather than
     // 404 — the caller asked "what has this slug produced", and the answer after
     // a delete is "nothing".
-    may_read_scope_or_forbid(&principal, &state.store, &scope.org, scope.site_id)?;
+    if !may_read_board(&principal, &state.store, &scope.org, scope.site_id, &slug) {
+        return Err(ApiError::Forbidden(format!(
+            "subject may not read flows in org `{}`",
+            scope.org
+        )));
+    }
     let outputs = match &state.scheduler {
         Some(scheduler) => scheduler.outputs().latest(&slug),
         None => Vec::new(),
     };
     Ok(Json(outputs))
-}
-
-/// Authorize a scope read or return 403 (the list endpoints filter silently;
-/// this single-slug read fails closed instead).
-fn may_read_scope_or_forbid(
-    principal: &RequestPrincipal,
-    store: &crate::store::Store,
-    org: &str,
-    site_id: Option<uuid::Uuid>,
-) -> Result<(), ApiError> {
-    if may_read_scope(principal, store, org, site_id) {
-        Ok(())
-    } else {
-        Err(ApiError::Forbidden(format!(
-            "subject may not read flows in org `{org}`"
-        )))
-    }
 }

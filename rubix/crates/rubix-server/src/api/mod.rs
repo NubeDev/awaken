@@ -7,6 +7,7 @@ mod command;
 mod dashboards;
 mod datasources;
 mod equips;
+mod grants;
 mod health;
 mod his;
 mod openapi;
@@ -19,7 +20,10 @@ mod scope_auth;
 mod sites;
 mod sparks;
 mod tag_query;
+mod teams;
 mod tokens;
+mod users;
+mod whoami;
 mod widgets;
 
 pub use openapi::ApiDoc;
@@ -33,6 +37,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(health::healthz))
         .route("/api-docs/openapi.json", get(openapi::openapi_json))
+        .route("/api/v1/whoami", get(whoami::whoami))
         .merge(sites::router())
         .merge(orgs::router())
         .merge(equips::router())
@@ -49,6 +54,9 @@ pub fn router(state: AppState) -> Router {
         .merge(agent::router())
         .merge(runs::router())
         .merge(tokens::router())
+        .merge(users::router())
+        .merge(teams::router())
+        .merge(grants::router())
         .merge(crate::mcp::router())
         .with_state(state)
 }

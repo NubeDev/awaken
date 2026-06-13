@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 
 use super::dto::BoardScope;
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_board_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::AppState;
@@ -22,7 +22,7 @@ pub(crate) async fn delete_board(
     Path(slug): Path<String>,
     Query(scope): Query<BoardScope>,
 ) -> Result<StatusCode, ApiError> {
-    authorize_scope_write(&principal, &state.store, &scope.org, scope.site_id)?;
+    authorize_board_write(&principal, &state.store, &scope.org, scope.site_id, &slug)?;
     // Resolve the latest-version record first so we can unregister its loop by
     // id (delete drops every version); NotFound if the scope has no such flow.
     let store = state.store.clone();

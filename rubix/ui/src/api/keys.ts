@@ -2,6 +2,7 @@
 import type { Uuid } from './types'
 
 export const qk = {
+  whoami: ['whoami'] as const,
   sites: ['sites'] as const,
   site: (id: Uuid) => ['sites', id] as const,
   orgs: ['orgs'] as const,
@@ -16,7 +17,9 @@ export const qk = {
   point: (id: Uuid) => ['points', 'one', id] as const,
   pointHistory: (id: Uuid) => ['points', id, 'history'] as const,
   sparks: (siteId?: Uuid) => ['sparks', siteId ?? 'all'] as const,
+  agentStatus: ['agent', 'status'] as const,
   runs: ['runs'] as const,
+  runsByStatus: (status?: string) => ['runs', 'list', status ?? 'all'] as const,
   run: (id: string) => ['runs', id] as const,
   boards: ['boards'] as const,
   board: (slug: string) => ['boards', slug] as const,
@@ -30,4 +33,10 @@ export const qk = {
   rule: (org: string, name: string) => ['rules', org, name] as const,
   ruleReferencing: (org: string, name: string) =>
     ['rules', org, name, 'referencing'] as const,
+  users: (org?: string) => ['users', org ?? 'all'] as const,
+  teams: (org?: string) => ['teams', org ?? 'all'] as const,
+  teamMembers: (org: string, id: Uuid) => ['teams', org, id, 'members'] as const,
+  grants: (org?: string, resourceRef?: string) =>
+    ['grants', org ?? 'all', resourceRef ?? 'all'] as const,
+  dashboardGrants: (id: Uuid) => ['grants', 'dashboard', id] as const,
 }

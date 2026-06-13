@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use super::dto::{CreateRule, RuleView};
 use crate::api::blocking::blocking;
-use crate::api::scope_auth::authorize_scope_write;
+use crate::api::scope_auth::authorize_rule_write;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::store::RuleRecord;
@@ -30,7 +30,7 @@ pub(crate) async fn create_rule(
 ) -> Result<(StatusCode, Json<RuleView>), ApiError> {
     validate_slug(&org)?;
     validate_slug(&req.name)?;
-    authorize_scope_write(&principal, &state.store, &org, req.site_id)?;
+    authorize_rule_write(&principal, &state.store, &org, req.site_id, "*")?;
     let rule = RuleRecord {
         id: Uuid::new_v4(),
         org,

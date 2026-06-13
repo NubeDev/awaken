@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useEquips, usePoints, useSparks } from '@/api/hooks'
 import type { Uuid } from '@/api/types'
@@ -31,15 +31,20 @@ export function Points() {
   )
 
   const [equipId, setEquipId] = useState<Uuid | undefined>(equipParam)
+  // Adjust selection during render when the URL `?equip=` changes (e.g. a deep
+  // link from another page) without an effect — the pattern React recommends
+  // over syncing props into state in useEffect.
+  const [lastParam, setLastParam] = useState(equipParam)
+  if (equipParam !== lastParam) {
+    setLastParam(equipParam)
+    if (equipParam) setEquipId(equipParam)
+  }
+
   // default to the showcase equip: one with an in-finding point, else one with points
   const defaultEquipId =
     sitePoints.find((p) => inFinding.has(p.id))?.equip_id ?? sitePoints[0]?.equip_id
   const activeEquip =
     equips.find((e) => e.id === (equipId ?? defaultEquipId)) ?? equips[0]
-
-  useEffect(() => {
-    if (equipParam) setEquipId(equipParam)
-  }, [equipParam])
 
   const { data: points = [], isLoading } = usePoints({ equipId: activeEquip?.id })
   const [pointId, setPointId] = useState<Uuid | undefined>()

@@ -48,7 +48,6 @@ async function main() {
       await page.waitForTimeout(1500)
       const file = join(OUT, `${surface.name}.png`)
       await page.screenshot({ path: file, fullPage: true })
-      // eslint-disable-next-line no-console
       console.log(`captured ${surface.name} → ${file}`)
     }
   } finally {
@@ -57,7 +56,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err)
   process.exit(1)
 })

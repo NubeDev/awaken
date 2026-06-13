@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Activity, Thermometer, Zap } from 'lucide-react'
 import { usePointHistory, usePoints, useSparks } from '@/api/hooks'
 import type { HisSample, Point, Uuid } from '@/api/types'
@@ -49,10 +50,14 @@ export function KpiRow({ siteId }: { siteId: Uuid | undefined }) {
   const { data: demandHis = [] } = usePointHistory(demand?.id)
   const { data: comfortHis = [] } = usePointHistory(comfort?.id)
 
+  // Mount-time clock: the "fresh in last hour" tally is a snapshot, not a live
+  // ticker, so reading the wall clock once keeps render pure (React compiler).
+  const [mountedAt] = useState(() => Date.now())
+
   const open = sparks.filter((s) => !s.acknowledged)
   const faults = open.filter((s) => s.severity === 'fault').length
   const warnings = open.filter((s) => s.severity === 'warning').length
-  const fresh = open.filter((s) => Date.now() - Date.parse(s.ts) < 60 * 60_000).length
+  const fresh = open.filter((s) => mountedAt - Date.parse(s.ts) < 60 * 60_000).length
 
   const demandTrend = dayDelta(demandHis)
   const comfortTrend = dayDelta(comfortHis)

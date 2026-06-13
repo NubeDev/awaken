@@ -4,7 +4,7 @@ import type { Equip, Site, Uuid } from '@/api/types'
 import { tagNames } from '@/api/tags'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { equipKindIcon } from '@/lib/equip-icon'
+import { EquipKindIcon } from '@/lib/equip-icon'
 
 type EquipBrowserProps = {
   site: Site | undefined
@@ -43,7 +43,6 @@ export function EquipBrowser({ site, equips, faultEquips, activeId, onSelect }: 
       </div>
       <div className='flex flex-col gap-0.5'>
         {visible.map((e) => {
-          const Icon = equipKindIcon(e.tags)
           const fault = faultEquips.has(e.id)
           const active = e.id === activeId
           return (
@@ -55,7 +54,8 @@ export function EquipBrowser({ site, equips, faultEquips, activeId, onSelect }: 
                 active && 'bg-accent font-medium'
               )}
             >
-              <Icon
+              <EquipKindIcon
+                tags={e.tags}
                 className={cn('size-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')}
               />
               <span className='flex-1 truncate'>{e.display_name}</span>

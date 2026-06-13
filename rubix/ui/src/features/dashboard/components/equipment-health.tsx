@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { equipKindIcon } from '@/lib/equip-icon'
+import { EquipKindIcon } from '@/lib/equip-icon'
 
 /** Live equipment roster: per-kind icons, fault status from open sparks. */
 export function EquipmentHealth({ siteId }: { siteId: Uuid | undefined }) {
@@ -86,7 +86,6 @@ function EquipTile({
   points: number
   onClick: () => void
 }) {
-  const Icon = equipKindIcon(equip.tags)
   return (
     <button
       onClick={onClick}
@@ -98,7 +97,7 @@ function EquipTile({
           fault ? 'text-sev-fault' : 'text-muted-foreground group-hover:text-foreground'
         )}
       >
-        <Icon className='size-[18px]' />
+        <EquipKindIcon tags={equip.tags} className='size-[18px]' />
       </span>
       <div className='min-w-0 flex-1'>
         <div className='truncate text-[12.5px] font-semibold'>{equip.display_name}</div>

@@ -47,4 +47,41 @@ pub enum InterpolateError {
         /// A short prefix of the offending token for the caller to locate it.
         near: String,
     },
+
+    /// A time-range bound was neither an RFC 3339 instant nor a recognised
+    /// relative token (`now`, `now-6h`, `now/d`). Refused rather than reaching
+    /// SQL (docs/design/time-range-and-refresh.md §1).
+    #[error("invalid time-range token `{token}`")]
+    BadTimeToken {
+        /// The offending bound token.
+        token: String,
+    },
+
+    /// A resolved time range was empty (`from >= to`), which no time macro can
+    /// satisfy. Refused so a degenerate range surfaces as an error.
+    #[error("empty time range: `from` ({from}) is not before `to` ({to})")]
+    EmptyRange {
+        /// The unresolved lower-bound token.
+        from: String,
+        /// The unresolved upper-bound token.
+        to: String,
+    },
+
+    /// A time macro (`$__from`, `$__timeFilter`, …) appeared in SQL but the
+    /// request carried no `time_range`. Refused rather than leaving the macro
+    /// unbound (docs/design/time-range-and-refresh.md §4).
+    #[error("time macro `{macro_name}` used but no time range was supplied")]
+    MissingTimeRange {
+        /// The macro that needed a time range.
+        macro_name: String,
+    },
+
+    /// A `$__timeFilter(col)` / `$__timeGroup(col, ...)` call was malformed
+    /// (missing column, missing `)` , or — for `$__timeGroup` — missing the
+    /// interval argument).
+    #[error("malformed time macro near `{near}`")]
+    MalformedTimeMacro {
+        /// A short prefix of the offending macro for the caller to locate it.
+        near: String,
+    },
 }

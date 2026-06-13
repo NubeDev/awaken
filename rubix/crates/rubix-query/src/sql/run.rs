@@ -8,7 +8,7 @@ use datafusion::scalar::ScalarValue;
 use super::QueryRows;
 use crate::context::{QueryEngine, QueryScope};
 use crate::error::QueryError;
-use crate::interpolate::{lower, BoundParam, QueryVariable};
+use crate::interpolate::{lower, BoundParam, QueryVariable, TimeContext};
 
 impl QueryEngine {
     /// Run a read-only SQL statement and return its rows as JSON objects.
@@ -31,7 +31,23 @@ impl QueryEngine {
         sql: &str,
         variables: &[QueryVariable],
     ) -> Result<QueryRows, QueryError> {
-        let lowered = lower(sql, variables, 0)?;
+        self.query_lowered(sql, variables, None).await
+    }
+
+    /// Run a read-only SQL statement after lowering its variable *and* time
+    /// macros into bound parameters (docs/design/time-range-and-refresh.md §4).
+    ///
+    /// `time` is the resolved range; `$__from`/`$__to`/`$__timeFilter`/
+    /// `$__timeGroup`/`$__interval` bind against it. A `None` `time` rejects any
+    /// time macro rather than leaving it unbound. Like [`query_with_variables`],
+    /// every value binds — the range bounds never splice into the SQL text.
+    pub async fn query_lowered(
+        &self,
+        sql: &str,
+        variables: &[QueryVariable],
+        time: Option<&TimeContext>,
+    ) -> Result<QueryRows, QueryError> {
+        let lowered = lower(sql, variables, 0, time)?;
         ensure_read_only(&lowered.sql)?;
         let ctx = self.session().await?;
         run_bound(&ctx, &lowered.sql, &lowered.params).await
@@ -62,6 +78,11 @@ fn to_scalar(param: &BoundParam) -> ScalarValue {
         BoundParam::Int(i) => ScalarValue::Int64(Some(*i)),
         BoundParam::Float(f) => ScalarValue::Float64(Some(*f)),
         BoundParam::Text(s) => ScalarValue::Utf8(Some(s.clone())),
+        // The canonical `his` table stores `ts` as RFC 3339 Utf8 text (see
+        // his/schema.rs), so a range bound binds as Utf8 and compares lexically
+        // — RFC 3339 sorts chronologically. A widget casting `ts` to a temporal
+        // type compares it against this string identically.
+        BoundParam::Timestamp(s) => ScalarValue::Utf8(Some(s.clone())),
     }
 }
 

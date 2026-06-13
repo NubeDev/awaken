@@ -26,6 +26,14 @@ pub enum BoundParam {
     Float(f64),
     /// A text value.
     Text(String),
+    /// An RFC 3339 timestamp, bound as a temporal value rather than plain text.
+    ///
+    /// Emitted only by the time macros (`$__from`/`$__to`/`$__timeFilter`/
+    /// `$__timeGroup`), never by a [`Scalar`] variable — the `From<&Scalar>`
+    /// impl below stays total without it (docs/design/time-range-and-refresh.md
+    /// §4). The two query backends bind it to their temporal parameter type so a
+    /// range bound compares as an instant, not a string.
+    Timestamp(String),
 }
 
 impl From<&Scalar> for BoundParam {

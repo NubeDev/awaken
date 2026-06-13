@@ -11,9 +11,12 @@
 mod bound;
 mod error;
 mod lower;
+mod time;
+mod time_macro;
 mod var;
 
 pub use bound::{BoundParam, Lowered};
 pub use error::InterpolateError;
 pub use lower::lower;
+pub use time::{resolve as resolve_time_range, TimeContext, TimeRangeSpec};
 pub use var::{QueryVariable, Scalar, VarValue};

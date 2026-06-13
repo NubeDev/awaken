@@ -20,6 +20,8 @@
 
 use super::bound::{BoundParam, Lowered};
 use super::error::InterpolateError;
+use super::time::TimeContext;
+use super::time_macro::lower_time_macro;
 use super::var::{QueryVariable, Scalar, VarValue};
 
 /// Lower every variable token in `sql` into bound parameters.
@@ -30,10 +32,16 @@ use super::var::{QueryVariable, Scalar, VarValue};
 /// concatenate without collision. The DataFusion path passes `0`.
 ///
 /// Returns the rewritten SQL and the bound parameters in placeholder order.
+///
+/// Variable-only callers pass `None` for `time`; a `$__from`/`$__timeFilter`/…
+/// macro then errors rather than leaving an unbound token. A resolved
+/// [`TimeContext`] enables the time macros (docs/design/time-range-and-refresh.md
+/// §4); its values bind, never splice.
 pub fn lower(
     sql: &str,
     variables: &[QueryVariable],
     start_index: usize,
+    time: Option<&TimeContext>,
 ) -> Result<Lowered, InterpolateError> {
     let mut out = String::with_capacity(sql.len());
     let mut params: Vec<BoundParam> = Vec::new();
@@ -55,6 +63,16 @@ pub fn lower(
         if let Some(end) = positional_end(sql, i) {
             out.push_str(&sql[i..end]);
             i = end;
+            continue;
+        }
+
+        // Time macros (`$__from`, `$__timeFilter(col)`, …) take precedence over
+        // the variable tokens: they share the `$__` prefix with `$__sqlIn` but
+        // bind range bounds rather than a named variable's values.
+        if let Some(m) = lower_time_macro(sql, i, &mut next, time)? {
+            out.push_str(&m.sql);
+            params.extend(m.params);
+            i = m.end;
             continue;
         }
 
@@ -254,10 +272,112 @@ mod tests {
         }
     }
 
+    fn time_ctx() -> TimeContext {
+        use chrono::{TimeZone, Utc};
+        TimeContext {
+            from: Utc.with_ymd_and_hms(2026, 6, 13, 0, 0, 0).single().unwrap(),
+            to: Utc.with_ymd_and_hms(2026, 6, 13, 6, 0, 0).single().unwrap(),
+            interval_secs: 60,
+        }
+    }
+
+    #[test]
+    fn from_and_to_macros_bind_resolved_bounds_as_timestamps() {
+        let t = time_ctx();
+        let out = lower("WHERE ts >= $__from AND ts < $__to", &[], 0, Some(&t)).unwrap();
+        assert_eq!(out.sql, "WHERE ts >= $1 AND ts < $2");
+        assert_eq!(
+            out.params,
+            vec![
+                BoundParam::Timestamp(t.lower_rfc3339()),
+                BoundParam::Timestamp(t.upper_rfc3339()),
+            ]
+        );
+    }
+
+    #[test]
+    fn time_filter_expands_to_half_open_range_with_bound_bounds() {
+        let t = time_ctx();
+        let out = lower("WHERE $__timeFilter(ts)", &[], 0, Some(&t)).unwrap();
+        assert_eq!(out.sql, "WHERE ts >= $1 AND ts < $2");
+        assert_eq!(out.params.len(), 2);
+        assert!(matches!(out.params[0], BoundParam::Timestamp(_)));
+        // The column identifier is the only spliced text; no instant string is.
+        assert!(!out.sql.contains("2026"));
+    }
+
+    #[test]
+    fn time_group_buckets_by_bound_interval() {
+        let t = time_ctx();
+        let out = lower(
+            "SELECT $__timeGroup(ts, '$__interval') AS b",
+            &[],
+            0,
+            Some(&t),
+        )
+        .unwrap();
+        assert_eq!(
+            out.sql,
+            "SELECT FLOOR(EXTRACT(EPOCH FROM CAST(ts AS TIMESTAMP)) / $1) * $1 AS b"
+        );
+        assert_eq!(out.params, vec![BoundParam::Int(60)]);
+    }
+
+    #[test]
+    fn interval_macro_binds_resolved_seconds() {
+        let t = time_ctx();
+        let out = lower("SELECT $__interval", &[], 0, Some(&t)).unwrap();
+        assert_eq!(out.sql, "SELECT $1");
+        assert_eq!(out.params, vec![BoundParam::Int(60)]);
+    }
+
+    #[test]
+    fn time_macro_with_no_range_is_an_error() {
+        let err = lower("WHERE $__timeFilter(ts)", &[], 0, None).unwrap_err();
+        assert!(matches!(err, InterpolateError::MissingTimeRange { .. }));
+    }
+
+    #[test]
+    fn time_and_variable_macros_number_in_one_sequence() {
+        let t = time_ctx();
+        let vars = vec![one("site", "A")];
+        let out = lower(
+            "WHERE site = $site AND $__timeFilter(ts)",
+            &vars,
+            0,
+            Some(&t),
+        )
+        .unwrap();
+        assert_eq!(out.sql, "WHERE site = $1 AND ts >= $2 AND ts < $3");
+        assert_eq!(out.params.len(), 3);
+    }
+
+    #[test]
+    fn no_time_macro_query_is_unaffected_by_a_supplied_range() {
+        let t = time_ctx();
+        let out = lower("SELECT 1", &[], 0, Some(&t)).unwrap();
+        assert_eq!(out.sql, "SELECT 1");
+        assert!(out.params.is_empty());
+    }
+
+    #[test]
+    fn malformed_time_filter_is_an_error() {
+        let t = time_ctx();
+        let err = lower("WHERE $__timeFilter()", &[], 0, Some(&t)).unwrap_err();
+        assert!(matches!(err, InterpolateError::MalformedTimeMacro { .. }));
+    }
+
+    #[test]
+    fn time_group_missing_interval_arg_is_an_error() {
+        let t = time_ctx();
+        let err = lower("SELECT $__timeGroup(ts)", &[], 0, Some(&t)).unwrap_err();
+        assert!(matches!(err, InterpolateError::MalformedTimeMacro { .. }));
+    }
+
     #[test]
     fn bare_token_binds_single_value() {
         let vars = vec![one("site", "Site-A")];
-        let out = lower("SELECT * FROM points WHERE site_id = $site", &vars, 0).unwrap();
+        let out = lower("SELECT * FROM points WHERE site_id = $site", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "SELECT * FROM points WHERE site_id = $1");
         assert_eq!(out.params, vec![BoundParam::Text("Site-A".into())]);
     }
@@ -265,7 +385,7 @@ mod tests {
     #[test]
     fn brace_token_binds_single_value() {
         let vars = vec![one("site", "Site-A")];
-        let out = lower("WHERE site_id = ${site}", &vars, 0).unwrap();
+        let out = lower("WHERE site_id = ${site}", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id = $1");
         assert_eq!(out.params, vec![BoundParam::Text("Site-A".into())]);
     }
@@ -273,7 +393,7 @@ mod tests {
     #[test]
     fn csv_expands_each_value_as_its_own_param() {
         let vars = vec![many("site", &["A", "B", "C"])];
-        let out = lower("WHERE site_id IN (${site:csv})", &vars, 0).unwrap();
+        let out = lower("WHERE site_id IN (${site:csv})", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id IN ($1, $2, $3)");
         assert_eq!(out.params.len(), 3);
     }
@@ -281,7 +401,7 @@ mod tests {
     #[test]
     fn singlequote_expands_like_csv_but_each_is_bound() {
         let vars = vec![many("site", &["A", "B"])];
-        let out = lower("WHERE site_id IN (${site:singlequote})", &vars, 0).unwrap();
+        let out = lower("WHERE site_id IN (${site:singlequote})", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id IN ($1, $2)");
         assert_eq!(
             out.params,
@@ -292,7 +412,7 @@ mod tests {
     #[test]
     fn sql_in_wraps_expansion_in_parens() {
         let vars = vec![many("site", &["A", "B"])];
-        let out = lower("WHERE site_id $__sqlIn(site)", &vars, 0).unwrap();
+        let out = lower("WHERE site_id $__sqlIn(site)", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id IN ($1, $2)");
         assert_eq!(out.params.len(), 2);
     }
@@ -301,14 +421,14 @@ mod tests {
     fn start_index_offsets_placeholder_numbers() {
         // The datasource path already used $1; variables number from $2.
         let vars = vec![one("site", "A")];
-        let out = lower("WHERE a = $1 AND b = $site", &vars, 1).unwrap();
+        let out = lower("WHERE a = $1 AND b = $site", &vars, 1, None).unwrap();
         assert_eq!(out.sql, "WHERE a = $1 AND b = $2");
         assert_eq!(out.params, vec![BoundParam::Text("A".into())]);
     }
 
     #[test]
     fn existing_positional_placeholder_is_left_untouched() {
-        let out = lower("WHERE a = $1", &[], 1).unwrap();
+        let out = lower("WHERE a = $1", &[], 1, None).unwrap();
         assert_eq!(out.sql, "WHERE a = $1");
         assert!(out.params.is_empty());
     }
@@ -318,7 +438,7 @@ mod tests {
         // The classic injection payload arrives as data and leaves as a single
         // bound parameter; the SQL text only gains a `$1` placeholder.
         let vars = vec![one("site", "'); DROP TABLE points; --")];
-        let out = lower("WHERE site_id = $site", &vars, 0).unwrap();
+        let out = lower("WHERE site_id = $site", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id = $1");
         assert_eq!(
             out.params,
@@ -330,7 +450,7 @@ mod tests {
 
     #[test]
     fn unknown_variable_is_an_error() {
-        let err = lower("WHERE x = $missing", &[], 0).unwrap_err();
+        let err = lower("WHERE x = $missing", &[], 0, None).unwrap_err();
         assert_eq!(
             err,
             InterpolateError::UnknownVariable {
@@ -342,7 +462,7 @@ mod tests {
     #[test]
     fn multi_value_in_single_token_is_an_error() {
         let vars = vec![many("site", &["A", "B"])];
-        let err = lower("WHERE x = $site", &vars, 0).unwrap_err();
+        let err = lower("WHERE x = $site", &vars, 0, None).unwrap_err();
         assert_eq!(
             err,
             InterpolateError::MultiValueInSingle { name: "site".into() }
@@ -352,14 +472,14 @@ mod tests {
     #[test]
     fn empty_expansion_is_an_error() {
         let vars = vec![many("site", &[])];
-        let err = lower("WHERE x IN (${site:csv})", &vars, 0).unwrap_err();
+        let err = lower("WHERE x IN (${site:csv})", &vars, 0, None).unwrap_err();
         assert_eq!(err, InterpolateError::EmptyExpansion { name: "site".into() });
     }
 
     #[test]
     fn unknown_format_is_an_error() {
         let vars = vec![one("site", "A")];
-        let err = lower("WHERE x = ${site:nope}", &vars, 0).unwrap_err();
+        let err = lower("WHERE x = ${site:nope}", &vars, 0, None).unwrap_err();
         assert_eq!(
             err,
             InterpolateError::UnknownFormat {
@@ -371,26 +491,26 @@ mod tests {
 
     #[test]
     fn unterminated_brace_is_an_error() {
-        let err = lower("WHERE x = ${site", &[], 0).unwrap_err();
+        let err = lower("WHERE x = ${site", &[], 0, None).unwrap_err();
         assert!(matches!(err, InterpolateError::Unterminated { .. }));
     }
 
     #[test]
     fn unterminated_sql_in_is_an_error() {
-        let err = lower("WHERE x $__sqlIn(site", &[], 0).unwrap_err();
+        let err = lower("WHERE x $__sqlIn(site", &[], 0, None).unwrap_err();
         assert!(matches!(err, InterpolateError::Unterminated { .. }));
     }
 
     #[test]
     fn lone_dollar_is_copied_verbatim() {
-        let out = lower("SELECT '$' AS d", &[], 0).unwrap();
+        let out = lower("SELECT '$' AS d", &[], 0, None).unwrap();
         assert_eq!(out.sql, "SELECT '$' AS d");
         assert!(out.params.is_empty());
     }
 
     #[test]
     fn no_variables_is_an_identity_rewrite() {
-        let out = lower("SELECT 1", &[], 0).unwrap();
+        let out = lower("SELECT 1", &[], 0, None).unwrap();
         assert_eq!(out.sql, "SELECT 1");
         assert!(out.params.is_empty());
     }
@@ -398,7 +518,7 @@ mod tests {
     #[test]
     fn mixed_tokens_number_in_order() {
         let vars = vec![one("a", "x"), many("b", &["y", "z"])];
-        let out = lower("WHERE a = $a AND b IN (${b:csv})", &vars, 0).unwrap();
+        let out = lower("WHERE a = $a AND b IN (${b:csv})", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE a = $1 AND b IN ($2, $3)");
         assert_eq!(out.params.len(), 3);
     }
@@ -419,7 +539,7 @@ mod tests {
                 value: VarValue::One(Scalar::Bool(true)),
             },
         ];
-        let out = lower("WHERE n = $n AND f = $f AND b = $b", &vars, 0).unwrap();
+        let out = lower("WHERE n = $n AND f = $f AND b = $b", &vars, 0, None).unwrap();
         assert_eq!(
             out.params,
             vec![

@@ -961,3 +961,69 @@ export type EntityTags = Record<string, string | null>
  * rejects any other kind path segment.
  */
 export type TagEntityKind = 'dashboard'
+
+// --- Audit & undo/redo (docs/design/audit-and-undo.md) ------------------------
+// Hand-authored mirror of `rubix_core::{Op, Actor, Change}` and the audit/undo
+// route DTOs. Rubix has no codegen; keep in sync with the Rust types.
+
+/** `rubix_core::Op` — the kind of mutation a change records. */
+export type Op = 'create' | 'update' | 'delete'
+
+/**
+ * `rubix_core::Actor` — who made a change. The tagged union mirrors the Rust
+ * `#[serde(tag = "kind")]` shape. `agent` is the AI runtime writing the same
+ * ledger; `system` is the scheduler/provisioning path.
+ */
+export type Actor =
+  | { kind: 'user'; subject: string }
+  | { kind: 'agent'; run_id: string; model: string }
+  | { kind: 'system' }
+
+/**
+ * `rubix_core::Change` — one immutable change-ledger row. `before`/`after` are
+ * full JSON snapshots (absent per op: no `before` on create, no `after` on
+ * delete). `group_id` joins the rows of one logical operation so they undo as a
+ * single step.
+ */
+export interface Change {
+  id: string
+  at: string
+  org: string
+  site_id?: string | null
+  actor: Actor
+  kind: string
+  resource_id: string
+  op: Op
+  before?: unknown
+  after?: unknown
+  group_id: string
+  correlation?: string | null
+}
+
+/**
+ * Query params for `GET /api/v1/audit`. `org` is required and always enforced
+ * (a cross-org read is impossible); the rest narrow the result.
+ */
+export interface AuditQuery {
+  org: string
+  kind?: string
+  resource_id?: string
+  actor?: string
+  op?: Op
+  limit?: number
+}
+
+/** Body for `POST /api/v1/undo` and `/api/v1/redo`. */
+export interface UndoRequest {
+  org: string
+}
+
+/**
+ * Result of an undo/redo: the group that moved and the resource ids it touched,
+ * so the UI invalidates exactly the matching query keys. `group` is absent when
+ * there was nothing to undo/redo.
+ */
+export interface UndoResult {
+  group?: string
+  touched: string[]
+}

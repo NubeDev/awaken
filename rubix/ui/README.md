@@ -1,139 +1,57 @@
-# Shadcn Admin Dashboard
+# Rubix Console
 
-Admin Dashboard UI crafted with Shadcn and Vite. Built with responsiveness and accessibility in mind.
+Operator UI for the rubix BMS/EMS backend. Every surface reads and writes the
+real `rubix-server` API — there is no demo/fixture data layer (the `check:fake`
+gate enforces this).
 
-![alt text](public/images/shadcn-admin.png)
+## Dev loop
 
-[![Sponsored by Clerk](https://img.shields.io/badge/Sponsored%20by-Clerk-5b6ee1?logo=clerk)](https://go.clerk.com/GttUAaK)
+```sh
+# 1. backend (port 8088, serves /api/v1/* and /api-docs/openapi.json)
+cd rubix && cargo run -p rubix-server
 
-I've been creating dashboard UIs at work and for my personal projects. I always wanted to make a reusable collection of dashboard UI for future projects; and here it is now. While I've created a few custom components, some of the code is directly adapted from ShadcnUI examples.
-
-> This is not a starter project (template) though. I'll probably make one in the future.
-
-## Features
-
-- Light/dark mode
-- Responsive
-- Accessible
-- With built-in Sidebar component
-- Global search command
-- 10+ pages
-- Extra custom components
-- RTL support
-
-<details>
-<summary>Customized Components (click to expand)</summary>
-
-This project uses Shadcn UI components, but some have been slightly modified for better RTL (Right-to-Left) support and other improvements. These customized components differ from the original Shadcn UI versions.
-
-If you want to update components using the Shadcn CLI (e.g., `npx shadcn@latest add <component>`), it's generally safe for non-customized components. For the listed customized ones, you may need to manually merge changes to preserve the project's modifications and avoid overwriting RTL support or other updates.
-
-> If you don't require RTL support, you can safely update the 'RTL Updated Components' via the Shadcn CLI, as these changes are primarily for RTL compatibility. The 'Modified Components' may have other customizations to consider.
-
-### Modified Components
-
-- scroll-area
-- sonner
-- separator
-
-### RTL Updated Components
-
-- alert-dialog
-- calendar
-- command
-- dialog
-- dropdown-menu
-- select
-- table
-- sheet
-- sidebar
-- switch
-
-**Notes:**
-
-- **Modified Components**: These have general updates, potentially including RTL adjustments.
-- **RTL Updated Components**: These have specific changes for RTL language support (e.g., layout, positioning).
-- For implementation details, check the source files in `src/components/ui/`.
-- All other Shadcn UI components in the project are standard and can be safely updated via the CLI.
-
-</details>
-
-## Tech Stack
-
-**UI:** [ShadcnUI](https://ui.shadcn.com) (TailwindCSS + RadixUI)
-
-**Build Tool:** [Vite](https://vitejs.dev/)
-
-**Routing:** [TanStack Router](https://tanstack.com/router/latest)
-
-**Type Checking:** [TypeScript](https://www.typescriptlang.org/)
-
-**Linting/Formatting:** [ESLint](https://eslint.org/) & [Prettier](https://prettier.io/)
-
-**Icons:** [Lucide Icons](https://lucide.dev/icons/), [Tabler Icons](https://tabler.io/icons) (Brand icons only)
-
-**Auth (partial):** [Clerk](https://go.clerk.com/GttUAaK)
-
-## Run Locally
-
-Clone the project
-
-```bash
-  git clone https://github.com/satnaing/shadcn-admin.git
+# 2. UI (port 5180, proxies /api → 8088)
+pnpm -C rubix/ui dev
 ```
 
-Go to the project directory
+If file watching misses changes under a low inotify limit, prefix the dev server
+with `CHOKIDAR_USEPOLLING=true`.
 
-```bash
-  cd shadcn-admin
-```
+The server's `/api-docs/openapi.json` is the wire source of truth; the TS client
+types in `src/api/` are verified against it.
 
-Install dependencies
+## Authentication
 
-```bash
-  pnpm install
-```
+`rubix-server` accepts a bearer token on `/api/v1/*`. Until a deployment issuer
+(OIDC) is configured, paste a raw API token on the sign-in screen:
 
-Start the server
+- The token is stored client-side and attached as `Authorization: Bearer <token>`
+  on every request.
+- A `401` clears the token, toasts, and redirects back to sign-in.
+- The signed-in principal is shown as a neutral "Operator" — no `whoami` endpoint
+  is exposed on the wire, so no identity is invented.
 
-```bash
-  pnpm run dev
-```
+## Dev seed
 
-## Rubix dev loop (real API, seeded portfolio)
+The demo building (sites, equips, points, sparks, live sim) is seeded into the
+real store by the backend dev seed (UI-02), not by UI fixtures. Run the server
+with the seed enabled so populated pages render with real rows.
 
-The UI runs against the live `rubix-server` with the demo building portfolio
-seeded as real store rows (no fake data). Three commands:
+## Scripts
 
-```bash
-# 1. backend on :8088, store seeded with the demo portfolio (dev-gated, idempotent)
-cd rubix && cargo run -p rubix-server -- --seed-dev
+| Script | Purpose |
+| --- | --- |
+| `pnpm dev` | Vite dev server (port 5180). |
+| `pnpm build` | `tsc -b` typecheck + production `vite build`. |
+| `pnpm lint` | ESLint (a permanent UI gate — keep it clean). |
+| `pnpm test:unit` | Fast jsdom unit suite (`*.unit.test.*`), the canonical gate. |
+| `pnpm test` | Browser component suite (needs `pnpm test:browser:install`). |
+| `pnpm check:fake` | Fails if any `api/demo` / `VITE_DEMO` / `sample-board` reference returns. |
+| `pnpm knip` | Reports unused files/exports/deps. |
+| `node scripts/screenshot.mjs` | Capture reference screenshots for the look-freeze. |
 
-# 2. UI on :5180, real mode (/api proxied to :8088)
-VITE_DEMO=0 pnpm -C rubix/ui dev
+## File discipline
 
-# 3. (optional) capture the look-freeze reference screenshots into docs/reference/
-node rubix/ui/scripts/screenshot.mjs
-```
-
-`--seed-dev` is dev-only and idempotent — re-running upserts by slug, so it
-never duplicates. Set `CHOKIDAR_USEPOLLING=true` if file-watching hits inotify
-limits.
-
-## Sponsoring this project ❤️
-
-If you find this project helpful or use this in your own work, consider [sponsoring me](https://github.com/sponsors/satnaing) to support development and maintenance. You can [buy me a coffee](https://buymeacoffee.com/satnaing) as well. Don’t worry, every penny helps. Thank you! 🙏
-
-For questions or sponsorship inquiries, feel free to reach out at [satnaingdev@gmail.com](mailto:satnaingdev@gmail.com).
-
-### Current Sponsor
-
-- [Clerk](https://go.clerk.com/GttUAaK) - authentication and user management for the modern web
-
-## Author
-
-Crafted with 🤍 by [@satnaing](https://github.com/satnaing)
-
-## License
-
-Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
+See `/home/user/code/rust/starter/rubix/FILE-LAYOUT.md`: ≤400 lines per source
+file (outside vendored `components/ui/` and the generated `routeTree.gen.ts`), one
+verb/concept per file, no `utils.ts`-style grab bags.

@@ -5,6 +5,8 @@
  * `endpoints.ts`; React Query hooks in `hooks/`.
  */
 
+import { currentAccessToken } from '@/stores/auth-store';
+
 export const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
 export class ApiError extends Error {
@@ -44,12 +46,20 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
+function buildHeaders(hasBody: boolean): HeadersInit | undefined {
+  const headers: Record<string, string> = {};
+  if (hasBody) headers['content-type'] = 'application/json';
+  const token = currentAccessToken();
+  if (token) headers['authorization'] = `Bearer ${token}`;
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, query, signal } = options;
   const res = await fetch(buildUrl(path, query), {
     method,
     signal,
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    headers: buildHeaders(body !== undefined),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new ApiError(res.status, await readError(res));

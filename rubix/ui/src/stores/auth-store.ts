@@ -1,23 +1,20 @@
 import { create } from 'zustand'
 import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 
-const ACCESS_TOKEN = 'thisisjustarandomstring'
-
-interface AuthUser {
-  accountNo: string
-  email: string
-  role: string[]
-  exp: number
-}
+/**
+ * API-token auth store. The rubix-server accepts a bearer token on `/api/v1/*`;
+ * until a deployment issuer (OIDC) is configured the operator pastes a raw token
+ * on the sign-in screen. We persist only the opaque token — no decoded identity,
+ * because no `whoami` endpoint is exposed on the wire (see ../TODOs.md). The
+ * displayed principal stays a neutral "Operator".
+ */
+const ACCESS_TOKEN = 'rubix.api.token'
 
 interface AuthState {
   auth: {
-    user: AuthUser | null
-    setUser: (user: AuthUser | null) => void
     accessToken: string
     setAccessToken: (accessToken: string) => void
     resetAccessToken: () => void
-    reset: () => void
   }
 }
 
@@ -26,9 +23,6 @@ export const useAuthStore = create<AuthState>()((set) => {
   const initToken = cookieState ? JSON.parse(cookieState) : ''
   return {
     auth: {
-      user: null,
-      setUser: (user) =>
-        set((state) => ({ ...state, auth: { ...state.auth, user } })),
       accessToken: initToken,
       setAccessToken: (accessToken) =>
         set((state) => {
@@ -40,14 +34,11 @@ export const useAuthStore = create<AuthState>()((set) => {
           removeCookie(ACCESS_TOKEN)
           return { ...state, auth: { ...state.auth, accessToken: '' } }
         }),
-      reset: () =>
-        set((state) => {
-          removeCookie(ACCESS_TOKEN)
-          return {
-            ...state,
-            auth: { ...state.auth, user: null, accessToken: '' },
-          }
-        }),
     },
   }
 })
+
+/** Read the persisted token outside React (the fetch client uses this). */
+export function currentAccessToken(): string {
+  return useAuthStore.getState().auth.accessToken
+}

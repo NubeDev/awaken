@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, request } from './client'
+import { useAuthStore } from '@/stores/auth-store'
 
 function mockFetch(status: number, body: unknown) {
   return vi.fn(
@@ -11,7 +12,10 @@ function mockFetch(status: number, body: unknown) {
   )
 }
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  useAuthStore.getState().auth.resetAccessToken()
+})
 
 describe('request', () => {
   it('decodes a JSON body on success', async () => {
@@ -45,5 +49,27 @@ describe('request', () => {
     const init = fetchSpy.mock.calls[0]![1]!
     expect(init.body).toBe('{"message":"hi"}')
     expect((init.headers as Record<string, string>)['content-type']).toBe('application/json')
+  })
+
+  it('attaches a bearer Authorization header when a token is stored', async () => {
+    const fetchSpy = mockFetch(200, [])
+    vi.stubGlobal('fetch', fetchSpy)
+    useAuthStore.getState().auth.setAccessToken('rbx_token')
+    await request('/api/v1/sites')
+    const init = fetchSpy.mock.calls[0]![1]!
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer rbx_token')
+  })
+
+  it('sends no Authorization header when no token is stored', async () => {
+    const fetchSpy = mockFetch(200, [])
+    vi.stubGlobal('fetch', fetchSpy)
+    await request('/api/v1/sites')
+    const init = fetchSpy.mock.calls[0]![1]!
+    expect(init.headers).toBeUndefined()
+  })
+
+  it('raises ApiError(401) so callers can clear the token', async () => {
+    vi.stubGlobal('fetch', mockFetch(401, { error: 'invalid token' }))
+    await expect(request('/api/v1/sites')).rejects.toMatchObject({ status: 401 })
   })
 })

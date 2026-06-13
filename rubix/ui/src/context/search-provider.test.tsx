@@ -117,15 +117,15 @@ describe('SearchProvider and CommandMenu', () => {
       .not.toBeInTheDocument()
   })
 
-  it('navigates for nested sidebar items (group with sub-items)', async () => {
+  it('navigates to an Analyze-group route from the palette', async () => {
     const screen = await renderWithSearchProvider()
-    const { getByPlaceholder, getByRole } = screen
+    const { getByPlaceholder, getByText } = screen
 
     await openCommandPalette(screen)
 
-    await userEvent.click(getByRole('option', { name: 'Settings Account' }))
+    await userEvent.click(getByText('History & SQL'))
 
-    expect(mocks.navigate).toHaveBeenCalledWith({ to: '/settings/account' })
+    expect(mocks.navigate).toHaveBeenCalledWith({ to: '/history' })
     await expect
       .element(getByPlaceholder(COMMAND_MENU_PLACEHOLDER))
       .not.toBeInTheDocument()

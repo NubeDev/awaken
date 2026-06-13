@@ -4,6 +4,7 @@
 //! sites/equips/points, Haystack-style tag sets, BACnet-style 16-level
 //! priority arrays, history samples, and spark findings. No IO here.
 
+mod change;
 mod entity_tag;
 mod error;
 mod model;
@@ -13,6 +14,7 @@ mod tags;
 mod value;
 mod variable;
 
+pub use change::{Actor, Change, ChangeError, Op};
 pub use entity_tag::{EntityTags, TagEntityKind};
 pub use error::CoreError;
 pub use model::{

@@ -8,4 +8,6 @@ pub enum CoreError {
     InvalidSlug(String),
     #[error("invalid tag `{0}`: must be non-empty lowercase [a-zA-Z0-9_]")]
     InvalidTag(String),
+    #[error("invalid nav node: {0}")]
+    InvalidNavNode(String),
 }

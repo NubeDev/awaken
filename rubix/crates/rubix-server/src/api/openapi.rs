@@ -163,6 +163,7 @@ impl Modify for BearerSecurity {
         rubix_query::QueryVariable, rubix_query::VarValue, rubix_query::Scalar,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard,
         rubix_core::Variable, rubix_core::VariableKind, rubix_core::VariableConfig,
+        rubix_core::ContextSource,
         widgets::patch::PatchWidget,
         UserRecord, TeamRecord, GrantRecord,
         users::CreateUser, users::PatchUser,

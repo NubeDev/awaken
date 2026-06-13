@@ -39,6 +39,12 @@ pub enum VariableKind {
     Interval,
     /// Free text entry.
     Textbox,
+    /// A value sourced from the page context (the nav node, bare URL params, the
+    /// board's tags, or a nav node's `context.values`) rather than authored
+    /// options (docs/design/page-context-and-nav.md §2). Lets one board, mounted
+    /// at two nav nodes, resolve different values without a second board. The
+    /// resolved value still reaches SQL only as a bound parameter.
+    Context,
 }
 
 /// Per-kind variable configuration. Tagged on `kind` so the wire shape is
@@ -86,6 +92,35 @@ pub enum VariableConfig {
     },
     /// Free text; no options.
     Textbox {},
+    /// A page-context value (docs/design/page-context-and-nav.md §2). `source`
+    /// selects which context layer to read; `key` addresses one value within it.
+    /// The server treats this as opaque transport like every other config — the
+    /// frontend assembles the `PageContext` and resolves the value, which then
+    /// arrives as a bound `QueryVariable` on the query request.
+    Context {
+        /// The context layer to read from.
+        source: ContextSource,
+        /// The key within the source (a variable/tag name, a bare URL param, or
+        /// `slug`/`name`/`path[n]` for the `nav` source).
+        key: String,
+    },
+}
+
+/// Which page-context layer a `context` variable reads from
+/// (docs/design/page-context-and-nav.md §2). A closed enum so the resolvable
+/// sources stay explicit and testable; precedence between sources is the
+/// frontend resolution layer's concern, not the wire shape's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextSource {
+    /// The nav node the page opened under (`key` = `slug`|`name`|`path[n]`).
+    Nav,
+    /// A bare URL query param (`?building=…`); not the `var-*` namespace.
+    Url,
+    /// The board's own tag value for `key`.
+    Tag,
+    /// The nav node's `context.values[key]` override.
+    Values,
 }
 
 impl VariableConfig {
@@ -100,6 +135,7 @@ impl VariableConfig {
             VariableConfig::Site {} => VariableKind::Site,
             VariableConfig::Interval { .. } => VariableKind::Interval,
             VariableConfig::Textbox {} => VariableKind::Textbox,
+            VariableConfig::Context { .. } => VariableKind::Context,
         }
     }
 }
@@ -238,6 +274,56 @@ mod tests {
             VariableKind::Interval
         );
         assert_eq!(VariableConfig::Textbox {}.kind(), VariableKind::Textbox);
+        assert_eq!(
+            VariableConfig::Context {
+                source: ContextSource::Values,
+                key: "site".into()
+            }
+            .kind(),
+            VariableKind::Context
+        );
+    }
+
+    #[test]
+    fn context_config_round_trips_on_wire() {
+        let cfg = VariableConfig::Context {
+            source: ContextSource::Nav,
+            key: "slug".into(),
+        };
+        let wire = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(
+            wire,
+            json!({ "kind": "context", "source": "nav", "key": "slug" })
+        );
+        let back: VariableConfig = serde_json::from_value(wire).unwrap();
+        assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn context_variable_validates_like_any_other() {
+        let v = Variable {
+            name: "site".into(),
+            label: None,
+            kind: VariableKind::Context,
+            config: VariableConfig::Context {
+                source: ContextSource::Values,
+                key: "site".into(),
+            },
+            current: Value::Null,
+            multi: false,
+            include_all: false,
+            hidden: false,
+        };
+        assert!(v.validate().is_ok());
+        // Declared kind must still match the config tag.
+        let bad = Variable {
+            kind: VariableKind::Site,
+            ..v
+        };
+        assert!(matches!(
+            bad.validate(),
+            Err(VariableError::KindMismatch { .. })
+        ));
     }
 
     #[test]

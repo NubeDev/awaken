@@ -23,4 +23,6 @@ pub use nav::{NavContext, NavNode, NavRoute, NavTarget};
 pub use priority::{PriorityArray, PRIORITY_LEVELS};
 pub use tags::{validate_slug, TagSet};
 pub use value::PointValue;
-pub use variable::{validate_variables, Variable, VariableConfig, VariableError, VariableKind};
+pub use variable::{
+    validate_variables, ContextSource, Variable, VariableConfig, VariableError, VariableKind,
+};

@@ -123,6 +123,75 @@ fn opening_a_v5_db_adds_dashboard_variables() {
     assert_eq!(store2.list_dashboards("acme", None).unwrap().len(), 1);
 }
 
+/// v7+v8 — a v6-shape DB (no `entity_tags` / `nav_nodes` tables) must gain them
+/// on open, keep existing data, and let both new tables round-trip
+/// (docs/design/page-context-and-nav.md §§3,4). Re-opening is a no-op.
+#[test]
+fn opening_a_v6_db_adds_entity_tags_and_nav_nodes() {
+    use rubix_core::{EntityTags, NavNode, NavTarget};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("v6.db");
+    let dash_id = uuid::Uuid::new_v4();
+
+    // A v6-shape DB: dashboards with `variables`, but neither new table.
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE dashboards (
+                id BLOB PRIMARY KEY, org TEXT NOT NULL, site_id BLOB,
+                slug TEXT NOT NULL, title TEXT NOT NULL, variables TEXT,
+                created_at TEXT NOT NULL
+            );
+            ",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO dashboards VALUES (?1,'acme',NULL,'overview','Overview',NULL,'2026-01-01T00:00:00Z')",
+            rusqlite::params![dash_id],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 6").unwrap();
+    }
+
+    let store = Store::open(&path).unwrap();
+    // Pre-existing data survived.
+    assert_eq!(store.list_dashboards("acme", None).unwrap().len(), 1);
+
+    // entity_tags round-trips (an injection-shaped value binds, never executes).
+    let mut tags = EntityTags::default();
+    tags.0
+        .insert("building".into(), Some("'); DROP TABLE dashboards; --".into()));
+    store
+        .replace_entity_tags("acme", "dashboard", dash_id, &tags)
+        .unwrap();
+    let read = store.entity_tags("acme", "dashboard", dash_id).unwrap();
+    assert_eq!(read.0.get("building").unwrap().as_deref(), Some("'); DROP TABLE dashboards; --"));
+    // The injected value was inert: the dashboard is still there.
+    assert_eq!(store.list_dashboards("acme", None).unwrap().len(), 1);
+
+    // nav_nodes round-trips.
+    let node = NavNode {
+        id: uuid::Uuid::new_v4(),
+        org: "acme".into(),
+        parent_id: None,
+        title: "Buildings".into(),
+        sort_order: 0,
+        target: NavTarget::Group,
+        context: None,
+        icon: None,
+        accent: None,
+    };
+    store.create_nav_node(&node).unwrap();
+    assert_eq!(store.list_nav_nodes("acme").unwrap().len(), 1);
+
+    // Re-open is idempotent.
+    let store2 = Store::open(&path).unwrap();
+    assert_eq!(store2.list_nav_nodes("acme").unwrap().len(), 1);
+    assert_eq!(store2.entity_tags("acme", "dashboard", dash_id).unwrap().0.len(), 1);
+}
+
 /// A fresh database (base schema already at the newest shape) opens, stamps the
 /// version, and runs no destructive step.
 #[test]

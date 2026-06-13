@@ -10,11 +10,13 @@ pub(super) mod boards;
 pub(super) mod codec;
 pub(super) mod command;
 pub(super) mod dashboards;
+pub(super) mod entity_tags;
 pub(super) mod equips;
 pub(super) mod grants;
 pub(super) mod his;
 pub(super) mod his_flush;
 pub(super) mod keyexpr;
+pub(super) mod nav_nodes;
 pub(super) mod points;
 pub(super) mod prefs;
 pub(super) mod rules;
@@ -30,7 +32,7 @@ pub(super) mod widgets;
 /// Postgres pass from a clean slate (the SQLite pass uses a fresh temp file).
 pub(super) fn truncate_all(store: &Store) -> Result<()> {
     store.postgres_conn()?.batch_execute(
-        "TRUNCATE tokens, grants, memberships, teams, users, runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
+        "TRUNCATE nav_nodes, entity_tags, tokens, grants, memberships, teams, users, runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
     )?;
     Ok(())
 }

@@ -51,6 +51,14 @@ const MIGRATIONS: &[Migration] = &[
         version: 6,
         step: migrate_v6_dashboard_variables,
     },
+    Migration {
+        version: 7,
+        step: migrate_v7_entity_tags,
+    },
+    Migration {
+        version: 8,
+        step: migrate_v8_nav_nodes,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -295,6 +303,52 @@ fn migrate_v6_dashboard_variables(tx: &rusqlite::Transaction<'_>) -> rusqlite::R
         tx.execute_batch("ALTER TABLE dashboards ADD COLUMN variables TEXT")?;
     }
     Ok(())
+}
+
+/// v7 — behaviour-affecting entity tags (docs/design/page-context-and-nav.md §3):
+/// the org-scoped `entity_tags` table. A new table only (no existing data to
+/// migrate), so pure `CREATE TABLE IF NOT EXISTS` — a no-op on a fresh database
+/// (the base schema already created it) and additive on a legacy one. Shape
+/// mirrors [`super::schema::SCHEMA_SQLITE`] exactly; keep them in sync.
+fn migrate_v7_entity_tags(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS entity_tags (
+            org       TEXT NOT NULL,
+            kind      TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            key       TEXT NOT NULL,
+            value     TEXT,
+            PRIMARY KEY (org, kind, entity_id, key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_entity_tags_reverse
+            ON entity_tags (org, kind, key, value);
+        ",
+    )
+}
+
+/// v8 — the navigation tree (docs/design/page-context-and-nav.md §4): the
+/// org-scoped, nestable `nav_nodes` table. A new table only, so pure `CREATE
+/// TABLE IF NOT EXISTS` — a no-op on a fresh database and additive on a legacy
+/// one. Shape mirrors [`super::schema::SCHEMA_SQLITE`] exactly; keep them in sync.
+fn migrate_v8_nav_nodes(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS nav_nodes (
+            id         TEXT PRIMARY KEY,
+            org        TEXT NOT NULL,
+            parent_id  TEXT REFERENCES nav_nodes(id) ON DELETE CASCADE,
+            title      TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            target     TEXT NOT NULL,
+            context    TEXT,
+            icon       TEXT,
+            accent     TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree
+            ON nav_nodes (org, parent_id, sort_order);
+        ",
+    )
 }
 
 /// True when `table` has a column named `column`, read from `PRAGMA

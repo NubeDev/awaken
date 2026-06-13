@@ -212,6 +212,36 @@ CREATE TABLE IF NOT EXISTS prefs_user (
     updated_at       INTEGER NOT NULL,
     PRIMARY KEY (user_id, org)
 );
+-- Behaviour-affecting entity tags (docs/design/page-context-and-nav.md §3).
+-- Org-scoped key/value tags on a domain entity (today only `dashboard`). One
+-- row per (org, kind, entity_id, key); a NULL value is a marker tag. Tags drive
+-- queries via PageContext, so the routes enforce the entity's own authz. Legacy
+-- files gain this table in migration v7.
+CREATE TABLE IF NOT EXISTS entity_tags (
+    org       TEXT NOT NULL,
+    kind      TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    key       TEXT NOT NULL,
+    value     TEXT,
+    PRIMARY KEY (org, kind, entity_id, key)
+);
+-- Navigation tree (docs/design/page-context-and-nav.md §4). Org-scoped, nestable
+-- (parent_id self-ref, NULL = root). `target` is a JSON tagged union
+-- (group/dashboard/route); `context` is JSON, dashboard targets only. Legacy
+-- files gain this table in migration v8.
+CREATE TABLE IF NOT EXISTS nav_nodes (
+    id         TEXT PRIMARY KEY,
+    org        TEXT NOT NULL,
+    parent_id  TEXT REFERENCES nav_nodes(id) ON DELETE CASCADE,
+    title      TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    target     TEXT NOT NULL,
+    context    TEXT,
+    icon       TEXT,
+    accent     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_entity_tags_reverse ON entity_tags (org, kind, key, value);
+CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree ON nav_nodes (org, parent_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -439,6 +469,29 @@ CREATE TABLE IF NOT EXISTS prefs_user (
     updated_at       BIGINT NOT NULL,
     PRIMARY KEY (user_id, org)
 );
+-- Behaviour-affecting entity tags + nav tree (mirrors SCHEMA_SQLITE; see
+-- docs/design/page-context-and-nav.md §§3,4).
+CREATE TABLE IF NOT EXISTS entity_tags (
+    org       TEXT NOT NULL,
+    kind      TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    key       TEXT NOT NULL,
+    value     TEXT,
+    PRIMARY KEY (org, kind, entity_id, key)
+);
+CREATE TABLE IF NOT EXISTS nav_nodes (
+    id         TEXT PRIMARY KEY,
+    org        TEXT NOT NULL,
+    parent_id  TEXT REFERENCES nav_nodes(id) ON DELETE CASCADE,
+    title      TEXT NOT NULL,
+    sort_order BIGINT NOT NULL DEFAULT 0,
+    target     TEXT NOT NULL,
+    context    TEXT,
+    icon       TEXT,
+    accent     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_entity_tags_reverse ON entity_tags (org, kind, key, value);
+CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree ON nav_nodes (org, parent_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);

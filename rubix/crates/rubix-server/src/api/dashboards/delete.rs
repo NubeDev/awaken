@@ -5,6 +5,7 @@ use axum::http::StatusCode;
 use uuid::Uuid;
 
 use super::authorize_dashboard_write_existing;
+use crate::api::audit::record::{actor_of, Recorder};
 use crate::api::blocking::blocking;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
@@ -32,10 +33,19 @@ pub(crate) async fn delete_dashboard(
     // group target (docs/design/page-context-and-nav.md §4): losing a board must
     // not delete the node, and stale tags must not linger. Done before the row is
     // removed so a failure leaves the dashboard intact.
+    let actor = actor_of(&principal);
     blocking(move || {
+        let before = serde_json::to_value(&current).map_err(anyhow::Error::from)?;
         state.store.sweep_nav_dashboard(id)?;
         state.store.sweep_entity_tags("dashboard", id)?;
         state.store.delete_dashboard(id)?;
+        // Record the removal with the pre-delete snapshot so undo can re-insert it.
+        Recorder::new(actor, current.org.clone(), current.site_id).delete(
+            &state.store,
+            "dashboard",
+            id,
+            before,
+        )?;
         Ok(())
     })
     .await?;

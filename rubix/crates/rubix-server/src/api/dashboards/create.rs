@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::authorize_dashboard_write;
+use crate::api::audit::record::{actor_of, Recorder};
 use crate::api::blocking::blocking;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
@@ -58,6 +59,19 @@ pub(crate) async fn create_dashboard(
         created_at: Utc::now(),
     };
     let stored = dashboard.clone();
-    blocking(move || Ok(state.store.create_dashboard(&stored)?)).await?;
+    let actor = actor_of(&principal);
+    blocking(move || {
+        state.store.create_dashboard(&stored)?;
+        // Record the creation next to the mutation it describes (the snapshot is the
+        // new row); the recorder is the sole ledger write path.
+        Recorder::new(actor, stored.org.clone(), stored.site_id).create(
+            &state.store,
+            "dashboard",
+            stored.id,
+            serde_json::to_value(&stored).map_err(anyhow::Error::from)?,
+        )?;
+        Ok(())
+    })
+    .await?;
     Ok((StatusCode::CREATED, Json(dashboard)))
 }

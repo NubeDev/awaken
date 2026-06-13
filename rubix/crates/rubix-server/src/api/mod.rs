@@ -1,6 +1,7 @@
 //! HTTP API. One file per route verb; this module is router wiring only.
 
 mod agent;
+mod audit;
 mod blocking;
 mod boards;
 mod command;
@@ -80,6 +81,7 @@ pub fn router(state: AppState) -> Router {
         .merge(grants::router())
         .merge(tags::router())
         .merge(nav::router())
+        .merge(audit::router())
         .merge(crate::mcp::router())
         .with_state(state)
 }

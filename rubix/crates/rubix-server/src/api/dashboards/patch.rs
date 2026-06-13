@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::authorize_dashboard_write_existing;
+use crate::api::audit::record::{actor_of, Recorder};
 use crate::api::blocking::blocking;
 use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
@@ -47,10 +48,22 @@ pub(crate) async fn patch_dashboard(
         current.site_id,
         id,
     )?;
+    let actor = actor_of(&principal);
     let updated = blocking(move || {
-        Ok(state
-            .store
-            .update_dashboard(id, req.title.as_deref(), req.variables.as_deref())?)
+        let before = serde_json::to_value(&current).map_err(anyhow::Error::from)?;
+        let updated =
+            state
+                .store
+                .update_dashboard(id, req.title.as_deref(), req.variables.as_deref())?;
+        let after = serde_json::to_value(&updated).map_err(anyhow::Error::from)?;
+        Recorder::new(actor, current.org.clone(), current.site_id).update(
+            &state.store,
+            "dashboard",
+            id,
+            before,
+            after,
+        )?;
+        Ok(updated)
     })
     .await?;
     Ok(Json(updated))

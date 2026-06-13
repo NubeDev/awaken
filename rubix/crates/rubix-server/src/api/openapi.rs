@@ -10,7 +10,7 @@ use crate::error::ErrorBody;
 use crate::store::{GrantRecord, TeamRecord, UserRecord};
 
 use super::{
-    agent, boards, command, dashboards, datasources, equips, grants, health, his, nav, orgs,
+    agent, audit, boards, command, dashboards, datasources, equips, grants, health, his, nav, orgs,
     points, preferences, query, rules, runs, sites, sparks, tags, teams, time_range, tokens, users,
     whoami, widgets,
 };
@@ -146,6 +146,10 @@ impl Modify for BearerSecurity {
         tags::get::get_tags,
         tags::entities::tagged_entities,
         tags::keys::tag_keys,
+        audit::list::list_audit,
+        audit::timeline::resource_timeline,
+        audit::undo::undo,
+        audit::redo::redo,
     ),
     components(schemas(ErrorBody, RunRecord, RunStatus, RunOrigin, PendingWrite,
         whoami::Whoami,
@@ -172,6 +176,8 @@ impl Modify for BearerSecurity {
         nav::dto::CreateNavNode, nav::dto::PatchNavNode,
         rubix_core::NavNode, rubix_core::NavTarget, rubix_core::NavRoute,
         rubix_core::NavContext, rubix_core::EntityTags, rubix_core::TagEntityKind,
+        rubix_core::Change, rubix_core::Actor, rubix_core::Op,
+        audit::undo::UndoRequest, audit::undo::UndoResult,
         preferences::UnitsDocument,
         rubix_prefs::preferences::ResolvedPreferences,
         rubix_prefs::preferences::UnitSystem, rubix_prefs::preferences::DateFormat,

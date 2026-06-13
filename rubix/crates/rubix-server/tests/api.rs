@@ -10,6 +10,7 @@ mod api_tests {
     mod bus;
     mod command;
     mod dashboards;
+    mod datasources;
     mod dispatch;
     mod flow;
     mod his;

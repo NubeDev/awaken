@@ -5,6 +5,7 @@ mod blocking;
 mod boards;
 mod command;
 mod dashboards;
+mod datasources;
 mod equips;
 mod health;
 mod his;
@@ -41,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         .merge(widgets::router())
         .merge(dashboards::router())
         .merge(query::router())
+        .merge(datasources::router())
         .merge(rules::router())
         .merge(boards::router())
         .merge(agent::router())

@@ -14,7 +14,7 @@ pub mod agent;
 pub mod api;
 pub mod auth;
 pub mod bus;
-pub mod datasources;
+pub mod datasource_manifest;
 pub mod dispatch;
 pub mod error;
 pub mod flow;

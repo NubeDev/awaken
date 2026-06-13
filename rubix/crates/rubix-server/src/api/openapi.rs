@@ -9,8 +9,8 @@ use crate::auth::{Role, Scope, TokenRecord};
 use crate::error::ErrorBody;
 
 use super::{
-    agent, boards, command, dashboards, equips, health, his, orgs, points, query, rules, runs,
-    sites, sparks, tokens, widgets,
+    agent, boards, command, dashboards, datasources, equips, health, his, orgs, points, query,
+    rules, runs, sites, sparks, tokens, widgets,
 };
 
 /// Registers the `bearer` HTTP security scheme so routes can mark themselves
@@ -74,6 +74,9 @@ impl Modify for BearerSecurity {
         sparks::delete::delete_spark,
         sparks::ack::ack_spark,
         query::run::run_query,
+        datasources::run::run_query,
+        datasources::named::invoke_named,
+        datasources::describe::describe_datasource,
         boards::run::run_board,
         boards::create::create_board,
         boards::list::list_boards,
@@ -114,6 +117,8 @@ impl Modify for BearerSecurity {
         boards::components::ConfigFieldView, crate::scheduler::PortOutput,
         orgs::list::OrgSummary, orgs::create::ProvisionOrg,
         rules::dto::CreateRule, rules::dto::UpdateRule, rules::dto::RuleView,
+        datasources::run::DatasourceQueryRequest, datasources::run::DatasourceResultBody,
+        datasources::named::NamedQueryRequest,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard))
 )]
 pub struct ApiDoc;

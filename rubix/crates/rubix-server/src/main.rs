@@ -165,7 +165,7 @@ async fn main() -> anyhow::Result<()> {
     // manifest leaves the datasource surfaces (routes, board node, AI tool) off.
     let datasources_path = env_or("RUBIX_DATASOURCES", "datasources.json");
     let datasources =
-        rubix_server::datasources::load(std::path::Path::new(&datasources_path)).await?;
+        rubix_server::datasource_manifest::load(std::path::Path::new(&datasources_path)).await?;
     match &datasources {
         Some(_) => tracing::info!(
             path = %datasources_path,

@@ -77,6 +77,30 @@ impl From<rubix_core::CoreError> for ApiError {
     }
 }
 
+impl From<rubix_datasource::DatasourceError> for ApiError {
+    fn from(err: rubix_datasource::DatasourceError) -> Self {
+        use rubix_datasource::DatasourceError as E;
+        match err {
+            // An unknown id or named query is a missing resource, not a server
+            // fault. (An unscoped deployment is global by design — see
+            // docs/design/datasources.md "Tenancy" — so existence is not secret.)
+            E::UnknownDatasource(_) => ApiError::NotFound("datasource"),
+            E::UnknownQuery { .. } => ApiError::NotFound("named query"),
+            // Caller-shaped failures: bad SQL, wrong arity, or a breach the
+            // caller asked to treat strictly. All 400s the caller can correct.
+            E::MultiStatement
+            | E::EmptyStatement
+            | E::ParamCount { .. }
+            | E::CapBreached { .. }
+            | E::Manifest(_) => ApiError::BadRequest(err.to_string()),
+            // Connection / backend-read failures are server-side. The error
+            // carries no credentials (the registry never leaks the password),
+            // so the message is safe to log; the response is a generic 500.
+            E::Connect { .. } | E::Backend { .. } => ApiError::Internal(anyhow::anyhow!(err)),
+        }
+    }
+}
+
 impl From<crate::auth::AuthError> for ApiError {
     fn from(err: crate::auth::AuthError) -> Self {
         use crate::auth::AuthError;

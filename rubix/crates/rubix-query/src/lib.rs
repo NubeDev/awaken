@@ -17,4 +17,4 @@ pub use context::{QueryEngine, QueryScope};
 pub use error::QueryError;
 pub use his::{write_partitions, HisRow, HisTier};
 pub use rollup::{Aggregate, Interval, RollupSpec};
-pub use sql::QueryRows;
+pub use sql::{ensure_read_only, QueryRows};

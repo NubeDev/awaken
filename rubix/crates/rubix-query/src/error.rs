@@ -35,6 +35,13 @@ pub enum QueryError {
         source: datafusion::error::DataFusionError,
     },
 
+    /// The statement is not a single read-only `SELECT`/`WITH`. Writes are
+    /// refused up front rather than relying on the read-only DataFusion
+    /// providers to no-op them — a clear error and defense against a future
+    /// mutable provider.
+    #[error("only a single read-only SELECT/WITH statement is allowed")]
+    NotReadOnly,
+
     /// SQL planning or execution failed.
     #[error("execute sql: {0}")]
     Execute(#[from] datafusion::error::DataFusionError),

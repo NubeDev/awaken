@@ -2,6 +2,8 @@
 
 mod run;
 
+pub use run::ensure_read_only;
+
 use serde_json::Value;
 
 /// The rows produced by a query, as a JSON array of objects (column -> value).

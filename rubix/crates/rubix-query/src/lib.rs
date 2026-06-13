@@ -9,6 +9,7 @@
 mod context;
 mod error;
 mod his;
+mod interpolate;
 mod provider;
 mod rollup;
 mod sql;
@@ -16,5 +17,8 @@ mod sql;
 pub use context::{QueryEngine, QueryScope};
 pub use error::QueryError;
 pub use his::{write_partitions, HisRow, HisTier};
+pub use interpolate::{
+    lower, BoundParam, InterpolateError, Lowered, QueryVariable, Scalar, VarValue,
+};
 pub use rollup::{Aggregate, Interval, RollupSpec};
 pub use sql::{ensure_read_only, QueryRows};

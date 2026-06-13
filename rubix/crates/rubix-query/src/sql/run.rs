@@ -1,11 +1,14 @@
 //! Execute a SQL statement and shape the result into JSON rows.
 
 use datafusion::arrow::json::ArrayWriter;
+use datafusion::common::ParamValues;
 use datafusion::prelude::SessionContext;
+use datafusion::scalar::ScalarValue;
 
 use super::QueryRows;
 use crate::context::{QueryEngine, QueryScope};
 use crate::error::QueryError;
+use crate::interpolate::{lower, BoundParam, QueryVariable};
 
 impl QueryEngine {
     /// Run a read-only SQL statement and return its rows as JSON objects.
@@ -14,9 +17,24 @@ impl QueryEngine {
     /// registered canonical tables. Result batches are encoded column-wise by
     /// `arrow-json`, preserving nulls and nested types.
     pub async fn query(&self, sql: &str) -> Result<QueryRows, QueryError> {
-        ensure_read_only(sql)?;
+        self.query_with_variables(sql, &[]).await
+    }
+
+    /// Run a read-only SQL statement after lowering its variable tokens into
+    /// bound parameters (docs/design/variables-and-templating.md §2).
+    ///
+    /// Variable values are bound through DataFusion's positional `$N`
+    /// parameters, never spliced into the SQL text — the injection boundary.
+    /// An empty `variables` list is identical to [`query`](Self::query).
+    pub async fn query_with_variables(
+        &self,
+        sql: &str,
+        variables: &[QueryVariable],
+    ) -> Result<QueryRows, QueryError> {
+        let lowered = lower(sql, variables, 0)?;
+        ensure_read_only(&lowered.sql)?;
         let ctx = self.session().await?;
-        run_on(&ctx, sql).await
+        run_bound(&ctx, &lowered.sql, &lowered.params).await
     }
 
     /// Run a read-only SQL statement confined to one tenant `scope`.
@@ -34,6 +52,33 @@ impl QueryEngine {
         let ctx = self.scoped_session(scope).await?;
         run_on(&ctx, sql).await
     }
+}
+
+/// Map a backend-neutral [`BoundParam`] onto a DataFusion `ScalarValue`.
+fn to_scalar(param: &BoundParam) -> ScalarValue {
+    match param {
+        BoundParam::Null => ScalarValue::Null,
+        BoundParam::Bool(b) => ScalarValue::Boolean(Some(*b)),
+        BoundParam::Int(i) => ScalarValue::Int64(Some(*i)),
+        BoundParam::Float(f) => ScalarValue::Float64(Some(*f)),
+        BoundParam::Text(s) => ScalarValue::Utf8(Some(s.clone())),
+    }
+}
+
+/// Plan `sql`, bind its positional `$N` parameters, execute, and encode rows.
+async fn run_bound(
+    ctx: &SessionContext,
+    sql: &str,
+    params: &[BoundParam],
+) -> Result<QueryRows, QueryError> {
+    if params.is_empty() {
+        return run_on(ctx, sql).await;
+    }
+    let values: Vec<ScalarValue> = params.iter().map(to_scalar).collect();
+    let param_values: ParamValues = values.into();
+    let df = ctx.sql(sql).await?.with_param_values(param_values)?;
+    let batches = df.collect().await?;
+    encode_rows(&batches)
 }
 
 /// Accept only a single read-only `SELECT`/`WITH` statement; reject writes,
@@ -62,6 +107,32 @@ pub fn ensure_read_only(sql: &str) -> Result<(), QueryError> {
     }
 }
 
+/// Plan, execute, and JSON-encode `sql` against a prepared context.
+async fn run_on(ctx: &SessionContext, sql: &str) -> Result<QueryRows, QueryError> {
+    let df = ctx.sql(sql).await?;
+    let batches = df.collect().await?;
+    encode_rows(&batches)
+}
+
+/// JSON-encode result batches into rows, preserving nulls and nested types.
+fn encode_rows(
+    batches: &[datafusion::arrow::record_batch::RecordBatch],
+) -> Result<QueryRows, QueryError> {
+    let mut buf = Vec::new();
+    {
+        let mut writer = ArrayWriter::new(&mut buf);
+        for batch in batches {
+            writer.write(batch)?;
+        }
+        writer.finish()?;
+    }
+
+    if buf.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(serde_json::from_slice(&buf)?)
+}
+
 #[cfg(test)]
 mod read_only_tests {
     use super::ensure_read_only;
@@ -83,24 +154,4 @@ mod read_only_tests {
         assert!(ensure_read_only("SELECT 1; DROP TABLE points").is_err());
         assert!(ensure_read_only("SELECT 1; SELECT 2").is_err());
     }
-}
-
-/// Plan, execute, and JSON-encode `sql` against a prepared context.
-async fn run_on(ctx: &SessionContext, sql: &str) -> Result<QueryRows, QueryError> {
-    let df = ctx.sql(sql).await?;
-    let batches = df.collect().await?;
-
-    let mut buf = Vec::new();
-    {
-        let mut writer = ArrayWriter::new(&mut buf);
-        for batch in &batches {
-            writer.write(batch)?;
-        }
-        writer.finish()?;
-    }
-
-    if buf.is_empty() {
-        return Ok(Vec::new());
-    }
-    Ok(serde_json::from_slice(&buf)?)
 }

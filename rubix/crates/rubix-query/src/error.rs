@@ -42,6 +42,12 @@ pub enum QueryError {
     #[error("only a single read-only SELECT/WITH statement is allowed")]
     NotReadOnly,
 
+    /// A variable token could not be lowered into bound parameters (an unknown
+    /// or unbound reference, or a misused single/multi token). Surfaced as a
+    /// caller-correctable error, never a silent passthrough.
+    #[error("interpolate variables: {0}")]
+    Interpolate(#[from] crate::interpolate::InterpolateError),
+
     /// SQL planning or execution failed.
     #[error("execute sql: {0}")]
     Execute(#[from] datafusion::error::DataFusionError),

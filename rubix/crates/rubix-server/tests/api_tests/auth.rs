@@ -177,7 +177,12 @@ async fn issue_use_and_revoke_a_pat() {
 
     // Revoke it; it stops working.
     let (status, _) = app
-        .request_as("DELETE", &format!("/api/v1/tokens/{token_id}"), &admin, None)
+        .request_as(
+            "DELETE",
+            &format!("/api/v1/tokens/{token_id}"),
+            &admin,
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = app.request_as("GET", "/api/v1/sites", &issued, None).await;

@@ -49,8 +49,7 @@ impl Store {
         let config: postgres::Config = url
             .parse()
             .map_err(|e| anyhow::anyhow!("invalid postgres url: {e}"))?;
-        let manager =
-            r2d2_postgres::PostgresConnectionManager::new(config, postgres::NoTls);
+        let manager = r2d2_postgres::PostgresConnectionManager::new(config, postgres::NoTls);
         let pool = r2d2::Pool::builder().build(manager)?;
         pool.get()?.batch_execute(SCHEMA_POSTGRES)?;
         Ok(Self {

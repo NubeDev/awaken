@@ -1,11 +1,7 @@
 [
   {
-    "identity": {
-      "name": "sim",
-      "protocol": "sim",
-      "version": "0.1.0",
-      "launch": { "command": "/home/user/code/rust/awaken/rubix/target/debug/rubix-driver-sim", "args": [] }
-    },
+    "identity": { "name": "sim", "protocol": "sim", "version": "0.1.0",
+                  "launch": { "command": "/home/user/code/rust/awaken/rubix/target/debug/rubix-driver-sim", "args": [] } },
     "capabilities": { "grants": [ { "prefix": "nube/hq/ahu-3", "access": "publish" } ] },
     "config": { "point": "nube/hq/ahu-3/temp", "period_secs": 2, "baseline": 21.0, "amplitude": 2.0 }
   }

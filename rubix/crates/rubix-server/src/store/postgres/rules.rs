@@ -71,9 +71,10 @@ pub(crate) fn update_rule(
 }
 
 pub(crate) fn delete_rule(store: &Store, org: &str, name: &str) -> Result<()> {
-    let n = store
-        .postgres_conn()?
-        .execute("DELETE FROM rules WHERE org = $1 AND name = $2", &[&org, &name])?;
+    let n = store.postgres_conn()?.execute(
+        "DELETE FROM rules WHERE org = $1 AND name = $2",
+        &[&org, &name],
+    )?;
     if n == 0 {
         return Err(StoreError::NotFound("rule"));
     }

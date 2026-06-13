@@ -3,8 +3,9 @@
 //! Persists the graph plus its trigger as a new `(slug, version)`. The trigger
 //! is validated before insert; the version number is assigned server-side
 //! (max existing + 1) so republishing is a plain re-POST of the same slug.
-//! Newly stored scheduled boards take effect on the next scheduler launch —
-//! the running scheduler is not hot-reconfigured (a restart picks them up).
+//! A scheduled board is registered with the running scheduler on create, so a
+//! new or republished board starts (or restarts with its new cadence) without a
+//! server restart.
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -44,5 +45,10 @@ pub(crate) async fn create_board(
         Ok(record)
     })
     .await?;
+    // Start (or restart with the new graph/cadence) this board's loop now. A
+    // manual or disabled board unregisters instead — no loop runs for it.
+    if let Some(scheduler) = &state.scheduler {
+        scheduler.register(&record);
+    }
     Ok((StatusCode::CREATED, Json(record.into())))
 }

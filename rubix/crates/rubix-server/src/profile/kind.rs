@@ -60,7 +60,10 @@ mod tests {
     #[test]
     fn parses_known_tokens_case_insensitively() {
         assert_eq!("edge".parse::<ProfileKind>().unwrap(), ProfileKind::Edge);
-        assert_eq!(" Cloud ".parse::<ProfileKind>().unwrap(), ProfileKind::Cloud);
+        assert_eq!(
+            " Cloud ".parse::<ProfileKind>().unwrap(),
+            ProfileKind::Cloud
+        );
     }
 
     #[test]

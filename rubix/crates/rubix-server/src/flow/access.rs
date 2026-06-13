@@ -156,9 +156,10 @@ impl PointAccess for StorePointAccess {
     /// `rule(name, …)` composition through. `None` when no org is bound, so a
     /// stored-rule node fails closed (an inline-script node needs no store).
     fn rule_store(&self) -> Option<Arc<dyn rubix_rules::RuleStore>> {
-        self.org
-            .clone()
-            .map(|org| Arc::new(TableRuleStore::new(self.store.clone(), org)) as Arc<dyn rubix_rules::RuleStore>)
+        self.org.clone().map(|org| {
+            Arc::new(TableRuleStore::new(self.store.clone(), org))
+                as Arc<dyn rubix_rules::RuleStore>
+        })
     }
 
     fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {

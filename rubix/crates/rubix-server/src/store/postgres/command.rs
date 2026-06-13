@@ -48,11 +48,7 @@ pub(crate) fn ingest_cur(store: &Store, id: Uuid, sample: &HisSample) -> Result<
     apply_ingest(&mut point, sample)?;
     tx.execute(
         "UPDATE points SET cur_value = $2, cur_ts = $3 WHERE id = $1",
-        &[
-            &id.to_string(),
-            &json_of(&sample.value),
-            &ts_of(&sample.ts),
-        ],
+        &[&id.to_string(), &json_of(&sample.value), &ts_of(&sample.ts)],
     )?;
     upsert_his(&mut tx, id, sample.ts, &json_of(&sample.value))?;
     tx.commit()?;

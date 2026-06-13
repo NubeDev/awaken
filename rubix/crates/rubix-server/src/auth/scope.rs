@@ -150,7 +150,9 @@ mod tests {
     fn validate_rejects_hierarchy_gaps() {
         assert!(scope(None, Some("ops"), None).validate().is_err());
         assert!(scope(Some("nube"), None, Some("hq")).validate().is_err());
-        assert!(scope(Some("nube"), Some("ops"), Some("hq")).validate().is_ok());
+        assert!(scope(Some("nube"), Some("ops"), Some("hq"))
+            .validate()
+            .is_ok());
         assert!(Scope::global().validate().is_ok());
     }
 }

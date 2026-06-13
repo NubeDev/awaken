@@ -140,7 +140,9 @@ impl Store {
                 self.load_rule(org, name)
             }
             #[cfg(feature = "cloud")]
-            Backend::Postgres(_) => super::postgres::rules::update_rule(self, org, name, script, params),
+            Backend::Postgres(_) => {
+                super::postgres::rules::update_rule(self, org, name, script, params)
+            }
         }
     }
 
@@ -148,9 +150,10 @@ impl Store {
     pub fn delete_rule(&self, org: &str, name: &str) -> Result<()> {
         match &self.backend {
             Backend::Sqlite(_) => {
-                let n = self
-                    .sqlite_conn()?
-                    .execute("DELETE FROM rules WHERE org = ?1 AND name = ?2", params![org, name])?;
+                let n = self.sqlite_conn()?.execute(
+                    "DELETE FROM rules WHERE org = ?1 AND name = ?2",
+                    params![org, name],
+                )?;
                 if n == 0 {
                     return Err(StoreError::NotFound("rule"));
                 }
@@ -197,7 +200,10 @@ mod tests {
 
     #[test]
     fn detects_a_direct_composition_call() {
-        assert!(references(r#"let x = rule("temp-high", df, #{});"#, "temp-high"));
+        assert!(references(
+            r#"let x = rule("temp-high", df, #{});"#,
+            "temp-high"
+        ));
         assert!(references(r#"rule('temp-high', df, #{})"#, "temp-high"));
         assert!(references(r#"rule( "temp-high", df)"#, "temp-high"));
     }

@@ -113,12 +113,44 @@ pub enum WidgetKind {
     BoardOutput,
 }
 
+/// A named board of widgets. A dashboard is owned by an `org` (the tenant
+/// namespace) and is either **site-scoped** (a single site's board) or an
+/// **org overview** that spans every site under the org — `site_id` is `None`
+/// for an overview. Tiles carry full point keyexprs, so an overview can mix
+/// points from many sites without the dashboard itself binding to one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Dashboard {
+    pub id: Uuid,
+    /// Owning org namespace (the tenant key). Always set.
+    pub org: String,
+    /// The single site this board is for; `None` makes it an org overview.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_id: Option<Uuid>,
+    /// URL-safe identity within the org, unique per `(org, site_id)`.
+    pub slug: String,
+    /// Human-facing board name.
+    pub title: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl Dashboard {
+    /// True when this board spans every site under its org (no single site).
+    pub fn is_overview(&self) -> bool {
+        self.site_id.is_none()
+    }
+}
+
 /// A dashboard tile pinned by an agent (or operator) for later viewing. The
 /// agent `pin_widget` tool creates these so a finding or trend it surfaced
-/// during a turn persists on the site dashboard instead of scrolling away.
+/// during a turn persists on a dashboard instead of scrolling away. A widget
+/// belongs to a [`Dashboard`]; `site_id` records the site the tile's target
+/// lives under (the site that owns it for cascade-delete), which for an
+/// overview board may differ from one tile to the next.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Widget {
     pub id: Uuid,
+    /// The dashboard this tile sits on.
+    pub dashboard_id: Uuid,
     pub site_id: Uuid,
     pub kind: WidgetKind,
     /// Human-facing tile title.

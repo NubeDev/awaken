@@ -11,6 +11,7 @@ use futures::StreamExt;
 use tokio::sync::watch;
 
 use super::evaluate::evaluate;
+use super::outputs::BoardOutputs;
 use crate::bus::ZenohBus;
 use crate::store::Store;
 
@@ -24,6 +25,7 @@ pub(super) async fn run_subscription(
     bus: ZenohBus,
     store: Store,
     agent: Option<Arc<AgentRuntime>>,
+    outputs: BoardOutputs,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let subscriber = match bus.session_clone().declare_subscriber(&key).await {
@@ -46,8 +48,15 @@ pub(super) async fn run_subscription(
                         };
                         match lookup {
                             Ok(Ok(board)) if board.is_scheduled() => {
-                                evaluate(&slug, &board.graph, &store, &Some(bus.clone()), &agent)
-                                    .await;
+                                evaluate(
+                                    &slug,
+                                    &board.graph,
+                                    &store,
+                                    &Some(bus.clone()),
+                                    &agent,
+                                    &outputs,
+                                )
+                                .await;
                             }
                             Ok(Ok(_)) => {}
                             Ok(Err(e)) => {

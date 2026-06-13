@@ -9,6 +9,7 @@ use rubix_query::{HisTier, QueryEngine};
 use rubix_server::auth::{Authenticator, JwksVerifier};
 use rubix_server::bus::ZenohBus;
 use rubix_server::profile::{Profile, ProfileKind};
+use rubix_server::scheduler::Scheduler;
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
 use serde_json::Value;
@@ -36,6 +37,7 @@ impl TestApp {
     pub fn with_state() -> (Self, AppState) {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        let scheduler = Scheduler::launch(store.clone(), None, None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,
@@ -47,6 +49,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: Some(scheduler),
         };
         let app = Self {
             router: app(state.clone()),
@@ -61,6 +64,7 @@ impl TestApp {
     pub fn with_escalation_floor(floor: u8) -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        let scheduler = Scheduler::launch(store.clone(), None, None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,
@@ -72,6 +76,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: floor,
             authenticator: None,
+            scheduler: Some(scheduler),
         };
         Self {
             router: app(state),
@@ -98,6 +103,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: None,
         };
         let app = Self {
             router: app(state.clone()),
@@ -120,6 +126,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: None,
         };
         Self {
             router: app(state),
@@ -144,6 +151,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: None,
         };
         let app = Self {
             router: app(state),
@@ -170,6 +178,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: None,
         };
         Self {
             router: app(state),
@@ -200,6 +209,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: None,
         };
         Self {
             router: app(state),
@@ -228,6 +238,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: Some(authenticator),
+            scheduler: None,
         };
         let app = Self {
             router: app(state),
@@ -279,6 +290,9 @@ impl TestApp {
     fn build(bus: Option<ZenohBus>) -> Self {
         let dir = tempfile::tempdir().expect("tempdir");
         let store = Store::open(&dir.path().join("test.db")).expect("open store");
+        // A live scheduler so board create/enable register a loop and the
+        // `/outputs` endpoint reads a real cache — the boards tests rely on this.
+        let scheduler = Scheduler::launch(store.clone(), bus.clone(), None, Vec::new());
         let state = AppState {
             profile: Profile::defaults(ProfileKind::Edge),
             store,
@@ -290,6 +304,7 @@ impl TestApp {
             ai_min_priority: 13,
             ai_escalation_floor: 1,
             authenticator: None,
+            scheduler: Some(scheduler),
         };
         Self {
             router: app(state),

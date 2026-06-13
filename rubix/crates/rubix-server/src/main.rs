@@ -3,8 +3,8 @@ use rubix_server::auth::{AuthConfig, Authenticator, JwksVerifier};
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
 use rubix_server::profile::{self, StoreKind};
-use rubix_server::store::Store;
 use rubix_server::scheduler::Scheduler;
+use rubix_server::store::Store;
 use rubix_server::supervisor::{load_manifests, Supervisor};
 use rubix_server::{app, AppState};
 
@@ -189,6 +189,7 @@ async fn main() -> anyhow::Result<()> {
         ai_min_priority,
         ai_escalation_floor,
         authenticator,
+        scheduler: None,
     };
 
     // Embed the awaken agent over the BMS tools when enabled. The genai
@@ -226,21 +227,21 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("board scheduler disabled (RUBIX_SCHEDULER=0)");
         None
     } else {
+        // Always construct the scheduler (even with zero scheduled boards) so a
+        // board created or enabled later registers its loop at runtime, without
+        // a server restart. Its output cache also backs the live-values endpoint.
         let boards = state.store.latest_boards()?;
         let scheduled: Vec<_> = boards.into_iter().filter(|b| b.is_scheduled()).collect();
-        if scheduled.is_empty() {
-            tracing::info!("no scheduled boards; scheduler idle");
-            None
-        } else {
-            let scheduler = Scheduler::launch(
-                state.store.clone(),
-                state.bus.clone(),
-                state.agent.clone(),
-                scheduled,
-            );
-            tracing::info!(boards = scheduler.active(), "board scheduler running");
-            Some(scheduler)
-        }
+        let scheduler = Scheduler::launch(
+            state.store.clone(),
+            state.bus.clone(),
+            state.agent.clone(),
+            scheduled,
+        );
+        tracing::info!(boards = scheduler.active(), "board scheduler running");
+        // Share a handle with the request state so handlers can register/read.
+        state.scheduler = Some(scheduler.clone());
+        Some(scheduler)
     };
 
     // Launch inbound spark dispatch: subscribe to spark findings on the bus and

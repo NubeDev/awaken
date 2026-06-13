@@ -15,6 +15,10 @@ use crate::AppState;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWidget {
+    /// Dashboard to pin onto. When omitted, the tile lands on `site_id`'s
+    /// default dashboard (created on demand) — the legacy "pin to site" path.
+    #[serde(default)]
+    pub dashboard_id: Option<Uuid>,
     pub site_id: Uuid,
     pub kind: WidgetKind,
     pub title: String,
@@ -30,21 +34,27 @@ pub(crate) async fn create_widget(
     Json(req): Json<CreateWidget>,
 ) -> Result<(StatusCode, Json<Widget>), ApiError> {
     if req.title.trim().is_empty() || req.target.trim().is_empty() {
-        return Err(ApiError::BadRequest("title and target must not be empty".into()));
+        return Err(ApiError::BadRequest(
+            "title and target must not be empty".into(),
+        ));
     }
-    let widget = Widget {
-        id: Uuid::new_v4(),
-        site_id: req.site_id,
-        kind: req.kind,
-        title: req.title,
-        target: req.target,
-        created_at: Utc::now(),
-    };
-    let stored = widget.clone();
     let store = state.store.clone();
-    blocking(move || {
-        store.create_widget(&stored)?;
-        Ok(())
+    let widget = blocking(move || {
+        let dashboard_id = match req.dashboard_id {
+            Some(id) => id,
+            None => store.default_dashboard_for_site(req.site_id)?,
+        };
+        let widget = Widget {
+            id: Uuid::new_v4(),
+            dashboard_id,
+            site_id: req.site_id,
+            kind: req.kind,
+            title: req.title,
+            target: req.target,
+            created_at: Utc::now(),
+        };
+        store.create_widget(&widget)?;
+        Ok(widget)
     })
     .await?;
     Ok((StatusCode::CREATED, Json(widget)))

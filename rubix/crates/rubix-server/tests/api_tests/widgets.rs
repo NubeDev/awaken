@@ -31,6 +31,52 @@ async fn create_and_list_widget() {
 }
 
 #[tokio::test]
+async fn get_and_delete_widget() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let (_, created) = app
+        .request(
+            "POST",
+            "/api/v1/widgets",
+            Some(json!({
+                "site_id": site, "kind": "point_value",
+                "title": "AHU-3 fan", "target": "nube/hq/ahu-3/fan"
+            })),
+        )
+        .await;
+    let id = created["id"].as_str().unwrap().to_string();
+
+    let (status, body) = app
+        .request("GET", &format!("/api/v1/widgets/{id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["title"], "AHU-3 fan");
+
+    let (status, _) = app
+        .request("DELETE", &format!("/api/v1/widgets/{id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, _) = app
+        .request("GET", &format!("/api/v1/widgets/{id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn delete_missing_widget_404() {
+    let app = TestApp::new();
+    let (status, _) = app
+        .request(
+            "DELETE",
+            "/api/v1/widgets/00000000-0000-0000-0000-000000000000",
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn widget_for_missing_site_is_404() {
     let app = TestApp::new();
     let (status, _) = app

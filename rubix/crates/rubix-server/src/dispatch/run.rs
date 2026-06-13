@@ -49,9 +49,8 @@ pub(super) async fn dispatch_spark(payload: &[u8], state: &AppState) {
         }
     };
     let thread = job::thread_id(&spark);
-    let activation =
-        RunActivation::new(thread.clone(), vec![Message::user(job::prompt(&spark))])
-            .with_agent_id(AGENT_ID);
+    let activation = RunActivation::new(thread.clone(), vec![Message::user(job::prompt(&spark))])
+        .with_agent_id(AGENT_ID);
     match run_and_persist(&runtime, &state.store, RunOrigin::Dispatch, activation).await {
         Ok(record) => match record.status {
             RunStatus::Suspended => {

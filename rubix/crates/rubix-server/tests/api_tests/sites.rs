@@ -31,6 +31,65 @@ async fn create_get_list_delete_site() {
 }
 
 #[tokio::test]
+async fn patch_site_edits_metadata_keeps_identity() {
+    let app = TestApp::new();
+    let id = app.create_site().await;
+
+    let (status, body) = app
+        .request(
+            "PATCH",
+            &format!("/api/v1/sites/{id}"),
+            Some(json!({"display_name": "NUBE HQ", "tags": {"site": true, "hq": true}})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["display_name"], "NUBE HQ");
+    assert_eq!(body["tags"]["hq"], true);
+    // Identity fields untouched.
+    assert_eq!(body["org"], "nube");
+    assert_eq!(body["slug"], "hq");
+
+    // Absent field = unchanged: patch only tags, display_name persists.
+    let (status, body) = app
+        .request(
+            "PATCH",
+            &format!("/api/v1/sites/{id}"),
+            Some(json!({"tags": {"site": true}})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["display_name"], "NUBE HQ");
+    assert_eq!(body["tags"].get("hq"), None);
+}
+
+#[tokio::test]
+async fn patch_site_rejects_identity_change() {
+    let app = TestApp::new();
+    let id = app.create_site().await;
+    let (status, _) = app
+        .request(
+            "PATCH",
+            &format!("/api/v1/sites/{id}"),
+            Some(json!({"org": "kfc"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn patch_missing_site_404() {
+    let app = TestApp::new();
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/api/v1/sites/00000000-0000-0000-0000-000000000000",
+            Some(json!({"display_name": "X"})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn duplicate_site_slug_conflicts() {
     let app = TestApp::new();
     app.create_site().await;

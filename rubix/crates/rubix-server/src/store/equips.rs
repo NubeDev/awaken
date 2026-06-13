@@ -86,6 +86,48 @@ impl Store {
             .ok_or(StoreError::NotFound("equip"))
     }
 
+    /// Patch mutable equip metadata (`display_name`, `tags`). `path` is
+    /// immutable — it composes the point keyexpr. Returns the updated row.
+    pub fn update_equip(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&rubix_core::TagSet>,
+    ) -> Result<Equip> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.update_equip_sqlite(id, display_name, tags),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::equips::update_equip(self, id, display_name, tags)
+            }
+        }
+    }
+
+    fn update_equip_sqlite(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&rubix_core::TagSet>,
+    ) -> Result<Equip> {
+        let conn = self.sqlite_conn()?;
+        let n = conn.execute(
+            "UPDATE equips SET \
+             display_name = COALESCE(?2, display_name), \
+             tags = COALESCE(?3, tags) \
+             WHERE id = ?1",
+            params![id, display_name, tags.map(json_of)],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound("equip"));
+        }
+        conn.query_row(
+            &format!("SELECT {EQUIP_COLS} FROM equips WHERE id = ?1"),
+            params![id],
+            row_equip,
+        )
+        .map_err(Into::into)
+    }
+
     pub fn delete_equip(&self, id: Uuid) -> Result<()> {
         match &self.backend {
             Backend::Sqlite(_) => self.delete_equip_sqlite(id),

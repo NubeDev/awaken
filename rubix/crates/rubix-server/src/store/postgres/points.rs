@@ -64,6 +64,39 @@ pub(crate) fn get_point(store: &Store, id: Uuid) -> Result<Point> {
     point_of(&row)
 }
 
+pub(crate) fn update_point(
+    store: &Store,
+    id: Uuid,
+    display_name: Option<&str>,
+    tags: Option<&rubix_core::TagSet>,
+    unit: Option<&str>,
+    kind: Option<rubix_core::PointKind>,
+) -> Result<Point> {
+    let mut client = store.postgres_conn()?;
+    let tags_json = tags.map(json_of);
+    let kind_token = kind.map(|k| kind_str(k).to_string());
+    let row = client
+        .query_opt(
+            &format!(
+                "UPDATE points SET \
+                 display_name = COALESCE($2, display_name), \
+                 tags = COALESCE($3, tags), \
+                 unit = COALESCE($4, unit), \
+                 kind = COALESCE($5, kind) \
+                 WHERE id = $1 RETURNING {POINT_COLS}"
+            ),
+            &[
+                &id.to_string(),
+                &display_name,
+                &tags_json,
+                &unit,
+                &kind_token,
+            ],
+        )?
+        .ok_or(StoreError::NotFound("point"))?;
+    point_of(&row)
+}
+
 pub(crate) fn delete_point(store: &Store, id: Uuid) -> Result<()> {
     let n = store
         .postgres_conn()?

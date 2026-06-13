@@ -12,7 +12,7 @@ mod value;
 
 pub use error::CoreError;
 pub use model::{
-    Equip, HisSample, Point, PointKind, Site, Spark, SparkSeverity, Widget, WidgetKind,
+    Dashboard, Equip, HisSample, Point, PointKind, Site, Spark, SparkSeverity, Widget, WidgetKind,
 };
 pub use priority::{PriorityArray, PRIORITY_LEVELS};
 pub use tags::{validate_slug, TagSet};

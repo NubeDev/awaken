@@ -14,6 +14,8 @@ use crate::AppState;
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct ListWidgetsQuery {
     pub site_id: Option<Uuid>,
+    /// Restrict to one dashboard's tiles (the per-board canvas view).
+    pub dashboard_id: Option<Uuid>,
 }
 
 #[utoipa::path(get, path = "/api/v1/widgets", params(ListWidgetsQuery), tag = "widgets",
@@ -23,6 +25,6 @@ pub(crate) async fn list_widgets(
     Query(q): Query<ListWidgetsQuery>,
 ) -> Result<Json<Vec<Widget>>, ApiError> {
     Ok(Json(
-        blocking(move || Ok(state.store.list_widgets(q.site_id)?)).await?,
+        blocking(move || Ok(state.store.list_widgets(q.site_id, q.dashboard_id)?)).await?,
     ))
 }

@@ -56,6 +56,7 @@ async fn published_spark_activates_an_agent_run() {
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     state.agent = Some(Arc::new(
         rubix_server::agent::build_scoped_runtime(&state, &blueprint, None).expect("runtime"),
@@ -96,5 +97,8 @@ async fn published_spark_activates_an_agent_run() {
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
     dispatcher.shutdown().await;
-    assert!(commanded, "published spark did not activate an agent run that commanded the point");
+    assert!(
+        commanded,
+        "published spark did not activate an agent run that commanded the point"
+    );
 }

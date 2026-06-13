@@ -1,6 +1,10 @@
 import { Plus } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { PALETTE, type PaletteEntry } from '../lib/palette'
 
 type WidgetPaletteProps = {
@@ -18,15 +22,15 @@ export function WidgetPalette({ onPick }: WidgetPaletteProps) {
             <button
               key={entry.label}
               onClick={() => onPick(entry)}
-              className='hover:bg-accent group flex w-full items-start gap-2.5 rounded-lg border border-border px-2.5 py-2 text-left transition-colors'
+              className='group flex w-full items-start gap-2.5 rounded-lg border border-border px-2.5 py-2 text-left transition-colors hover:bg-accent'
             >
               <PaletteIcon entry={entry} />
               <div className='min-w-0 flex-1'>
                 <div className='flex items-center gap-1 text-[12.5px] font-medium'>
                   {entry.label}
-                  <Plus className='text-muted-foreground size-3 opacity-0 transition-opacity group-hover:opacity-100' />
+                  <Plus className='size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100' />
                 </div>
-                <div className='text-muted-foreground text-[10.5px] leading-snug'>
+                <div className='text-[10.5px] leading-snug text-muted-foreground'>
                   {entry.description}
                 </div>
               </div>
@@ -37,8 +41,10 @@ export function WidgetPalette({ onPick }: WidgetPaletteProps) {
                 <div className='flex w-full cursor-not-allowed items-start gap-2.5 rounded-lg border border-border px-2.5 py-2 opacity-45'>
                   <PaletteIcon entry={entry} />
                   <div className='min-w-0 flex-1'>
-                    <div className='text-[12.5px] font-medium'>{entry.label}</div>
-                    <div className='text-muted-foreground text-[10.5px] leading-snug'>
+                    <div className='text-[12.5px] font-medium'>
+                      {entry.label}
+                    </div>
+                    <div className='text-[10.5px] leading-snug text-muted-foreground'>
                       {entry.description}
                     </div>
                   </div>
@@ -58,7 +64,7 @@ function PaletteIcon({ entry }: { entry: PaletteEntry }) {
   return (
     <div
       className={cn(
-        'bg-accent text-primary grid size-7 shrink-0 place-items-center rounded-md',
+        'grid size-7 shrink-0 place-items-center rounded-md bg-accent text-primary',
         !entry.available && 'text-muted-foreground'
       )}
     >

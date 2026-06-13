@@ -29,6 +29,17 @@ fn default_enabled() -> bool {
     true
 }
 
+/// Patch mutable metadata on the latest version of a board slug. `slug`,
+/// `trigger`, and `graph` define the version — changing those is a new
+/// `create_board` (a republish), not a PATCH.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct PatchBoard {
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+}
+
 /// A stored board as returned to the caller.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BoardView {

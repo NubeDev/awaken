@@ -26,7 +26,9 @@ impl<S: Sync> FromRequestParts<S> for RequestPrincipal {
     type Rejection = std::convert::Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        Ok(RequestPrincipal(parts.extensions.get::<Principal>().cloned()))
+        Ok(RequestPrincipal(
+            parts.extensions.get::<Principal>().cloned(),
+        ))
     }
 }
 

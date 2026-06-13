@@ -4,6 +4,7 @@ pub(crate) mod create;
 pub(crate) mod delete;
 pub(crate) mod get;
 pub(crate) mod list;
+pub(crate) mod patch;
 
 use axum::routing::{get, post};
 use axum::Router;
@@ -18,6 +19,8 @@ pub(super) fn router() -> Router<AppState> {
         )
         .route(
             "/api/v1/sites/{id}",
-            get(get::get_site).delete(delete::delete_site),
+            get(get::get_site)
+                .patch(patch::patch_site)
+                .delete(delete::delete_site),
         )
 }

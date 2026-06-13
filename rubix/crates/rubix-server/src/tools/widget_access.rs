@@ -57,8 +57,11 @@ impl WidgetAccess for StoreWidgetAccess {
         }
         let kind: WidgetKind = serde_json::from_str(&format!("\"{kind}\""))
             .map_err(|_| anyhow::anyhow!("unknown widget kind: {kind}"))?;
+        // An agent pin lands on the site's default dashboard (created on demand).
+        let dashboard_id = self.store.default_dashboard_for_site(site_id)?;
         let widget = Widget {
             id: Uuid::new_v4(),
+            dashboard_id,
             site_id,
             kind,
             title: title.to_string(),

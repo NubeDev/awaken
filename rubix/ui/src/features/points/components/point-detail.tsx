@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CircleAlert, Check, Pin } from 'lucide-react'
+import { CircleAlert, Check, Pencil, Pin, Trash2 } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -9,10 +9,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useCreateWidget, usePointHistory, useRelinquishPoint } from '@/api/hooks'
+import {
+  useCreateWidget,
+  useDeletePoint,
+  usePointHistory,
+  useRelinquishPoint,
+} from '@/api/hooks'
 import { pointKeyexpr } from '@/api/keyexpr'
-import type { Point, Site, Equip } from '@/api/types'
 import { tagNames } from '@/api/tags'
+import type { Point, Site, Equip } from '@/api/types'
+import { ageShort, formatValue } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,13 +30,18 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ageShort, formatValue } from '@/lib/format'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SLOT_LABELS, winningSlotIndex } from '../lib/priority'
+import { PointFormDialog } from './point-form-dialog'
 import { PointKindIcon } from './point-kind-icon'
 import { PriorityArrayCard } from './priority-array'
 
 type Range = '1h' | '24h' | '7d'
-const RANGE_SAMPLES: Record<Range, number> = { '1h': 4, '24h': 48, '7d': 7 * 48 }
+const RANGE_SAMPLES: Record<Range, number> = {
+  '1h': 4,
+  '24h': 48,
+  '7d': 7 * 48,
+}
 
 type PointDetailProps = {
   point: Point
@@ -40,11 +51,19 @@ type PointDetailProps = {
 }
 
 /** Right pane: live value, command source, tags, history, and the priority array. */
-export function PointDetail({ point, site, equip, inFinding }: PointDetailProps) {
+export function PointDetail({
+  point,
+  site,
+  equip,
+  inFinding,
+}: PointDetailProps) {
   const relinquish = useRelinquishPoint()
-  const pin = useCreateWidget(site?.id)
+  const pin = useCreateWidget()
+  const del = useDeletePoint()
   const { data: history = [] } = usePointHistory(point.id)
   const [range, setRange] = useState<Range>('24h')
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const canPin = Boolean(site && equip)
   const pinPoint = () => {
@@ -65,14 +84,19 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
         .filter((s) => typeof s.value === 'number')
         .slice(-RANGE_SAMPLES[range])
         .map((s) => ({
-          t: new Date(s.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          t: new Date(s.ts).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
           value: s.value as number,
         })),
     [history, range]
   )
 
   const keyexpr =
-    site && equip ? `${site.org}/${site.slug}/${equip.path}/${point.slug}/cur` : point.slug
+    site && equip
+      ? `${site.org}/${site.slug}/${equip.path}/${point.slug}/cur`
+      : point.slug
 
   return (
     <div className='space-y-4'>
@@ -82,39 +106,93 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
           <PointKindIcon kind={point.kind} inFinding={inFinding} size='lg' />
           <div>
             <div className='flex items-center gap-2'>
-              <h2 className='text-[16px] font-semibold tracking-tight'>{point.display_name}</h2>
-              <Badge variant='muted' className='h-[18px] px-1.5 font-mono text-[9.5px] uppercase'>
+              <h2 className='text-[16px] font-semibold tracking-tight'>
+                {point.display_name}
+              </h2>
+              <Badge
+                variant='muted'
+                className='h-[18px] px-1.5 font-mono text-[9.5px] uppercase'
+              >
                 {point.kind}
               </Badge>
               {inFinding ? (
-                <Badge variant='fault' className='h-[18px] gap-1 px-1.5 text-[9.5px]'>
+                <Badge
+                  variant='fault'
+                  className='h-[18px] gap-1 px-1.5 text-[9.5px]'
+                >
                   <CircleAlert className='size-2.5' /> in finding
                 </Badge>
               ) : null}
             </div>
-            <p className='text-muted-foreground mt-0.5 font-mono text-[11px]'>{keyexpr}</p>
+            <p className='mt-0.5 font-mono text-[11px] text-muted-foreground'>
+              {keyexpr}
+            </p>
           </div>
         </div>
-        {canPin ? (
+        <div className='flex shrink-0 items-center gap-1.5'>
+          {canPin ? (
+            <Button
+              variant='outline'
+              size='sm'
+              className='h-7 gap-1.5 text-[12px]'
+              disabled={pin.isPending || pin.isSuccess}
+              onClick={pinPoint}
+            >
+              {pin.isSuccess ? (
+                <>
+                  <Check className='size-3.5' /> Pinned
+                </>
+              ) : (
+                <>
+                  <Pin className='size-3.5' /> Pin to dashboard
+                </>
+              )}
+            </Button>
+          ) : null}
           <Button
-            variant='outline'
-            size='sm'
-            className='h-7 gap-1.5 text-[12px]'
-            disabled={pin.isPending || pin.isSuccess}
-            onClick={pinPoint}
+            variant='ghost'
+            size='icon'
+            className='size-7'
+            title='Edit point'
+            onClick={() => setEditOpen(true)}
           >
-            {pin.isSuccess ? (
-              <>
-                <Check className='size-3.5' /> Pinned
-              </>
-            ) : (
-              <>
-                <Pin className='size-3.5' /> Pin to dashboard
-              </>
-            )}
+            <Pencil className='size-3.5' />
           </Button>
-        ) : null}
+          <Button
+            variant='ghost'
+            size='icon'
+            className='size-7 text-sev-fault'
+            title='Delete point'
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2 className='size-3.5' />
+          </Button>
+        </div>
       </div>
+
+      <PointFormDialog
+        mode='edit'
+        point={point}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        destructive
+        title={`Delete ${point.display_name}?`}
+        desc={
+          <>
+            This deletes the point and <strong>cascades</strong> to its history.
+            This cannot be undone.
+          </>
+        }
+        confirmText='Delete point'
+        isLoading={del.isPending}
+        handleConfirm={() =>
+          del.mutate(point.id, { onSuccess: () => setConfirmOpen(false) })
+        }
+      />
 
       {/* stat cards */}
       <div className='grid gap-3 sm:grid-cols-3'>
@@ -124,10 +202,12 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
             <span className='tabular text-2xl leading-none font-semibold tracking-tight'>
               {formatValue(point.cur_value)}
             </span>
-            <span className='text-muted-foreground text-[12px]'>{point.unit ?? ''}</span>
+            <span className='text-[12px] text-muted-foreground'>
+              {point.unit ?? ''}
+            </span>
           </div>
-          <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>
-            <span className='bg-positive size-1.5 rounded-full' />
+          <div className='flex items-center gap-1.5 text-[11px] text-muted-foreground'>
+            <span className='size-1.5 rounded-full bg-positive' />
             updated {ageShort(point.cur_ts)} ago
           </div>
         </Card>
@@ -143,17 +223,25 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
                   {SLOT_LABELS[winning + 1] ?? `priority ${winning + 1}`}
                 </span>
               </div>
-              <p className='text-muted-foreground text-[11px]'>Lowest occupied level wins</p>
+              <p className='text-[11px] text-muted-foreground'>
+                Lowest occupied level wins
+              </p>
             </>
           ) : writable ? (
             <>
-              <span className='text-[12.5px] font-medium'>Relinquish default</span>
-              <p className='text-muted-foreground text-[11px]'>All 16 slots are null</p>
+              <span className='text-[12.5px] font-medium'>
+                Relinquish default
+              </span>
+              <p className='text-[11px] text-muted-foreground'>
+                All 16 slots are null
+              </p>
             </>
           ) : (
             <>
               <span className='text-[12.5px] font-medium'>Field sensor</span>
-              <p className='text-muted-foreground text-[11px]'>Read-only · driver ingest</p>
+              <p className='text-[11px] text-muted-foreground'>
+                Read-only · driver ingest
+              </p>
             </>
           )}
         </Card>
@@ -161,7 +249,11 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
           <span className='eyebrow text-[10px]'>Tags</span>
           <div className='flex flex-wrap gap-1'>
             {tagNames(point.tags).map((t) => (
-              <Badge key={t} variant='outline' className='h-[18px] px-1.5 font-mono text-[10px]'>
+              <Badge
+                key={t}
+                variant='outline'
+                className='h-[18px] px-1.5 font-mono text-[10px]'
+              >
                 #{t}
               </Badge>
             ))}
@@ -179,25 +271,42 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
           <CardAction>
             <Tabs value={range} onValueChange={(v) => setRange(v as Range)}>
               <TabsList className='h-7'>
-                <TabsTrigger value='1h' className='px-2 text-xs'>1h</TabsTrigger>
-                <TabsTrigger value='24h' className='px-2 text-xs'>24h</TabsTrigger>
-                <TabsTrigger value='7d' className='px-2 text-xs'>7d</TabsTrigger>
+                <TabsTrigger value='1h' className='px-2 text-xs'>
+                  1h
+                </TabsTrigger>
+                <TabsTrigger value='24h' className='px-2 text-xs'>
+                  24h
+                </TabsTrigger>
+                <TabsTrigger value='7d' className='px-2 text-xs'>
+                  7d
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </CardAction>
         </CardHeader>
         <CardContent>
           {rows.length < 2 ? (
-            <div className='text-muted-foreground grid h-[160px] place-items-center text-sm'>
+            <div className='grid h-[160px] place-items-center text-sm text-muted-foreground'>
               No numeric history for this point.
             </div>
           ) : (
             <ResponsiveContainer width='100%' height={170}>
-              <AreaChart data={rows} margin={{ top: 6, right: 4, left: -18, bottom: 0 }}>
+              <AreaChart
+                data={rows}
+                margin={{ top: 6, right: 4, left: -18, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id='pdFill' x1='0' y1='0' x2='0' y2='1'>
-                    <stop offset='0%' stopColor='var(--chart-1)' stopOpacity={0.25} />
-                    <stop offset='100%' stopColor='var(--chart-1)' stopOpacity={0} />
+                    <stop
+                      offset='0%'
+                      stopColor='var(--chart-1)'
+                      stopOpacity={0.25}
+                    />
+                    <stop
+                      offset='100%'
+                      stopColor='var(--chart-1)'
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke='var(--grid-line)' vertical={false} />
@@ -243,7 +352,9 @@ export function PointDetail({ point, site, equip, inFinding }: PointDetailProps)
         <PriorityArrayCard
           point={point}
           relinquishing={relinquish.isPending}
-          onRelinquish={(priority) => relinquish.mutate({ id: point.id, priority })}
+          onRelinquish={(priority) =>
+            relinquish.mutate({ id: point.id, priority })
+          }
         />
       ) : null}
     </div>

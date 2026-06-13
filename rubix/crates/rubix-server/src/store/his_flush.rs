@@ -37,9 +37,8 @@ impl Store {
 
     fn his_aged_sqlite(&self, cutoff: DateTime<Utc>) -> Result<AgedHis> {
         let conn = self.sqlite_conn()?;
-        let mut stmt = conn.prepare(
-            "SELECT point_id, ts, value FROM his WHERE ts < ?1 ORDER BY point_id, ts",
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT point_id, ts, value FROM his WHERE ts < ?1 ORDER BY point_id, ts")?;
         let cutoff_text = ts_of(&cutoff);
         let rows = stmt
             .query_map([cutoff_text], |row| {

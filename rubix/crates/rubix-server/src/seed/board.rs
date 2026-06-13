@@ -28,11 +28,7 @@ const SITE: &str = "hq-tower";
 /// Ensure the demo board exists. Returns 1 if it was newly created, 0 if it
 /// already existed (idempotent dev seed).
 pub fn seed_board(store: &Store) -> Result<usize, SeedError> {
-    if store
-        .latest_boards()?
-        .iter()
-        .any(|b| b.slug == BOARD_SLUG)
-    {
+    if store.latest_boards()?.iter().any(|b| b.slug == BOARD_SLUG) {
         return Ok(0);
     }
     let version = store.next_board_version(BOARD_SLUG)?;
@@ -71,7 +67,10 @@ fn demo_graph() -> BoardGraph {
     let write = BoardNode {
         id: "write-cooling-valve".to_string(),
         component: "write_point".to_string(),
-        config: config([("point", json!(point("cooling-valve"))), ("priority", json!(13))]),
+        config: config([
+            ("point", json!(point("cooling-valve"))),
+            ("priority", json!(13)),
+        ]),
     };
     BoardGraph {
         nodes: vec![read, guard, write],
@@ -97,7 +96,9 @@ fn point(slug: &str) -> String {
     format!("{ORG}/{SITE}/ahu-3/{slug}")
 }
 
-fn config<const N: usize>(entries: [(&str, serde_json::Value); N]) -> HashMap<String, serde_json::Value> {
+fn config<const N: usize>(
+    entries: [(&str, serde_json::Value); N],
+) -> HashMap<String, serde_json::Value> {
     entries
         .into_iter()
         .map(|(k, v)| (k.to_string(), v))

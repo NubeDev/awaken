@@ -66,7 +66,13 @@ pub async fn run_and_persist(
 /// the cancelled termination is recorded as `suspended` — the operator-actionable
 /// state — rather than `cancelled`.
 fn finish(
-    joined: Result<Result<awaken_runtime::loop_runner::AgentRunResult, awaken_runtime::loop_runner::AgentLoopError>, tokio::task::JoinError>,
+    joined: Result<
+        Result<
+            awaken_runtime::loop_runner::AgentRunResult,
+            awaken_runtime::loop_runner::AgentLoopError,
+        >,
+        tokio::task::JoinError,
+    >,
     store: &Store,
     origin: RunOrigin,
     thread_id: String,

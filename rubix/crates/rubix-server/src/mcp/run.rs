@@ -49,10 +49,7 @@ pub async fn run_tool_call(
 ) -> Result<CallOutcome, String> {
     let run_id = Uuid::new_v4().to_string();
     let ctx = context(thread_id, &run_id);
-    let output = tool
-        .execute(args, &ctx)
-        .await
-        .map_err(|e| e.to_string())?;
+    let output = tool.execute(args, &ctx).await.map_err(|e| e.to_string())?;
     let result = output.result;
 
     if result.status != ToolStatus::Pending {

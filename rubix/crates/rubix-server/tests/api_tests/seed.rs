@@ -69,9 +69,18 @@ fn ahu3_command_points_have_populated_priority_arrays() {
 
     // Slots 8 (operator), 13 (agent ceiling), 16 (schedule) populated; the
     // lowest level number wins, so the effective value is the slot-8 command.
-    assert_eq!(fan.priority_array.get(8).unwrap(), Some(&PointValue::Number(82.0)));
-    assert_eq!(fan.priority_array.get(13).unwrap(), Some(&PointValue::Number(70.0)));
-    assert_eq!(fan.priority_array.get(16).unwrap(), Some(&PointValue::Number(60.0)));
+    assert_eq!(
+        fan.priority_array.get(8).unwrap(),
+        Some(&PointValue::Number(82.0))
+    );
+    assert_eq!(
+        fan.priority_array.get(13).unwrap(),
+        Some(&PointValue::Number(70.0))
+    );
+    assert_eq!(
+        fan.priority_array.get(16).unwrap(),
+        Some(&PointValue::Number(60.0))
+    );
     assert_eq!(fan.cur_value, Some(PointValue::Number(82.0)));
 }
 
@@ -194,7 +203,10 @@ async fn dev_ticker_ingests_fresh_cur_for_seeded_sensors() {
     ticker.shutdown().await;
 
     let after = store.his_query(temp.id, None, None, 100_000).unwrap().len();
-    assert!(after > before, "ticker should add at least one fresh sample");
+    assert!(
+        after > before,
+        "ticker should add at least one fresh sample"
+    );
 
     // The point still carries a numeric live value.
     let point = store.get_point(temp.id).unwrap();

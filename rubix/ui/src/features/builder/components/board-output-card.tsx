@@ -27,12 +27,16 @@ export function BoardOutputCard({ widget }: { widget: Widget }) {
     <Card className='gap-2 p-3.5'>
       <div className='flex items-center justify-between'>
         <span className='eyebrow text-[10px]'>{widget.title}</span>
-        <span className='text-muted-foreground font-mono text-[10px]'>{widget.target}</span>
+        <span className='font-mono text-[10px] text-muted-foreground'>
+          {widget.target}
+        </span>
       </div>
       {run.isError ? (
-        <p className='text-sev-fault text-[11.5px]'>{(run.error as Error).message}</p>
+        <p className='text-[11.5px] text-sev-fault'>
+          {(run.error as Error).message}
+        </p>
       ) : outputs.length === 0 ? (
-        <p className='text-muted-foreground text-[11.5px]'>
+        <p className='text-[11.5px] text-muted-foreground'>
           {run.isPending ? 'Running…' : 'No outport packets.'}
         </p>
       ) : (
@@ -40,13 +44,13 @@ export function BoardOutputCard({ widget }: { widget: Widget }) {
           {outputs.map((o, i) => (
             <div
               key={`${o.node}-${o.port}-${i}`}
-              className='border-border rounded-md border px-2 py-1.5 text-[11px]'
+              className='rounded-md border border-border px-2 py-1.5 text-[11px]'
             >
               <div className='flex items-center justify-between font-mono'>
                 <span className='truncate'>{o.node}</span>
                 <span className='text-muted-foreground'>{o.port}</span>
               </div>
-              <div className='text-muted-foreground mt-1 truncate font-mono'>
+              <div className='mt-1 truncate font-mono text-muted-foreground'>
                 {JSON.stringify(o.value)}
               </div>
             </div>

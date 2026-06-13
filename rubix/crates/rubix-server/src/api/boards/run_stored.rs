@@ -36,5 +36,12 @@ pub(crate) async fn run_stored_board(
         .run(access)
         .await
         .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    // Surface this run's values on the live-outputs endpoint too, so an
+    // operator's manual run and the scheduler's autonomous runs share one view.
+    if let Some(scheduler) = &state.scheduler {
+        scheduler
+            .outputs()
+            .record(&slug, &outputs, chrono::Utc::now().to_rfc3339());
+    }
     Ok(Json(RunBoardResponse { outputs }))
 }

@@ -47,7 +47,11 @@ mod tests {
 
     #[test]
     fn series_is_deterministic_for_a_seed() {
-        let c = Curve { base: 13.5, amp: 1.4, seed: 11 };
+        let c = Curve {
+            base: 13.5,
+            amp: 1.4,
+            seed: 11,
+        };
         let a = series(c, BACKFILL_SAMPLES, SAMPLES_PER_DAY);
         let b = series(c, BACKFILL_SAMPLES, SAMPLES_PER_DAY);
         assert_eq!(a, b);
@@ -57,14 +61,34 @@ mod tests {
     #[test]
     fn distinct_seeds_diverge() {
         let p = SAMPLES_PER_DAY;
-        let a = series(Curve { base: 10.0, amp: 5.0, seed: 7 }, 96, p);
-        let b = series(Curve { base: 10.0, amp: 5.0, seed: 8 }, 96, p);
+        let a = series(
+            Curve {
+                base: 10.0,
+                amp: 5.0,
+                seed: 7,
+            },
+            96,
+            p,
+        );
+        let b = series(
+            Curve {
+                base: 10.0,
+                amp: 5.0,
+                seed: 8,
+            },
+            96,
+            p,
+        );
         assert_ne!(a, b);
     }
 
     #[test]
     fn values_track_the_base_level() {
-        let c = Curve { base: 100.0, amp: 4.0, seed: 3 };
+        let c = Curve {
+            base: 100.0,
+            amp: 4.0,
+            seed: 3,
+        };
         let xs = series(c, SAMPLES_PER_DAY, SAMPLES_PER_DAY);
         // base ± (amp + half-amp wobble) bounds every sample.
         for v in xs {

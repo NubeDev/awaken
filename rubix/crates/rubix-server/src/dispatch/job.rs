@@ -51,7 +51,10 @@ mod tests {
 
     #[test]
     fn thread_id_is_keyed_by_spark_id() {
-        assert_eq!(thread_id(&spark()), "spark-00000000-0000-0000-0000-000000000000");
+        assert_eq!(
+            thread_id(&spark()),
+            "spark-00000000-0000-0000-0000-000000000000"
+        );
     }
 
     #[test]

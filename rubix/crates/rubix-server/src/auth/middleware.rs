@@ -66,9 +66,7 @@ mod tests {
             .unwrap();
         assert_eq!(bearer(&req), Some("abc.def.ghi"));
 
-        let none = Request::builder()
-            .body(axum::body::Body::empty())
-            .unwrap();
+        let none = Request::builder().body(axum::body::Body::empty()).unwrap();
         assert_eq!(bearer(&none), None);
 
         let basic = Request::builder()

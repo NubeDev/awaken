@@ -12,7 +12,8 @@ export function RunOutput({ result }: { result: RunBoardResponse | undefined }) 
       <div className='eyebrow pb-1.5 text-[9.5px]'>Last test run · {result.outputs.length} outputs</div>
       {result.outputs.length === 0 ? (
         <div className='text-muted-foreground text-[11.5px]'>
-          The board settled without emitting any outport packets.
+          The board settled without emitting any outport packets. A trigger only
+          fires once its period elapses — run again after that to see its output.
         </div>
       ) : (
         <div className='space-y-1'>

@@ -15,6 +15,11 @@ pub(crate) async fn delete_board(
     Path(slug): Path<String>,
 ) -> Result<StatusCode, ApiError> {
     let store = state.store.clone();
-    blocking(move || Ok(store.delete_board(&slug)?)).await?;
+    let lookup_slug = slug.clone();
+    blocking(move || Ok(store.delete_board(&lookup_slug)?)).await?;
+    // Stop any running loop and drop its cached outputs for the deleted board.
+    if let Some(scheduler) = &state.scheduler {
+        scheduler.unregister(&slug);
+    }
     Ok(StatusCode::NO_CONTENT)
 }

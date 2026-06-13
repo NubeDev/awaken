@@ -54,6 +54,7 @@ fn app_with_script(
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     let executor = Arc::new(ScriptedLlmExecutor::new(script));
     let runtime =
@@ -125,7 +126,10 @@ async fn chat_reports_awaiting_approval_when_a_write_suspends() {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["status"], json!("awaiting_approval"), "{body}");
-    assert!(body["run_id"].as_str().is_some_and(|s| !s.is_empty()), "{body}");
+    assert!(
+        body["run_id"].as_str().is_some_and(|s| !s.is_empty()),
+        "{body}"
+    );
 }
 
 #[tokio::test]
@@ -144,6 +148,7 @@ async fn chat_is_unavailable_when_agent_disabled() {
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     let router = app(state);
     let (status, _) = post(

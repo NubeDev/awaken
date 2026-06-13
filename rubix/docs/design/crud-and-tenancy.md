@@ -18,14 +18,17 @@ Every domain entity supports Create, Read (list + get), and Delete, but **none
 support Update**. Verified across the HTTP routers, the concrete store, and the
 Postgres store — there is no `update_*` / `patch_*` method at any layer.
 
+Increment **A** below closed the Update gap and the thin widget/spark surfaces;
+the table now reads (✅* = landed in increment A):
+
 | Entity  | Create | List | Get | Update | Delete | Notes |
 | ------- | :----: | :--: | :-: | :----: | :----: | ----- |
-| Site    | ✅ | ✅ | ✅ | ❌ | ✅ (cascades) | the tenant boundary |
-| Equip   | ✅ | ✅ | ✅ | ❌ | ✅ | |
-| Point   | ✅ | ✅ | ✅ | ❌ | ✅ | `write`/`cur` mutate value, not the row |
-| Board   | ✅ | ✅ | ✅ | ❌ | ✅ | slug-addressed |
-| Spark   | ✅ | ✅ | — | ❌ | ❌ | `ack` only; no get/delete |
-| Widget  | ✅ | ✅ | — | ❌ | ❌ | no get/delete/update |
+| Site    | ✅ | ✅ | ✅ | ✅* | ✅ (cascades) | the tenant boundary; `org`/`slug` immutable |
+| Equip   | ✅ | ✅ | ✅ | ✅* | ✅ | `path` immutable |
+| Point   | ✅ | ✅ | ✅ | ✅* | ✅ | `write`/`cur` mutate value, not the row; `slug` immutable |
+| Board   | ✅ | ✅ | ✅ | ✅* | ✅ | slug-addressed; PATCH = latest-version `display_name`/`enabled` |
+| Spark   | ✅ | ✅ | ✅* | ❌ | ✅* | `ack` plus get/delete |
+| Widget  | ✅ | ✅ | ✅* | ❌ | ✅* | get/delete added |
 | Token   | ✅ | ✅ | — | revoke | revoke | admin surface |
 
 Consequences today:

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use awaken_runtime::AgentRuntime;
 
 use super::evaluate::evaluate;
+use super::outputs::BoardOutputs;
 use crate::bus::ZenohBus;
 use crate::store::Store;
 
@@ -24,6 +25,7 @@ pub(super) async fn run_interval(
     store: Store,
     bus: Option<ZenohBus>,
     agent: Option<Arc<AgentRuntime>>,
+    outputs: BoardOutputs,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let mut ticker = tokio::time::interval(Duration::from_secs(seconds));
@@ -42,7 +44,7 @@ pub(super) async fn run_interval(
                 };
                 match lookup {
                     Ok(Ok(board)) if board.is_scheduled() => {
-                        evaluate(&slug, &board.graph, &store, &bus, &agent).await;
+                        evaluate(&slug, &board.graph, &store, &bus, &agent, &outputs).await;
                     }
                     Ok(Ok(_)) => {
                         tracing::debug!(board = %slug, "interval board disabled; skipping tick");

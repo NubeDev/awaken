@@ -42,6 +42,28 @@ pub(crate) fn get_site(store: &Store, id: Uuid) -> Result<Site> {
     site_of(&row)
 }
 
+pub(crate) fn update_site(
+    store: &Store,
+    id: Uuid,
+    display_name: Option<&str>,
+    tags: Option<&rubix_core::TagSet>,
+) -> Result<Site> {
+    let mut client = store.postgres_conn()?;
+    let tags_json = tags.map(json_of);
+    let row = client
+        .query_opt(
+            &format!(
+                "UPDATE sites SET \
+                 display_name = COALESCE($2, display_name), \
+                 tags = COALESCE($3, tags) \
+                 WHERE id = $1 RETURNING {SITE_COLS}"
+            ),
+            &[&id.to_string(), &display_name, &tags_json],
+        )?
+        .ok_or(StoreError::NotFound("site"))?;
+    site_of(&row)
+}
+
 pub(crate) fn delete_site(store: &Store, id: Uuid) -> Result<()> {
     let n = store
         .postgres_conn()?

@@ -2,9 +2,11 @@
 
 pub(crate) mod ack;
 pub(crate) mod create;
+pub(crate) mod delete;
+pub(crate) mod get;
 pub(crate) mod list;
 
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::Router;
 
 use crate::AppState;
@@ -14,6 +16,10 @@ pub(super) fn router() -> Router<AppState> {
         .route(
             "/api/v1/sparks",
             post(create::create_spark).get(list::list_sparks),
+        )
+        .route(
+            "/api/v1/sparks/{id}",
+            get(get::get_spark).delete(delete::delete_spark),
         )
         .route("/api/v1/sparks/{id}/ack", post(ack::ack_spark))
 }

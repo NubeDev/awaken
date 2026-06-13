@@ -26,6 +26,8 @@ type BindablePalette = Extract<PaletteEntry, { available: true }>
 
 type WidgetBinderProps = {
   site: Site
+  /** Dashboard the tile pins onto. */
+  dashboardId: Uuid
   entry: BindablePalette | null
   onClose: () => void
 }
@@ -35,11 +37,23 @@ type WidgetBinderProps = {
  * board slug for `board_output`, then `POST /widgets`. Targets come straight
  * from the live API — the point keyexpr is the same string the server stores.
  */
-export function WidgetBinder({ site, entry, onClose }: WidgetBinderProps) {
+export function WidgetBinder({
+  site,
+  dashboardId,
+  entry,
+  onClose,
+}: WidgetBinderProps) {
   return (
     <Dialog open={entry !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-md'>
-        {entry ? <BinderBody site={site} entry={entry} onClose={onClose} /> : null}
+        {entry ? (
+          <BinderBody
+            site={site}
+            dashboardId={dashboardId}
+            entry={entry}
+            onClose={onClose}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   )
@@ -47,14 +61,16 @@ export function WidgetBinder({ site, entry, onClose }: WidgetBinderProps) {
 
 function BinderBody({
   site,
+  dashboardId,
   entry,
   onClose,
 }: {
   site: Site
+  dashboardId: Uuid
   entry: BindablePalette
   onClose: () => void
 }) {
-  const create = useCreateWidget(site.id)
+  const create = useCreateWidget()
   const [title, setTitle] = useState('')
   const [target, setTarget] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -83,6 +99,7 @@ function BinderBody({
       return
     }
     const body: CreateWidget = {
+      dashboard_id: dashboardId,
       site_id: site.id,
       kind: entry.kind,
       title: title.trim(),
@@ -98,7 +115,7 @@ function BinderBody({
     <>
       <DialogHeader>
         <DialogTitle className='flex items-center gap-2 text-[15px]'>
-          <entry.icon className='text-primary size-4' /> Pin {entry.label}
+          <entry.icon className='size-4 text-primary' /> Pin {entry.label}
         </DialogTitle>
         <DialogDescription>{entry.description}</DialogDescription>
       </DialogHeader>
@@ -116,7 +133,7 @@ function BinderBody({
             placeholder='Supply Air Temp'
           />
         </div>
-        {error ? <p className='text-sev-fault text-[12px]'>{error}</p> : null}
+        {error ? <p className='text-[12px] text-sev-fault'>{error}</p> : null}
       </div>
 
       <DialogFooter>
@@ -142,7 +159,10 @@ function PointBinder({
   const [selectedEquipId, setSelectedEquipId] = useState<Uuid | undefined>()
   const equipId = selectedEquipId ?? equips[0]?.id
   const { data: points = [] } = usePoints({ equipId })
-  const equip = useMemo(() => equips.find((e) => e.id === equipId), [equips, equipId])
+  const equip = useMemo(
+    () => equips.find((e) => e.id === equipId),
+    [equips, equipId]
+  )
 
   return (
     <div className='grid grid-cols-2 gap-2'>
@@ -167,7 +187,8 @@ function PointBinder({
           disabled={!equip}
           onValueChange={(id) => {
             const point = points.find((p) => p.id === id)
-            if (equip && point) onPick(pointKeyexpr(site, equip, point), point.display_name)
+            if (equip && point)
+              onPick(pointKeyexpr(site, equip, point), point.display_name)
           }}
         >
           <SelectTrigger size='sm' className='w-full'>

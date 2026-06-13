@@ -65,8 +65,7 @@ impl JwksVerifier {
             .keys
             .find(&kid)
             .ok_or_else(|| AuthError::InvalidToken(format!("no JWKS key for kid `{kid}`")))?;
-        let key =
-            DecodingKey::from_jwk(jwk).map_err(|e| AuthError::InvalidToken(e.to_string()))?;
+        let key = DecodingKey::from_jwk(jwk).map_err(|e| AuthError::InvalidToken(e.to_string()))?;
 
         let mut validation = Validation::new(header.alg);
         // Pin the algorithm family the issuer's keys use; an attacker cannot

@@ -82,6 +82,7 @@ impl Modify for BearerSecurity {
         boards::delete::delete_board,
         boards::run_stored::run_stored_board,
         boards::components::list_components,
+        boards::outputs::board_outputs,
         rules::create::create_rule,
         rules::list::list_rules,
         rules::get::get_rule,
@@ -110,7 +111,7 @@ impl Modify for BearerSecurity {
         runs::resume::ResumeResponse, TokenRecord, Role, Scope,
         tokens::create::IssueToken, tokens::create::IssuedToken,
         boards::components::ComponentView, boards::components::PortView,
-        boards::components::ConfigFieldView,
+        boards::components::ConfigFieldView, crate::scheduler::PortOutput,
         orgs::list::OrgSummary, orgs::create::ProvisionOrg,
         rules::dto::CreateRule, rules::dto::UpdateRule, rules::dto::RuleView,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard))

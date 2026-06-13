@@ -1,7 +1,7 @@
 //! Site rows: create, list, get, delete. Backend dispatch lives here; the
 //! SQLite body is inline, the Postgres body in [`super::postgres::sites`].
 
-use rubix_core::Site;
+use rubix_core::{Site, TagSet};
 use rusqlite::{params, OptionalExtension, Row};
 use uuid::Uuid;
 
@@ -81,6 +81,49 @@ impl Store {
             )
             .optional()?
             .ok_or(StoreError::NotFound("site"))
+    }
+
+    /// Patch the mutable metadata of a site (`display_name`, `tags`). Identity
+    /// fields (`org`, `slug`) are immutable — they compose the point keyexpr —
+    /// and `created_at` never changes. Returns the updated row.
+    pub fn update_site(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&TagSet>,
+    ) -> Result<Site> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.update_site_sqlite(id, display_name, tags),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::sites::update_site(self, id, display_name, tags)
+            }
+        }
+    }
+
+    fn update_site_sqlite(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&TagSet>,
+    ) -> Result<Site> {
+        let conn = self.sqlite_conn()?;
+        let n = conn.execute(
+            "UPDATE sites SET \
+             display_name = COALESCE(?2, display_name), \
+             tags = COALESCE(?3, tags) \
+             WHERE id = ?1",
+            params![id, display_name, tags.map(json_of)],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound("site"));
+        }
+        conn.query_row(
+            &format!("SELECT {SITE_COLS} FROM sites WHERE id = ?1"),
+            params![id],
+            row_site,
+        )
+        .map_err(Into::into)
     }
 
     pub fn delete_site(&self, id: Uuid) -> Result<()> {

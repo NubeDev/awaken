@@ -75,7 +75,10 @@ fn resolve_targets(store: &Store) -> Vec<TickTarget> {
     let Ok(sites) = store.list_sites(Some(super::portfolio::ORG)) else {
         return targets;
     };
-    for (site_idx, site) in sites_in_blueprint_order(store, &sites).into_iter().enumerate() {
+    for (site_idx, site) in sites_in_blueprint_order(store, &sites)
+        .into_iter()
+        .enumerate()
+    {
         let Ok(points) = store.list_points(None, Some(site.id), &[]) else {
             continue;
         };
@@ -97,7 +100,10 @@ fn resolve_targets(store: &Store) -> Vec<TickTarget> {
                 id: point.id,
                 keyexpr,
                 // Offset per site so each site's live walk differs (matches seed).
-                curve: Curve { seed: curve.seed + (site_idx as i64) * 7, ..curve },
+                curve: Curve {
+                    seed: curve.seed + (site_idx as i64) * 7,
+                    ..curve
+                },
             });
         }
     }
@@ -106,22 +112,14 @@ fn resolve_targets(store: &Store) -> Vec<TickTarget> {
 
 /// Sites in the blueprint's declared order so the per-site curve seed offset
 /// matches the one the history backfill used.
-fn sites_in_blueprint_order(
-    _store: &Store,
-    sites: &[rubix_core::Site],
-) -> Vec<rubix_core::Site> {
+fn sites_in_blueprint_order(_store: &Store, sites: &[rubix_core::Site]) -> Vec<rubix_core::Site> {
     super::portfolio::SITES
         .iter()
         .filter_map(|spec| sites.iter().find(|s| s.slug == spec.slug).cloned())
         .collect()
 }
 
-async fn drive_once(
-    store: &Store,
-    bus: Option<&ZenohBus>,
-    targets: &[TickTarget],
-    phase: usize,
-) {
+async fn drive_once(store: &Store, bus: Option<&ZenohBus>, targets: &[TickTarget], phase: usize) {
     for target in targets {
         // One fresh sample at the current phase along the point's day curve.
         let idx = phase % SAMPLES_PER_DAY;
@@ -135,12 +133,12 @@ async fn drive_once(
         };
         let store = store.clone();
         let id = target.id;
-        let ingested =
-            tokio::task::spawn_blocking(move || store.ingest_cur(id, &sample)).await;
+        let ingested = tokio::task::spawn_blocking(move || store.ingest_cur(id, &sample)).await;
         match ingested {
             Ok(Ok(point)) => {
                 if let Some(bus) = bus {
-                    bus.publish_cur(&target.keyexpr, point.cur_value.as_ref()).await;
+                    bus.publish_cur(&target.keyexpr, point.cur_value.as_ref())
+                        .await;
                 }
             }
             Ok(Err(err)) => tracing::warn!(point = %target.id, %err, "dev ticker ingest failed"),

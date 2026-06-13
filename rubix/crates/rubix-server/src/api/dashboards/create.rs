@@ -1,0 +1,57 @@
+//! POST /api/v1/dashboards — create a named board, org-overview or site-scoped.
+
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::Json;
+use chrono::Utc;
+use rubix_core::{validate_slug, Dashboard};
+use serde::Deserialize;
+use utoipa::ToSchema;
+use uuid::Uuid;
+
+use super::authorize_dashboard_write;
+use crate::api::blocking::blocking;
+use crate::auth::RequestPrincipal;
+use crate::error::{ApiError, ErrorBody};
+use crate::AppState;
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateDashboard {
+    /// Owning org namespace.
+    pub org: String,
+    /// The single site this board is for; omit for an org overview.
+    #[serde(default)]
+    pub site_id: Option<Uuid>,
+    pub slug: String,
+    pub title: String,
+}
+
+#[utoipa::path(post, path = "/api/v1/dashboards", request_body = CreateDashboard, tag = "dashboards",
+    security(("bearer" = [])),
+    responses((status = 201, body = Dashboard), (status = 400, body = ErrorBody),
+              (status = 401, body = ErrorBody), (status = 403, body = ErrorBody),
+              (status = 404, body = ErrorBody), (status = 409, body = ErrorBody)))]
+pub(crate) async fn create_dashboard(
+    State(state): State<AppState>,
+    principal: RequestPrincipal,
+    Json(req): Json<CreateDashboard>,
+) -> Result<(StatusCode, Json<Dashboard>), ApiError> {
+    validate_slug(&req.org)?;
+    validate_slug(&req.slug)?;
+    if req.title.trim().is_empty() {
+        return Err(ApiError::BadRequest("title must not be empty".into()));
+    }
+    authorize_dashboard_write(&principal, &state.store, &req.org, req.site_id)?;
+
+    let dashboard = Dashboard {
+        id: Uuid::new_v4(),
+        org: req.org,
+        site_id: req.site_id,
+        slug: req.slug,
+        title: req.title,
+        created_at: Utc::now(),
+    };
+    let stored = dashboard.clone();
+    blocking(move || Ok(state.store.create_dashboard(&stored)?)).await?;
+    Ok((StatusCode::CREATED, Json(dashboard)))
+}

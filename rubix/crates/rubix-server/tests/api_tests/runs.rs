@@ -35,6 +35,7 @@ fn app_with_write(priority: u8) -> (Router, tempfile::TempDir) {
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     let script = [
         ProviderScriptEvent::ToolCall {
@@ -74,7 +75,12 @@ async fn req(router: &Router, method: &str, uri: &str, body: Option<Value>) -> (
         .await
         .expect("response");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -98,8 +104,10 @@ async fn seed_fan(router: &Router) {
         router,
         "POST",
         "/api/v1/equips",
-        Some(json!({"site_id": site["id"], "path": "ahu-3", "display_name": "AHU 3",
-                    "tags": {"equip": true}})),
+        Some(
+            json!({"site_id": site["id"], "path": "ahu-3", "display_name": "AHU 3",
+                    "tags": {"equip": true}}),
+        ),
     )
     .await;
     assert_eq!(s, StatusCode::CREATED, "{equip}");
@@ -107,8 +115,10 @@ async fn seed_fan(router: &Router) {
         router,
         "POST",
         "/api/v1/points",
-        Some(json!({"equip_id": equip["id"], "slug": "fan", "display_name": "fan",
-                    "kind": "cmd", "tags": {"point": true}})),
+        Some(
+            json!({"equip_id": equip["id"], "slug": "fan", "display_name": "fan",
+                    "kind": "cmd", "tags": {"point": true}}),
+        ),
     )
     .await;
     assert_eq!(s, StatusCode::CREATED, "{point}");
@@ -141,7 +151,10 @@ async fn suspended_run_persists_lists_and_is_fetchable() {
     assert_eq!(runs.len(), 1, "{list}");
     assert_eq!(runs[0]["id"], json!(run_id));
     assert_eq!(runs[0]["origin"], json!("chat"));
-    assert_eq!(runs[0]["pending_write"]["point"], json!("nube/hq/ahu-3/fan"));
+    assert_eq!(
+        runs[0]["pending_write"]["point"],
+        json!("nube/hq/ahu-3/fan")
+    );
     assert_eq!(runs[0]["pending_write"]["priority"], json!(5));
 
     // Fetchable by id.
@@ -160,7 +173,13 @@ async fn resume_applies_the_held_write_and_settles_the_run() {
     seed_fan(&router).await;
     let run_id = suspend_run(&router, "t-resume").await;
 
-    let (status, body) = req(&router, "POST", &format!("/api/v1/runs/{run_id}/resume"), None).await;
+    let (status, body) = req(
+        &router,
+        "POST",
+        &format!("/api/v1/runs/{run_id}/resume"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["priority"], json!(5));
     assert_eq!(body["effective"], json!(true));
@@ -173,7 +192,13 @@ async fn resume_applies_the_held_write_and_settles_the_run() {
     // The run left suspended; a second resume is a conflict (one-shot approval).
     let (status, one) = req(&router, "GET", &format!("/api/v1/runs/{run_id}"), None).await;
     assert_eq!(one["status"], json!("resumed"), "{one}");
-    let (status2, _) = req(&router, "POST", &format!("/api/v1/runs/{run_id}/resume"), None).await;
+    let (status2, _) = req(
+        &router,
+        "POST",
+        &format!("/api/v1/runs/{run_id}/resume"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(status2, StatusCode::CONFLICT);
 }
@@ -184,7 +209,13 @@ async fn cancel_discards_the_held_write_and_leaves_the_point_untouched() {
     seed_fan(&router).await;
     let run_id = suspend_run(&router, "t-cancel").await;
 
-    let (status, _) = req(&router, "POST", &format!("/api/v1/runs/{run_id}/cancel"), None).await;
+    let (status, _) = req(
+        &router,
+        "POST",
+        &format!("/api/v1/runs/{run_id}/cancel"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     // The point was never commanded.
@@ -195,6 +226,12 @@ async fn cancel_discards_the_held_write_and_leaves_the_point_untouched() {
     // The run records cancelled; resuming a cancelled run is a conflict.
     let (_, one) = req(&router, "GET", &format!("/api/v1/runs/{run_id}"), None).await;
     assert_eq!(one["status"], json!("cancelled"), "{one}");
-    let (status, _) = req(&router, "POST", &format!("/api/v1/runs/{run_id}/resume"), None).await;
+    let (status, _) = req(
+        &router,
+        "POST",
+        &format!("/api/v1/runs/{run_id}/resume"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::CONFLICT);
 }

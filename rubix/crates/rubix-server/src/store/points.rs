@@ -95,6 +95,61 @@ impl Store {
             .ok_or(StoreError::NotFound("point"))
     }
 
+    /// Patch mutable point metadata (`display_name`, `tags`, `unit`, `kind`).
+    /// `slug` is immutable — it composes the point keyexpr. Returns the updated
+    /// row. Value/priority-array mutation goes through the command path, not here.
+    pub fn update_point(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&rubix_core::TagSet>,
+        unit: Option<&str>,
+        kind: Option<rubix_core::PointKind>,
+    ) -> Result<Point> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.update_point_sqlite(id, display_name, tags, unit, kind),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::points::update_point(self, id, display_name, tags, unit, kind)
+            }
+        }
+    }
+
+    fn update_point_sqlite(
+        &self,
+        id: Uuid,
+        display_name: Option<&str>,
+        tags: Option<&rubix_core::TagSet>,
+        unit: Option<&str>,
+        kind: Option<rubix_core::PointKind>,
+    ) -> Result<Point> {
+        let conn = self.sqlite_conn()?;
+        let n = conn.execute(
+            "UPDATE points SET \
+             display_name = COALESCE(?2, display_name), \
+             tags = COALESCE(?3, tags), \
+             unit = COALESCE(?4, unit), \
+             kind = COALESCE(?5, kind) \
+             WHERE id = ?1",
+            params![
+                id,
+                display_name,
+                tags.map(json_of),
+                unit,
+                kind.map(|k| kind_str(k).to_string()),
+            ],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound("point"));
+        }
+        conn.query_row(
+            &format!("SELECT {POINT_COLS} FROM points WHERE id = ?1"),
+            params![id],
+            row_point,
+        )
+        .map_err(Into::into)
+    }
+
     pub fn delete_point(&self, id: Uuid) -> Result<()> {
         match &self.backend {
             Backend::Sqlite(_) => self.delete_point_sqlite(id),

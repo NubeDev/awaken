@@ -77,6 +77,11 @@ pub struct AppState {
     /// `tokens` admin routes accept requests. `None` on edge — requests pass
     /// without a principal and RBAC gates are no-ops (today's behavior).
     pub authenticator: Option<Authenticator>,
+    /// The board scheduler, when running. Handlers register/unregister a board's
+    /// loop on create/enable/delete so enabling a flow takes effect without a
+    /// restart, and read its [`scheduler::BoardOutputs`] cache to surface the
+    /// latest values an enabled board produced. `None` when `RUBIX_SCHEDULER=0`.
+    pub scheduler: Option<scheduler::Scheduler>,
 }
 
 pub fn app(state: AppState) -> Router {

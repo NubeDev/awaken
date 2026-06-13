@@ -52,7 +52,11 @@ async fn rule_crud_round_trip() {
 
     // Delete.
     let (status, _) = app
-        .request("DELETE", &format!("/api/v1/orgs/{ORG}/rules/temp-high"), None)
+        .request(
+            "DELETE",
+            &format!("/api/v1/orgs/{ORG}/rules/temp-high"),
+            None,
+        )
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = app

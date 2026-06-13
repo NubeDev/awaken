@@ -88,6 +88,11 @@ fn commit_write(
         )));
     }
     let id = store.point_by_keyexpr(&write.point)?;
-    let point = store.command_point(id, write.priority, Some(write.value.clone()), chrono::Utc::now())?;
+    let point = store.command_point(
+        id,
+        write.priority,
+        Some(write.value.clone()),
+        chrono::Utc::now(),
+    )?;
     Ok(point.cur_value)
 }

@@ -9,16 +9,16 @@ use std::time::Duration;
 
 use awaken_runtime::engine::{ProviderScriptEvent, ScriptedLlmExecutor};
 use awaken_runtime_contract::contract::inference::StopReason;
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use axum::Router;
+use http_body_util::BodyExt;
 use rubix_flow::{AgentRequest, PointAccess, COMPONENTS};
 use rubix_server::agent::build_runtime_with_executor;
 use rubix_server::flow::StorePointAccess;
 use rubix_server::profile::{Profile, ProfileKind};
 use rubix_server::store::Store;
 use rubix_server::{app, AppState};
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use axum::Router;
-use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
@@ -59,6 +59,7 @@ async fn agent_call_board_activates_an_agent_run() {
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     let script = [ProviderScriptEvent::ToolCall {
         id: "c1".into(),
@@ -75,15 +76,32 @@ async fn agent_call_board_activates_an_agent_run() {
     let router = app(state);
 
     // Provision the point the agent run will command.
-    req(&router, "POST", "/api/v1/sites",
-        Some(json!({"org": "ac", "slug": "s1", "display_name": "s1", "tags": {"site": true}}))).await;
-    let (_, equip) = req(&router, "POST", "/api/v1/equips",
+    req(
+        &router,
+        "POST",
+        "/api/v1/sites",
+        Some(json!({"org": "ac", "slug": "s1", "display_name": "s1", "tags": {"site": true}})),
+    )
+    .await;
+    let (_, equip) = req(
+        &router,
+        "POST",
+        "/api/v1/equips",
         Some(json!({"site_id": site_id(&router).await, "path": "ahu-3",
-                    "display_name": "AHU 3", "tags": {"equip": true}}))).await;
+                    "display_name": "AHU 3", "tags": {"equip": true}})),
+    )
+    .await;
     let equip_id = equip["id"].as_str().unwrap();
-    let (_, point) = req(&router, "POST", "/api/v1/points",
-        Some(json!({"equip_id": equip_id, "slug": "fan", "display_name": "fan",
-                    "kind": "cmd", "tags": {"point": true}}))).await;
+    let (_, point) = req(
+        &router,
+        "POST",
+        "/api/v1/points",
+        Some(
+            json!({"equip_id": equip_id, "slug": "fan", "display_name": "fan",
+                    "kind": "cmd", "tags": {"point": true}}),
+        ),
+    )
+    .await;
     let fan = point["point"]["id"].as_str().unwrap().to_string();
 
     // Store an agent_call board and run it by slug (HTTP path wires the agent).
@@ -113,7 +131,10 @@ async fn agent_call_board_activates_an_agent_run() {
         }
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
-    assert!(commanded, "agent_call board did not activate a run that commanded the point");
+    assert!(
+        commanded,
+        "agent_call board did not activate a run that commanded the point"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -134,6 +155,7 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     let script = [
         ProviderScriptEvent::ToolCall {
@@ -156,15 +178,32 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
     state.agent = Some(runtime);
     let router = app(state);
 
-    req(&router, "POST", "/api/v1/sites",
-        Some(json!({"org": "aw", "slug": "s1", "display_name": "s1", "tags": {"site": true}}))).await;
-    let (_, equip) = req(&router, "POST", "/api/v1/equips",
+    req(
+        &router,
+        "POST",
+        "/api/v1/sites",
+        Some(json!({"org": "aw", "slug": "s1", "display_name": "s1", "tags": {"site": true}})),
+    )
+    .await;
+    let (_, equip) = req(
+        &router,
+        "POST",
+        "/api/v1/equips",
         Some(json!({"site_id": site_id(&router).await, "path": "ahu-3",
-                    "display_name": "AHU 3", "tags": {"equip": true}}))).await;
+                    "display_name": "AHU 3", "tags": {"equip": true}})),
+    )
+    .await;
     let equip_id = equip["id"].as_str().unwrap();
-    let (_, point) = req(&router, "POST", "/api/v1/points",
-        Some(json!({"equip_id": equip_id, "slug": "fan", "display_name": "fan",
-                    "kind": "cmd", "tags": {"point": true}}))).await;
+    let (_, point) = req(
+        &router,
+        "POST",
+        "/api/v1/points",
+        Some(
+            json!({"equip_id": equip_id, "slug": "fan", "display_name": "fan",
+                    "kind": "cmd", "tags": {"point": true}}),
+        ),
+    )
+    .await;
     let fan = point["point"]["id"].as_str().unwrap().to_string();
 
     // An awaited agent_call: the board blocks on the run inside the single-shot
@@ -186,15 +225,22 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
     assert_eq!(s, StatusCode::OK);
 
     // The agent's decision is observable on the node's output (it awaited).
-    let surfaced = run["outputs"]
-        .as_array()
-        .and_then(|outs| outs.iter().find(|o| o["node"] == "a1" && o["port"] == "output"));
-    assert!(surfaced.is_some(), "awaited agent_call did not surface an output: {run}");
+    let surfaced = run["outputs"].as_array().and_then(|outs| {
+        outs.iter()
+            .find(|o| o["node"] == "a1" && o["port"] == "output")
+    });
+    assert!(
+        surfaced.is_some(),
+        "awaited agent_call did not surface an output: {run}"
+    );
 
     // The gated write reached the store during the run — no post-run polling.
     let (_, p) = req(&router, "GET", &format!("/api/v1/points/{fan}"), None).await;
-    assert_eq!(p["point"]["cur_value"], json!(true),
-        "awaited agent_call run did not command the point within the board run");
+    assert_eq!(
+        p["point"]["cur_value"],
+        json!(true),
+        "awaited agent_call run did not command the point within the board run"
+    );
 }
 
 async fn site_id(router: &Router) -> String {

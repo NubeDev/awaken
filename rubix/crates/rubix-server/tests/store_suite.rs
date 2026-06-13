@@ -6,15 +6,15 @@
 //! SQLite and the harness end to end.
 
 use chrono::Utc;
+use rubix_core::Equip;
 use rubix_core::{
     HisSample, Point, PointKind, PointValue, PriorityArray, Site, Spark, SparkSeverity, TagSet,
     Widget, WidgetKind,
 };
+use rubix_flow::BoardGraph;
 use rubix_server::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
 use rubix_server::auth::{pat, Role, Scope, TokenRecord};
 use rubix_server::scheduler::{BoardRecord, Trigger};
-use rubix_core::Equip;
-use rubix_flow::BoardGraph;
 use rubix_server::store::Store;
 use uuid::Uuid;
 
@@ -186,14 +186,14 @@ fn run_suite(store: &Store) {
         1
     );
     store.ack_spark(spark.id).unwrap();
-    assert_eq!(
-        store.list_sparks(None, None, Some(true)).unwrap().len(),
-        1
-    );
+    assert_eq!(store.list_sparks(None, None, Some(true)).unwrap().len(), 1);
 
-    // Widgets: create + list.
+    // Dashboards + widgets: a tile pins onto a dashboard.
+    let dashboard_id = store.default_dashboard_for_site(s.id).unwrap();
+    assert_eq!(store.list_dashboards(&s.org, Some(s.id)).unwrap().len(), 1);
     let widget = Widget {
         id: Uuid::new_v4(),
+        dashboard_id,
         site_id: s.id,
         kind: WidgetKind::PointValue,
         title: "AHU-3 SP".into(),
@@ -201,7 +201,11 @@ fn run_suite(store: &Store) {
         created_at: Utc::now(),
     };
     store.create_widget(&widget).unwrap();
-    assert_eq!(store.list_widgets(Some(s.id)).unwrap().len(), 1);
+    assert_eq!(store.list_widgets(Some(s.id), None).unwrap().len(), 1);
+    assert_eq!(
+        store.list_widgets(None, Some(dashboard_id)).unwrap().len(),
+        1
+    );
 
     // Boards: versioning, latest-per-slug, get, delete.
     let board = BoardRecord {
@@ -295,7 +299,7 @@ fn run_suite(store: &Store) {
     store.delete_site(s.id).unwrap();
     assert!(store.get_site(s.id).is_err());
     assert_eq!(store.list_equips(None, &[]).unwrap().len(), 0);
-    assert_eq!(store.list_widgets(None).unwrap().len(), 0);
+    assert_eq!(store.list_widgets(None, None).unwrap().len(), 0);
 }
 
 #[test]

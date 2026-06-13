@@ -58,6 +58,28 @@ pub(crate) fn list_sparks(
     rows.iter().map(spark_of).collect()
 }
 
+pub(crate) fn get_spark(store: &Store, id: Uuid) -> Result<Spark> {
+    let mut client = store.postgres_conn()?;
+    let row = client
+        .query_opt(
+            "SELECT id, site_id, rule, severity, message, point_ids, ts, acknowledged \
+             FROM sparks WHERE id = $1",
+            &[&id.to_string()],
+        )?
+        .ok_or(StoreError::NotFound("spark"))?;
+    spark_of(&row)
+}
+
+pub(crate) fn delete_spark(store: &Store, id: Uuid) -> Result<()> {
+    let n = store
+        .postgres_conn()?
+        .execute("DELETE FROM sparks WHERE id = $1", &[&id.to_string()])?;
+    if n == 0 {
+        return Err(StoreError::NotFound("spark"));
+    }
+    Ok(())
+}
+
 pub(crate) fn ack_spark(store: &Store, id: Uuid) -> Result<()> {
     let n = store.postgres_conn()?.execute(
         "UPDATE sparks SET acknowledged = TRUE WHERE id = $1",

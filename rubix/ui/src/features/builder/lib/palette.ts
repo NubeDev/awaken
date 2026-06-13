@@ -5,20 +5,27 @@
  * Gauge / Floor Map tiles with no wire backing, so they appear disabled with a
  * reason rather than pretending to be clickable.
  */
-import { Activity, Gauge, LineChart, Map, SquareStack, type LucideIcon } from 'lucide-react';
-import type { WidgetKind } from '@/api/types';
+import {
+  Activity,
+  Gauge,
+  LineChart,
+  Map,
+  SquareStack,
+  type LucideIcon,
+} from 'lucide-react'
+import type { WidgetKind } from '@/api/types'
 
 /** How a bindable palette entry sources its target. */
-export type BindMode = 'point' | 'board';
+export type BindMode = 'point' | 'board'
 
 export type PaletteEntry = {
-  label: string;
-  description: string;
-  icon: LucideIcon;
+  label: string
+  description: string
+  icon: LucideIcon
 } & (
   | { kind: WidgetKind; bind: BindMode; available: true }
   | { available: false; reason: string }
-);
+)
 
 export const PALETTE: PaletteEntry[] = [
   {
@@ -59,4 +66,4 @@ export const PALETTE: PaletteEntry[] = [
     available: false,
     reason: 'No widget backing yet.',
   },
-];
+]

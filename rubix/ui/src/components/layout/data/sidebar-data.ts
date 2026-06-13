@@ -7,6 +7,7 @@ import {
   Database,
   Sparkles,
   Building2,
+  Building,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -45,6 +46,10 @@ export const sidebarData: SidebarData = {
         { title: 'History & SQL', url: '/history', icon: Database },
         { title: 'Agent Runs', url: '/runs', icon: Sparkles },
       ],
+    },
+    {
+      title: 'Manage',
+      items: [{ title: 'Tenants', url: '/tenants', icon: Building }],
     },
   ],
 }

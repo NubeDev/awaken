@@ -1,7 +1,9 @@
 # Feature — Entity CRUD & Org/Site Tenancy
 
-> Verified: **scaffold** — written from the code on `rubix-gaps`, 2026-06-13;
-> commands to be confirmed live one gate at a time. Source:
+> Verified: **increment A landed** — PATCH across sites/equips/points/boards and
+> Get+Delete on widgets/sparks implemented on `rubix-gaps`, 2026-06-13, covered by
+> `crates/rubix-server/tests/api_tests/{sites,points,widgets,sparks,boards}.rs`
+> (both store backends). The ⟂ gates below are now green. Source:
 > `rubix-server/src/api/{sites,equips,points,boards,widgets,sparks}`, the
 > concrete + Postgres stores under `rubix-server/src/store/`, and the auth gate
 > `rubix-server/src/auth/{gate,scope}.rs`. Design intent:
@@ -56,19 +58,19 @@ curl -s "$BASE/api/v1/sites/$SITE"   | jq '{org,slug,display_name}'
 ✅ Create returns `201` with a bare `Site`; list (filterable by `?org=`) and get
 round-trip it.
 
-**⟂ gap — Update.** No `PATCH /api/v1/sites/{id}` exists (design increment **A**).
-The intended gate, expected to **fail with `405`/`404` on current `main`**:
+✅ **Update (increment A — landed).** `PATCH /api/v1/sites/{id}` edits
+`display_name`/`tags`:
 
 ```bash
-# EXPECTED TO FAIL until PATCH lands. display_name/tags mutable; org/slug immutable.
 curl -s -o /dev/null -w "patch-site %{http_code}\n" \
   -X PATCH "$BASE/api/v1/sites/$SITE" -H content-type:application/json \
-  -d '{"display_name":"KFC Headquarters"}'            # want 200; main → 405
+  -d '{"display_name":"KFC Headquarters"}'            # → 200
 ```
 
-✅ (post-fix) PATCH edits `display_name`/`tags`, leaves `org`/`slug`/`created_at`
-untouched, and rejects an attempt to change `org`/`slug` (they compose the point
-keyexpr — see [POINTS_PRIORITY_ARRAY.md](POINTS_PRIORITY_ARRAY.md)).
+✅ PATCH edits `display_name`/`tags`, leaves `org`/`slug`/`created_at`
+untouched, and rejects a body carrying `org`/`slug` with **`400`** (they compose
+the point keyexpr — see [POINTS_PRIORITY_ARRAY.md](POINTS_PRIORITY_ARRAY.md)).
+Absent field = unchanged (partial PATCH).
 
 ```bash
 # DELETE (cascades to equips/points/history/sparks — prove the blast radius first)
@@ -92,10 +94,10 @@ curl -s "$BASE/api/v1/points/$PT"    | jq .point.slug
 POINTS_PRIORITY_ARRAY). Note point create wraps as `{keyexpr, point}` — id is
 `.point.id`.
 
-**⟂ gap — Update.** No `PATCH /api/v1/equips/{id}` or `/api/v1/points/{id}`
-(increment **A**). Editable set is metadata only (`display_name`, `tags`, point
-`unit`); `equip.path` and `point.slug` are **immutable** (keyexpr identity).
-Expected `405` on `main`:
+✅ **Update (increment A — landed).** `PATCH /api/v1/equips/{id}` and
+`/api/v1/points/{id}` edit metadata only (`display_name`, `tags`, point
+`unit`/`kind`); `equip.path` and `point.slug` are **immutable** (keyexpr
+identity) — a body carrying them returns `400`. Both → `200`:
 
 ```bash
 curl -s -o /dev/null -w "patch-equip %{http_code}\n" -X PATCH "$BASE/api/v1/equips/$EQUIP" -H content-type:application/json -d '{"display_name":"AHU 3 (north)"}'
@@ -105,21 +107,68 @@ curl -s -o /dev/null -w "patch-point %{http_code}\n" -X PATCH "$BASE/api/v1/poin
 ### A3. Board, Widget, Spark surfaces
 
 ```bash
-# Board has create/list/get/delete (slug-addressed); no update.
+# Board has create/list/get/patch/delete (slug-addressed). PATCH edits
+# display_name/enabled on the latest version; republishing the graph is a new POST.
 curl -s "$BASE/api/v1/boards" | jq 'length'
-# Widget + Spark are create/list only.
+curl -s -o /dev/null -w "patch-board %{http_code}\n" -X PATCH "$BASE/api/v1/boards/night-setback" \
+  -H content-type:application/json -d '{"enabled":false}'   # → 200
+# Widget + Spark now have create/list + get/delete (increment A).
 curl -s "$BASE/api/v1/widgets" | jq 'length'
 curl -s "$BASE/api/v1/sparks"  | jq 'length'
 ```
 
-**⟂ gap — thin surfaces.** Widgets and sparks have **no Get and no Delete**
-(increment **A** "fill the thin surfaces"). The builder UI needs a widget
-**Remove**; spark triage needs **get-by-id**. Expected `405` on `main`:
+✅ **Thin surfaces (increment A — landed).** Widgets and sparks now have
+`GET /{id}` and `DELETE /{id}`. The builder UI's widget **Remove** and spark
+**get-by-id** triage are live:
 
 ```bash
 WID=$(curl -s "$BASE/api/v1/widgets" | jq -r '.[0].id // empty')
-[ -n "$WID" ] && curl -s -o /dev/null -w "delete-widget %{http_code}\n" -X DELETE "$BASE/api/v1/widgets/$WID"
+[ -n "$WID" ] && curl -s -o /dev/null -w "get-widget %{http_code}\n"    "$BASE/api/v1/widgets/$WID"  # → 200
+[ -n "$WID" ] && curl -s -o /dev/null -w "delete-widget %{http_code}\n" -X DELETE "$BASE/api/v1/widgets/$WID"  # → 204
+SPK=$(curl -s "$BASE/api/v1/sparks" | jq -r '.[0].id // empty')
+[ -n "$SPK" ] && curl -s -o /dev/null -w "get-spark %{http_code}\n"     "$BASE/api/v1/sparks/$SPK"   # → 200
 ```
+
+### A4. Dashboards (many boards, org-overview or site-scoped)
+
+A **dashboard** is a named board of widgets, owned by an `org`. It is either an
+**org overview** (`site_id` absent — spans every site under the org) or
+**site-scoped** (`site_id` set). Widgets belong to a dashboard via `dashboard_id`;
+their `target` keyexpr already carries `org/site/...`, so an overview mixes tiles
+from many sites freely. Source: `rubix-server/src/api/dashboards/`, the
+`dashboards` table, and `rubix_core::Dashboard`.
+
+```bash
+SITE=$(post /api/v1/sites '{"org":"kfc","slug":"hq","display_name":"KFC HQ","tags":{"site":true}}' | jq -r .id)
+# Org overview (no site_id) — the cross-site board.
+OVR=$(post /api/v1/dashboards '{"org":"kfc","slug":"portfolio","title":"Portfolio"}' | jq -r .id)
+# Site-scoped board.
+SDB=$(post /api/v1/dashboards "$(jq -nc --arg s "$SITE" '{org:"kfc",site_id:$s,slug:"energy",title:"Energy"}')" | jq -r .id)
+
+# List by org (overviews + every site's boards); filter to one site.
+curl -s "$BASE/api/v1/dashboards?org=kfc"            | jq '[.[].slug]'   # → ["portfolio","energy"]
+curl -s "$BASE/api/v1/dashboards?org=kfc&site_id=$SITE" | jq '[.[].slug]' # → ["energy"]
+
+# PATCH the title (org/site/slug immutable); DELETE cascades to the board's tiles.
+curl -s -o /dev/null -w "patch-dash %{http_code}\n"  -X PATCH "$BASE/api/v1/dashboards/$OVR" -d '{"title":"Portfolio Overview"}'  # → 200
+curl -s -o /dev/null -w "delete-dash %{http_code}\n" -X DELETE "$BASE/api/v1/dashboards/$SDB"  # → 204
+```
+
+✅ Dashboards round-trip create/list(`?org=`,`?site_id=`)/get/patch/delete. A
+slug is unique per scope (`(org,site)` for site boards, `(org)` for overviews).
+✅ Widgets pin onto a dashboard: `POST /widgets` takes `dashboard_id`; omitting it
+lands the tile on the site's **default** board (auto-created — the legacy
+"pin to site" path, used by the agent `pin_widget` tool). List a board's tiles
+with `GET /api/v1/widgets?dashboard_id=…`.
+✅ Scope is auth-gated like sites: a site board uses `authorize_site_{read,write}`;
+an overview uses the org scope. Reads a caller can't see are filtered pre-wire.
+Coverage: `crates/rubix-server/tests/api_tests/dashboards.rs`.
+
+> **Why a dashboard entity.** Before this, a widget hung directly off `site_id`,
+> so there was exactly one implicit board per site and no cross-site overview.
+> The `Dashboard` row makes "many boards, org or site" first-class — the UI
+> `/builder` picks/creates them; an overview is the natural home for a
+> portfolio view.
 
 ---
 
@@ -164,19 +213,21 @@ SQL-rewritten). Cross-tenant proven by
 
 - [ ] Site create/list(`?org=`)/get/delete round-trip; delete cascades.
 - [ ] Equip + point create/list/get/delete round-trip.
-- [ ] Board create/list/get/delete round-trips.
-- [ ] **⟂** `PATCH` edits metadata on site/equip/point/board; rejects identity-field
-      (`org`/`slug`/`path`) changes. *(blocked on increment A)*
-- [ ] **⟂** Widget + spark gain Get + Delete. *(blocked on increment A)*
+- [ ] Board create/list/get/patch/delete round-trips.
+- [x] **⟂→✅** `PATCH` edits metadata on site/equip/point/board; rejects identity-field
+      (`org`/`slug`/`path`) changes with `400`. *(increment A — landed)*
+- [x] **⟂→✅** Widget + spark gain Get + Delete. *(increment A — landed)*
 - [ ] A scoped token's site list excludes other orgs (read filtered pre-wire).
 - [ ] A scoped token writing another org's site → `403`.
 - [ ] Scoped `/query` returns only the tenant's rows (structural view confinement).
 - [ ] `org/site` boundary is a path boundary (`kfc/hq` ≠ `kfc/hq2`).
 
-> **⟂ gates fail on current `main` by design.** They are the work list for design
-> increment **A** (Add Update across entities). A red ⟂ gate is "not built yet,"
-> not a regression — it flips green when the endpoint lands. Non-⟂ gates are live
-> regression checks today.
+> **The former ⟂ gates are green.** Design increment **A** (Add Update across
+> entities + fill the thin widget/spark surfaces) is implemented across both store
+> backends and covered by `api_tests`. Identity fields (`org`/`slug`/`equip.path`/
+> `point.slug`) remain immutable by design — a PATCH carrying one returns `400`.
+> Increments **B** (first-class org/tenant surface) and **C** (named platform-admin
+> principal) remain deferred per the design doc.
 
 ---
 
@@ -198,6 +249,12 @@ SQL-rewritten). Cross-tenant proven by
 
 ## Known issues / fixes
 
-*(none recorded yet — scaffold. First live pass: confirm Part A non-⟂ gates and
-all of Part B against current `main`; the ⟂ gates stay red until increment A is
-implemented, at which point flip them and bump `Verified:`.)*
+- **PATCH rejects identity fields with `400`, not `405`/`422`.** The handler
+  accepts `org`/`slug`/`path`/point-`slug` in the body solely to reject them with
+  a clear message (rather than silently ignoring an unknown field). A client that
+  wants to rename does delete-and-recreate (cascade).
+- **`unit` is set-only, not clearable.** Point PATCH uses `COALESCE`, so an absent
+  `unit` is unchanged and a present one is set; there is no way to clear a unit
+  back to null via PATCH today (delete-and-recreate if needed).
+- **Board PATCH targets the latest version only** (`display_name`/`enabled`);
+  changing `trigger`/`graph` is a new POST version, not a PATCH.

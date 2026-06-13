@@ -16,8 +16,8 @@ use awaken_runtime::run::RunActivation;
 use awaken_runtime_contract::contract::inference::StopReason;
 use awaken_runtime_contract::contract::message::Message;
 use rubix_server::agent::{
-    build_scoped_runtime, run_and_persist, runtime_for_scope, RunOrigin, RunStatus, RuntimeBlueprint,
-    AGENT_ID,
+    build_scoped_runtime, run_and_persist, runtime_for_scope, RunOrigin, RunStatus,
+    RuntimeBlueprint, AGENT_ID,
 };
 use rubix_server::bus::ZenohBus;
 use rubix_server::dispatch::Dispatcher;
@@ -70,6 +70,7 @@ fn scripted_state(
         ai_min_priority: 13,
         ai_escalation_floor: 1,
         authenticator: None,
+        scheduler: None,
     };
     state.agent = Some(Arc::new(
         build_scoped_runtime(&state, &blueprint, None).expect("boot runtime"),
@@ -165,9 +166,15 @@ async fn dispatched_run_cannot_command_a_point_in_another_tenant() {
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
     dispatcher.shutdown().await;
-    assert!(commanded, "site-B run did not command site B's own point (scope blocked a legal write)");
+    assert!(
+        commanded,
+        "site-B run did not command site B's own point (scope blocked a legal write)"
+    );
     // Site A's fan was never the target; it must remain untouched throughout.
-    assert!(cur_value(&app, &fan_a).await.is_null(), "site A's point was unexpectedly commanded");
+    assert!(
+        cur_value(&app, &fan_a).await.is_null(),
+        "site A's point was unexpectedly commanded"
+    );
 }
 
 /// The chat path scopes a run to the principal's `{org}/{site}`. Building the run
@@ -192,8 +199,11 @@ async fn chat_scoped_run_cannot_command_a_point_in_another_tenant() {
 
     // Cross-tenant: a scope-A runtime whose turn commands site B is denied.
     {
-        let (state, _) =
-            scripted_state(store.clone(), None, command_then_end(&fan_keyexpr("ten", "cb")));
+        let (state, _) = scripted_state(
+            store.clone(),
+            None,
+            command_then_end(&fan_keyexpr("ten", "cb")),
+        );
         let runtime = runtime_for_scope(&state, Some(scope_a.clone()))
             .expect("scoped runtime")
             .expect("agent enabled");
@@ -216,8 +226,11 @@ async fn chat_scoped_run_cannot_command_a_point_in_another_tenant() {
 
     // In-scope control: the same scope-A runtime commanding A's own point lands.
     {
-        let (state, _) =
-            scripted_state(store.clone(), None, command_then_end(&fan_keyexpr("ten", "ca")));
+        let (state, _) = scripted_state(
+            store.clone(),
+            None,
+            command_then_end(&fan_keyexpr("ten", "ca")),
+        );
         let runtime = runtime_for_scope(&state, Some(scope_a))
             .expect("scoped runtime")
             .expect("agent enabled");

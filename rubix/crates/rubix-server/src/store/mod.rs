@@ -9,6 +9,7 @@ mod backend;
 mod boards;
 mod codec;
 mod command;
+mod dashboards;
 mod equips;
 mod error;
 mod his;
@@ -17,7 +18,6 @@ mod keyexpr;
 mod open;
 mod point_row;
 mod points;
-mod dashboards;
 #[cfg(feature = "cloud")]
 mod postgres;
 mod rules;

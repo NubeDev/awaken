@@ -82,8 +82,7 @@ async fn handle(
                 // Key the external session by tool name + a session marker so a
                 // suspended write's run is attributable; the MCP client supplies
                 // no thread, so the call id stands in.
-                let result =
-                    call_tool_result(&state.store, &tools, params, "mcp").await;
+                let result = call_tool_result(&state.store, &tools, params, "mcp").await;
                 JsonRpcResponse::ok(id, result)
             }
             Err(message) => JsonRpcResponse::err(id, JsonRpcError::invalid_params(message)),

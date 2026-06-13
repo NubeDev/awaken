@@ -131,4 +131,42 @@ impl Store {
             Backend::Postgres(_) => super::postgres::boards::delete_board(self, slug),
         }
     }
+
+    /// Patch mutable metadata (`display_name`, `enabled`) on the latest version
+    /// of a board slug. `slug`/`trigger`/`graph` define the version and are not
+    /// edited in place — republishing those is a new `create_board` version.
+    pub fn update_board(
+        &self,
+        slug: &str,
+        display_name: Option<&str>,
+        enabled: Option<bool>,
+    ) -> Result<BoardRecord> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.update_board_sqlite(slug, display_name, enabled),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::boards::update_board(self, slug, display_name, enabled)
+            }
+        }
+    }
+
+    fn update_board_sqlite(
+        &self,
+        slug: &str,
+        display_name: Option<&str>,
+        enabled: Option<bool>,
+    ) -> Result<BoardRecord> {
+        let conn = self.sqlite_conn()?;
+        let n = conn.execute(
+            "UPDATE boards SET \
+             display_name = COALESCE(?2, display_name), \
+             enabled = COALESCE(?3, enabled) \
+             WHERE slug = ?1 AND version = (SELECT MAX(version) FROM boards WHERE slug = ?1)",
+            params![slug, display_name, enabled],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound("board"));
+        }
+        self.get_board_sqlite(slug)
+    }
 }

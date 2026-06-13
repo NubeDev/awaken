@@ -56,11 +56,33 @@ pub(crate) fn latest_boards(store: &Store) -> Result<Vec<BoardRecord>> {
 
 pub(crate) fn get_board(store: &Store, slug: &str) -> Result<BoardRecord> {
     let mut client = store.postgres_conn()?;
-    let sql = format!(
-        "SELECT {BOARD_COLS} FROM boards WHERE slug = $1 ORDER BY version DESC LIMIT 1"
-    );
+    let sql =
+        format!("SELECT {BOARD_COLS} FROM boards WHERE slug = $1 ORDER BY version DESC LIMIT 1");
     let row = client
         .query_opt(sql.as_str(), &[&slug])?
+        .ok_or(StoreError::NotFound("board"))?;
+    board_of(&row)
+}
+
+pub(crate) fn update_board(
+    store: &Store,
+    slug: &str,
+    display_name: Option<&str>,
+    enabled: Option<bool>,
+) -> Result<BoardRecord> {
+    let mut client = store.postgres_conn()?;
+    let row = client
+        .query_opt(
+            &format!(
+                "UPDATE boards SET \
+                 display_name = COALESCE($2, display_name), \
+                 enabled = COALESCE($3, enabled) \
+                 WHERE slug = $1 AND version = \
+                   (SELECT MAX(version) FROM boards WHERE slug = $1) \
+                 RETURNING {BOARD_COLS}"
+            ),
+            &[&slug, &display_name, &enabled],
+        )?
         .ok_or(StoreError::NotFound("board"))?;
     board_of(&row)
 }

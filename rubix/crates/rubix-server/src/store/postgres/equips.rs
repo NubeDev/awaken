@@ -61,6 +61,28 @@ pub(crate) fn get_equip(store: &Store, id: Uuid) -> Result<Equip> {
     equip_of(&row)
 }
 
+pub(crate) fn update_equip(
+    store: &Store,
+    id: Uuid,
+    display_name: Option<&str>,
+    tags: Option<&rubix_core::TagSet>,
+) -> Result<Equip> {
+    let mut client = store.postgres_conn()?;
+    let tags_json = tags.map(json_of);
+    let row = client
+        .query_opt(
+            &format!(
+                "UPDATE equips SET \
+                 display_name = COALESCE($2, display_name), \
+                 tags = COALESCE($3, tags) \
+                 WHERE id = $1 RETURNING {EQUIP_COLS}"
+            ),
+            &[&id.to_string(), &display_name, &tags_json],
+        )?
+        .ok_or(StoreError::NotFound("equip"))?;
+    equip_of(&row)
+}
+
 pub(crate) fn delete_equip(store: &Store, id: Uuid) -> Result<()> {
     let n = store
         .postgres_conn()?

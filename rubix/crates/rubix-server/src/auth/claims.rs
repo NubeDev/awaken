@@ -67,7 +67,14 @@ mod tests {
         let p = claims.into_principal().unwrap();
         assert_eq!(p.subject, "u1");
         assert_eq!(p.role, Role::Operator);
-        assert_eq!(p.scope, Scope { org: Some("nube".into()), team: Some("ops".into()), site: Some("hq".into()) });
+        assert_eq!(
+            p.scope,
+            Scope {
+                org: Some("nube".into()),
+                team: Some("ops".into()),
+                site: Some("hq".into())
+            }
+        );
     }
 
     #[test]

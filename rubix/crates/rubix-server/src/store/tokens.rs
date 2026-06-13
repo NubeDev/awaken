@@ -85,8 +85,9 @@ impl Store {
 
     fn list_tokens_sqlite(&self) -> Result<Vec<TokenRecord>> {
         let conn = self.sqlite_conn()?;
-        let mut stmt =
-            conn.prepare(&format!("SELECT {TOKEN_COLS} FROM tokens ORDER BY created_at DESC"))?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {TOKEN_COLS} FROM tokens ORDER BY created_at DESC"
+        ))?;
         let rows = stmt.query_map([], row_token)?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
@@ -132,7 +133,11 @@ impl Store {
             // Either absent or already revoked; distinguish so a double-revoke is
             // a no-op success, not a spurious 404.
             self.sqlite_conn()?
-                .query_row("SELECT 1 FROM tokens WHERE id = ?1", params![id], |_| Ok(()))
+                .query_row(
+                    "SELECT 1 FROM tokens WHERE id = ?1",
+                    params![id],
+                    |_| Ok(()),
+                )
                 .optional()?
                 .ok_or(StoreError::NotFound("token"))?;
         }

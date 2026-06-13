@@ -84,6 +84,48 @@ async fn republish_increments_version_and_get_returns_latest() {
 }
 
 #[tokio::test]
+async fn patch_board_edits_metadata_on_latest_version() {
+    let app = TestApp::new();
+    let create = json!({
+        "slug": "setback", "display_name": "Setback",
+        "trigger": {"kind": "interval", "seconds": 60},
+        "board": read_graph("nube/hq/ahu-3/temp")
+    });
+    let (status, _) = app.request("POST", "/api/v1/boards", Some(create)).await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    let (status, body) = app
+        .request(
+            "PATCH",
+            "/api/v1/boards/setback",
+            Some(json!({"display_name": "Night setback", "enabled": false})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["display_name"], "Night setback");
+    assert_eq!(body["enabled"], json!(false));
+    assert_eq!(body["version"], json!(1));
+
+    // Persisted: a fresh GET reflects the patch.
+    let (_, got) = app.request("GET", "/api/v1/boards/setback", None).await;
+    assert_eq!(got["display_name"], "Night setback");
+    assert_eq!(got["enabled"], json!(false));
+}
+
+#[tokio::test]
+async fn patch_missing_board_404() {
+    let app = TestApp::new();
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/api/v1/boards/nope",
+            Some(json!({"enabled": false})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn zero_interval_rejected() {
     let app = TestApp::new();
     let body = json!({
@@ -250,5 +292,190 @@ async fn emit_spark_board_records_a_finding() {
     assert_eq!(arr.len(), 1, "{sparks}");
     assert_eq!(arr[0]["rule"], json!("heat_cool_conflict"));
     assert_eq!(arr[0]["severity"], json!("fault"));
-    assert_eq!(arr[0]["message"], json!("simultaneous heat and cool on AHU-3"));
+    assert_eq!(
+        arr[0]["message"],
+        json!("simultaneous heat and cool on AHU-3")
+    );
+}
+
+/// The component catalogue lists every built-in node with its ports and config
+/// schema, so the editor can render a config form without hardcoding fields.
+#[tokio::test]
+async fn components_catalogue_exposes_schema() {
+    let app = TestApp::new();
+    let (status, components) = app.request("GET", "/api/v1/boards/components", None).await;
+    assert_eq!(status, StatusCode::OK, "{components}");
+
+    let arr = components.as_array().expect("components array");
+
+    // Every built-in is catalogued (the registry-coverage unit test in
+    // rubix-flow pins the exact set; here we just confirm the known nodes
+    // surface over HTTP, so adding a component doesn't churn this assertion).
+    let names: Vec<&str> = arr
+        .iter()
+        .map(|c| c["component"].as_str().unwrap())
+        .collect();
+    for expected in [
+        "read_point",
+        "write_point",
+        "query_his",
+        "rule",
+        "trigger",
+        "agent_call",
+        "emit_spark",
+    ] {
+        assert!(
+            names.contains(&expected),
+            "missing {expected} in {components}"
+        );
+    }
+
+    // write_point carries a typed, bounded `priority` field with a default —
+    // exactly the schema the editor needs to render a control, not a guess.
+    let write = arr
+        .iter()
+        .find(|c| c["component"] == "write_point")
+        .unwrap();
+    let priority = write["config"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "priority")
+        .expect("priority field");
+    assert_eq!(priority["field_type"], json!("integer"));
+    assert_eq!(priority["required"], json!(false));
+    assert_eq!(priority["default"], json!(16));
+    assert_eq!(priority["min"], json!(1.0));
+    assert_eq!(priority["max"], json!(16.0));
+
+    // Ports carry a type so the editor can validate connections: read_point's
+    // `output` is a scalar, its `error` is the terminal error class.
+    let read = arr.iter().find(|c| c["component"] == "read_point").unwrap();
+    let read_out = read["outports"].as_array().unwrap();
+    assert_eq!(
+        read_out.iter().find(|p| p["id"] == "output").unwrap()["port_type"],
+        json!("scalar")
+    );
+    assert_eq!(
+        read_out.iter().find(|p| p["id"] == "error").unwrap()["port_type"],
+        json!("error")
+    );
+
+    // emit_spark.severity is an enum with options — drives a select control.
+    let emit = arr.iter().find(|c| c["component"] == "emit_spark").unwrap();
+    let severity = emit["config"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "severity")
+        .expect("severity field");
+    assert_eq!(severity["field_type"], json!("enum"));
+    assert_eq!(severity["options"], json!(["info", "warning", "fault"]));
+}
+
+/// A new flow is created empty (no nodes/connections) with a manual trigger —
+/// the path the editor's "New flow" action takes before any node is dragged in.
+#[tokio::test]
+async fn create_empty_manual_board() {
+    let app = TestApp::new();
+    let body = json!({
+        "slug": "blank-flow",
+        "display_name": "Blank flow",
+        "trigger": {"kind": "manual"},
+        "board": {"nodes": [], "connections": []}
+    });
+    let (status, created) = app.request("POST", "/api/v1/boards", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["version"], json!(1));
+    assert_eq!(created["graph"]["nodes"], json!([]));
+}
+
+/// A board run's per-node outputs surface on the live-outputs endpoint, so a
+/// client can see the values an enabled board produces without re-running it.
+/// Uses a `read_point` board over a seeded point for a deterministic output.
+#[tokio::test]
+async fn board_outputs_endpoint_exposes_last_run_values() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let equip = app.create_equip(&site).await;
+    let temp = app.create_point(&equip, "sensor", "temp").await;
+    let (status, _) = app
+        .request(
+            "POST",
+            &format!("/api/v1/points/{temp}/cur"),
+            Some(json!({"value": 21.5})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let board = json!({
+        "slug": "read-temp", "display_name": "Read temp",
+        "trigger": {"kind": "manual"},
+        "board": {
+            "nodes": [{"id": "r1", "component": "read_point",
+                       "config": {"point": "nube/hq/ahu-3/temp"}}],
+            "connections": []
+        }
+    });
+    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    // Before any run, outputs are empty (board has not produced anything).
+    let (status, before) = app
+        .request("GET", "/api/v1/boards/read-temp/outputs", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{before}");
+    assert_eq!(before.as_array().unwrap().len(), 0);
+
+    // Run it; read_point emits the point's value on `output`.
+    let (status, run) = app
+        .request("POST", "/api/v1/boards/read-temp/run", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{run}");
+
+    // The run's output is now readable on the outputs endpoint, keyed by node
+    // and port, with the value and a capture timestamp.
+    let (status, after) = app
+        .request("GET", "/api/v1/boards/read-temp/outputs", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{after}");
+    let arr = after.as_array().unwrap();
+    let output = arr
+        .iter()
+        .find(|o| o["node"] == "r1" && o["port"] == "output")
+        .expect(&format!("read_point output present: {after}"));
+    assert_eq!(output["value"], json!(21.5));
+    assert!(output["at"].is_string(), "carries a capture timestamp");
+}
+
+/// Deleting a board clears its cached outputs, so a later board reusing the
+/// slug never shows the old one's values.
+#[tokio::test]
+async fn deleting_a_board_clears_its_outputs() {
+    let app = TestApp::new();
+    let board = json!({
+        "slug": "ephemeral", "display_name": "Ephemeral",
+        "trigger": {"kind": "manual"},
+        "board": {
+            "nodes": [{"id": "t1", "component": "trigger", "config": {}}],
+            "connections": []
+        }
+    });
+    app.request("POST", "/api/v1/boards", Some(board)).await;
+    app.request("POST", "/api/v1/boards/ephemeral/run", None).await;
+    let (_, after) = app
+        .request("GET", "/api/v1/boards/ephemeral/outputs", None)
+        .await;
+    assert!(!after.as_array().unwrap().is_empty());
+
+    let (status, _) = app
+        .request("DELETE", "/api/v1/boards/ephemeral", None)
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let (status, cleared) = app
+        .request("GET", "/api/v1/boards/ephemeral/outputs", None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(cleared.as_array().unwrap().len(), 0, "outputs cleared on delete");
 }

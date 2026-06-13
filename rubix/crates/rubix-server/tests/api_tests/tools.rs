@@ -235,7 +235,10 @@ async fn scoped_query_tool_sees_only_its_tenant() {
     let tools = build_tools_scoped(&state, Some(scope));
     // The tool is present (no longer withheld for scoped runs).
     let ids: Vec<String> = tools.iter().map(|t| t.descriptor().id).collect();
-    assert!(ids.contains(&"rubix_query".to_string()), "scoped run lost its query tool");
+    assert!(
+        ids.contains(&"rubix_query".to_string()),
+        "scoped run lost its query tool"
+    );
 
     let query = find(&tools, "rubix_query");
 
@@ -269,5 +272,8 @@ async fn scoped_query_tool_sees_only_its_tenant() {
         .await
         .expect("query");
     assert_eq!(out.result.data["row_count"], json!(1));
-    assert_eq!(out.result.data["rows"][0]["keyexpr"], json!("ten/qa/ahu-3/temp"));
+    assert_eq!(
+        out.result.data["rows"][0]["keyexpr"],
+        json!("ten/qa/ahu-3/temp")
+    );
 }

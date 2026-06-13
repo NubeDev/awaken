@@ -75,7 +75,11 @@ pub(crate) fn revoke_token(store: &Store, id: &str) -> Result<()> {
         "UPDATE tokens SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL",
         &[&id, &ts_of(&chrono::Utc::now())],
     )?;
-    if affected == 0 && client.query_opt("SELECT 1 FROM tokens WHERE id = $1", &[&id])?.is_none() {
+    if affected == 0
+        && client
+            .query_opt("SELECT 1 FROM tokens WHERE id = $1", &[&id])?
+            .is_none()
+    {
         return Err(StoreError::NotFound("token"));
     }
     Ok(())

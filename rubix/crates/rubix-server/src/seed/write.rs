@@ -47,11 +47,7 @@ pub fn seed_portfolio(store: &Store) -> Result<SeedReport, SeedError> {
     Ok(report)
 }
 
-fn ensure_site(
-    store: &Store,
-    spec: &SiteSpec,
-    report: &mut SeedReport,
-) -> Result<Uuid, SeedError> {
+fn ensure_site(store: &Store, spec: &SiteSpec, report: &mut SeedReport) -> Result<Uuid, SeedError> {
     if let Some(existing) = store
         .list_sites(Some(ORG))?
         .into_iter()

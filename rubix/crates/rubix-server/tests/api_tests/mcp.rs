@@ -63,7 +63,10 @@ async fn tools_call_writes_through_the_priority_array() {
     )
     .await;
     assert_eq!(body["result"]["isError"], false, "{body}");
-    assert_eq!(body["result"]["structuredContent"]["effective"], json!(true));
+    assert_eq!(
+        body["result"]["structuredContent"]["effective"],
+        json!(true)
+    );
 
     // read_point sees the commanded value, confirming the call hit the store.
     let body = rpc(
@@ -147,7 +150,9 @@ async fn escalation_band_write_suspends_into_the_run_registry() {
     assert_eq!(body["result"]["structuredContent"]["value"], json!(null));
 
     // The suspended run appears in the operator surface, origin `mcp`.
-    let (status, runs) = app.request("GET", "/api/v1/runs?status=suspended", None).await;
+    let (status, runs) = app
+        .request("GET", "/api/v1/runs?status=suspended", None)
+        .await;
     assert_eq!(status, StatusCode::OK);
     let run = runs
         .as_array()

@@ -17,7 +17,9 @@ pub(crate) async fn cancel_run(
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
     blocking(move || {
-        state.store.settle_suspended_run(&id, RunStatus::Cancelled)?;
+        state
+            .store
+            .settle_suspended_run(&id, RunStatus::Cancelled)?;
         Ok(())
     })
     .await?;

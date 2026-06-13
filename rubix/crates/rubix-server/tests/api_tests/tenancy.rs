@@ -71,6 +71,7 @@ fn scripted_state(
         ai_escalation_floor: 1,
         authenticator: None,
         scheduler: None,
+        datasources: None,
     };
     state.agent = Some(Arc::new(
         build_scoped_runtime(&state, &blueprint, None).expect("boot runtime"),

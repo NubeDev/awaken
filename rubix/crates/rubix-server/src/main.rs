@@ -157,6 +157,26 @@ async fn main() -> anyhow::Result<()> {
         Some(engine)
     };
 
+    // Load external read-only datasources (TimescaleDB/Postgres historians) from
+    // their own manifest, separate from `drivers.json` — datasources are read
+    // *out of* at query time, the opposite direction from a protocol driver
+    // (docs/design/datasources.md "Boundaries"). Pools are built eagerly, so a
+    // bad credential or unreachable host fails here at boot. A missing or empty
+    // manifest leaves the datasource surfaces (routes, board node, AI tool) off.
+    let datasources_path = env_or("RUBIX_DATASOURCES", "datasources.json");
+    let datasources =
+        rubix_server::datasources::load(std::path::Path::new(&datasources_path)).await?;
+    match &datasources {
+        Some(_) => tracing::info!(
+            path = %datasources_path,
+            "external datasources up: POST /api/v1/datasources/{{id}}/query"
+        ),
+        None => tracing::info!(
+            path = %datasources_path,
+            "no external datasources configured; datasource routes/node/tool off"
+        ),
+    }
+
     // Resolve the auth posture. The cloud profile requires authenticated
     // requests (STACK-DEISGN.md "auth (OIDC/RBAC)"); the edge profile leaves it
     // off so local/offline stations keep working. A profile that requires auth
@@ -190,6 +210,7 @@ async fn main() -> anyhow::Result<()> {
         ai_escalation_floor,
         authenticator,
         scheduler: None,
+        datasources,
     };
 
     // Embed the awaken agent over the BMS tools when enabled. The genai

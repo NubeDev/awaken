@@ -10,6 +10,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 rubix-core = { path = "crates/rubix-core" }
+rubix-datasource = { path = "crates/rubix-datasource" }
 rubix-driver = { path = "crates/rubix-driver" }
 rubix-flow = { path = "crates/rubix-flow" }
 rubix-query = { path = "crates/rubix-query" }

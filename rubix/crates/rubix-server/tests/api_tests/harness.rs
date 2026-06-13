@@ -50,6 +50,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: Some(scheduler),
+            datasources: None,
         };
         let app = Self {
             router: app(state.clone()),
@@ -77,6 +78,7 @@ impl TestApp {
             ai_escalation_floor: floor,
             authenticator: None,
             scheduler: Some(scheduler),
+            datasources: None,
         };
         Self {
             router: app(state),
@@ -104,6 +106,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: None,
+            datasources: None,
         };
         let app = Self {
             router: app(state.clone()),
@@ -127,6 +130,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: None,
+            datasources: None,
         };
         Self {
             router: app(state),
@@ -152,6 +156,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: None,
+            datasources: None,
         };
         let app = Self {
             router: app(state),
@@ -179,6 +184,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: None,
+            datasources: None,
         };
         Self {
             router: app(state),
@@ -210,6 +216,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: None,
+            datasources: None,
         };
         Self {
             router: app(state),
@@ -239,6 +246,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: Some(authenticator),
             scheduler: None,
+            datasources: None,
         };
         let app = Self {
             router: app(state),
@@ -305,6 +313,7 @@ impl TestApp {
             ai_escalation_floor: 1,
             authenticator: None,
             scheduler: Some(scheduler),
+            datasources: None,
         };
         Self {
             router: app(state),

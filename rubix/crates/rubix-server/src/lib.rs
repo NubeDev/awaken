@@ -14,6 +14,7 @@ pub mod agent;
 pub mod api;
 pub mod auth;
 pub mod bus;
+pub mod datasources;
 pub mod dispatch;
 pub mod error;
 pub mod flow;
@@ -32,6 +33,7 @@ use axum::Router;
 use tower_http::trace::TraceLayer;
 
 use awaken_runtime::AgentRuntime;
+use rubix_datasource::DatasourceRegistry;
 use rubix_query::{HisTier, QueryEngine};
 
 use crate::auth::Authenticator;
@@ -82,6 +84,13 @@ pub struct AppState {
     /// restart, and read its [`scheduler::BoardOutputs`] cache to surface the
     /// latest values an enabled board produced. `None` when `RUBIX_SCHEDULER=0`.
     pub scheduler: Option<scheduler::Scheduler>,
+    /// External read-only SQL datasources (TimescaleDB/Postgres historians),
+    /// keyed by id and each owning one small pool. `None` unless a
+    /// `datasources.json` with at least one entry is loaded at boot
+    /// (`RUBIX_DATASOURCES`); the `/datasources` routes, the `datasource` board
+    /// node, and the datasource AI tool are all withheld when absent. Shared
+    /// behind an `Arc` because the registry owns live pools and is not cloneable.
+    pub datasources: Option<Arc<DatasourceRegistry>>,
 }
 
 pub fn app(state: AppState) -> Router {

@@ -23,6 +23,7 @@ cloud = ["dep:postgres", "dep:r2d2_postgres", "rubix-query/cloud"]
 
 [dependencies]
 rubix-core.workspace = true
+rubix-datasource.workspace = true
 rubix-driver.workspace = true
 rubix-flow.workspace = true
 rubix-query.workspace = true

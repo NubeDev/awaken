@@ -57,6 +57,7 @@ async fn published_spark_activates_an_agent_run() {
         ai_escalation_floor: 1,
         authenticator: None,
         scheduler: None,
+        datasources: None,
     };
     state.agent = Some(Arc::new(
         rubix_server::agent::build_scoped_runtime(&state, &blueprint, None).expect("runtime"),

@@ -12,6 +12,8 @@ import { TimeRangePicker } from '../time/time-range-picker'
 import { useTimeRangeSync } from '../time/use-time-range'
 import { useVariableResolution } from '../variables/use-resolution'
 import { useVarUrlState } from '../variables/use-var-url-state'
+import { usePageContext } from '../nav/use-page-context'
+import { TagEditor } from '../nav/tag-editor'
 import { VariableBar } from '../variables/variable-bar'
 import { VariableEditorDialog } from '../variables/variable-editor-dialog'
 import { DashboardFormDialog } from './components/dashboard-form-dialog'
@@ -67,10 +69,20 @@ export function Builder() {
   // Variable resolution + URL state for the selected dashboard. The bar drives
   // the `?var-*` selection; widgets re-query off the resolved values.
   const { selection, setSelection } = useVarUrlState()
+  // Assemble the page context for the open board (nav node + bare URL params +
+  // tags + scope) and fold it into resolution so the same board, mounted at two
+  // nav nodes, resolves two sites' data (docs/design/page-context-and-nav.md §1).
+  const pageContext = usePageContext({
+    org,
+    siteId: selected?.site_id ?? undefined,
+    dashboardId: selected?.id,
+    boardSlug: selected?.slug,
+  })
   const { resolved, error: varError } = useVariableResolution({
     org,
     variables: selected?.variables ?? [],
     selection,
+    pageContext,
   })
 
   return (
@@ -97,6 +109,7 @@ export function Builder() {
               <SlidersHorizontal className='size-3.5' /> Variables
             </Button>
           ) : null}
+          {selected ? <TagEditor dashboardId={selected.id} /> : null}
           <div className='ms-auto'>
             <TimeRangePicker />
           </div>

@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { useUndo } from '@/api/hooks'
 import { useScope } from '@/context/scope-provider'
 
-export interface UndoToastOptions {
+interface UndoToastOptions {
   /** Verb-phrase headline, e.g. 'Deleted dashboard'. */
   message: string
   /** The change group id this mutation produced (for tracing). */

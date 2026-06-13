@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useQueryTime } from '@/features/time/use-query-time'
+import { useUndoToast } from '@/features/audit/use-undo-toast'
 import { HistoryChart, type ChartRow } from '../lib/charts'
 import { BoardOutputCard } from './board-output-card'
 
@@ -51,6 +52,7 @@ export function WidgetCard({ widget, point }: WidgetCardProps) {
 
 function RemoveButton({ widget }: { widget: Widget }) {
   const del = useDeleteWidget()
+  const undoToast = useUndoToast()
   const [confirmOpen, setConfirmOpen] = useState(false)
   return (
     <>
@@ -72,7 +74,15 @@ function RemoveButton({ widget }: { widget: Widget }) {
         confirmText='Remove'
         isLoading={del.isPending}
         handleConfirm={() =>
-          del.mutate(widget.id, { onSuccess: () => setConfirmOpen(false) })
+          del.mutate(widget.id, {
+            onSuccess: () => {
+              setConfirmOpen(false)
+              // The delete is recorded server-side; offer an inline undo that
+              // pops the caller's just-made change group
+              // (docs/design/audit-and-undo.md "UI").
+              undoToast({ message: `Removed "${widget.title}"` })
+            },
+          })
         }
       />
     </>

@@ -47,6 +47,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 5,
         step: migrate_v5_prefs,
     },
+    Migration {
+        version: 6,
+        step: migrate_v6_dashboard_variables,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -280,6 +284,17 @@ fn migrate_v5_prefs(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
         );
         ",
     )
+}
+
+/// v6 — dashboards gain a `variables` JSON column carrying the dashboard's
+/// variable model (docs/design/variables-and-templating.md §1). Nullable, so an
+/// existing board reads back with an empty variable list and behaves exactly as
+/// before. A no-op on a fresh database (column present in the base schema).
+fn migrate_v6_dashboard_variables(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    if !column_exists(tx, "dashboards", "variables")? {
+        tx.execute_batch("ALTER TABLE dashboards ADD COLUMN variables TEXT")?;
+    }
+    Ok(())
 }
 
 /// True when `table` has a column named `column`, read from `PRAGMA

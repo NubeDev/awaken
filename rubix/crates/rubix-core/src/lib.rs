@@ -9,6 +9,7 @@ mod model;
 mod priority;
 mod tags;
 mod value;
+mod variable;
 
 pub use error::CoreError;
 pub use model::{
@@ -18,3 +19,4 @@ pub use model::{
 pub use priority::{PriorityArray, PRIORITY_LEVELS};
 pub use tags::{validate_slug, TagSet};
 pub use value::PointValue;
+pub use variable::{validate_variables, Variable, VariableConfig, VariableError, VariableKind};

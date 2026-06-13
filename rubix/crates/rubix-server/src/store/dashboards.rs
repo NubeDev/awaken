@@ -3,7 +3,7 @@
 //! site-scoped or an org overview (`site_id` NULL). Backend dispatch lives here;
 //! the SQLite body is inline, the Postgres body in [`super::postgres::dashboards`].
 
-use rubix_core::Dashboard;
+use rubix_core::{Dashboard, Variable};
 use rusqlite::{params, OptionalExtension, Row};
 use uuid::Uuid;
 
@@ -12,17 +12,45 @@ use super::codec::{ts_of, ts_to};
 use super::{Result, Store, StoreError};
 
 fn row_dashboard(row: &Row<'_>) -> rusqlite::Result<Dashboard> {
+    let variables: Option<String> = row.get(5)?;
     Ok(Dashboard {
         id: row.get(0)?,
         org: row.get(1)?,
         site_id: row.get(2)?,
         slug: row.get(3)?,
         title: row.get(4)?,
-        created_at: ts_to(&row.get::<_, String>(5)?)?,
+        variables: decode_variables(variables.as_deref()).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, e.into())
+        })?,
+        created_at: ts_to(&row.get::<_, String>(6)?)?,
     })
 }
 
-pub(crate) const DASHBOARD_COLS: &str = "id, org, site_id, slug, title, created_at";
+/// Decode the stored `variables` JSON column into the model. A NULL/empty column
+/// (older row, or a board with no variables) decodes to an empty list.
+pub(crate) fn decode_variables(
+    raw: Option<&str>,
+) -> std::result::Result<Vec<Variable>, serde_json::Error> {
+    match raw {
+        None => Ok(Vec::new()),
+        Some(s) if s.trim().is_empty() => Ok(Vec::new()),
+        Some(s) => serde_json::from_str(s),
+    }
+}
+
+/// Encode the variable list for storage. An empty list stores as `NULL` so an
+/// untouched board does not carry an empty-array string.
+pub(crate) fn encode_variables(
+    variables: &[Variable],
+) -> std::result::Result<Option<String>, serde_json::Error> {
+    if variables.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(serde_json::to_string(variables)?))
+    }
+}
+
+pub(crate) const DASHBOARD_COLS: &str = "id, org, site_id, slug, title, variables, created_at";
 
 impl Store {
     pub fn create_dashboard(&self, dashboard: &Dashboard) -> Result<()> {
@@ -38,15 +66,18 @@ impl Store {
         if let Some(site_id) = dashboard.site_id {
             Self::require_site(&conn, site_id)?;
         }
+        let variables = encode_variables(&dashboard.variables)
+            .map_err(|e| StoreError::Db(anyhow::anyhow!("encode dashboard variables: {e}")))?;
         conn.execute(
-            "INSERT INTO dashboards (id, org, site_id, slug, title, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO dashboards (id, org, site_id, slug, title, variables, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 dashboard.id,
                 dashboard.org,
                 dashboard.site_id,
                 dashboard.slug,
                 dashboard.title,
+                variables,
                 ts_of(&dashboard.created_at),
             ],
         )?;
@@ -95,21 +126,48 @@ impl Store {
             .ok_or(StoreError::NotFound("dashboard"))
     }
 
-    /// Patch the mutable metadata of a dashboard (`title`). `org`/`site_id`/
-    /// `slug` are identity and immutable. Returns the updated row.
-    pub fn update_dashboard(&self, id: Uuid, title: Option<&str>) -> Result<Dashboard> {
+    /// Patch the mutable metadata of a dashboard (`title` and/or `variables`).
+    /// `org`/`site_id`/`slug` are identity and immutable. A `None` field is left
+    /// unchanged; `variables` is replaced wholesale when present (the editor
+    /// owns the full list). Returns the updated row.
+    pub fn update_dashboard(
+        &self,
+        id: Uuid,
+        title: Option<&str>,
+        variables: Option<&[Variable]>,
+    ) -> Result<Dashboard> {
         match &self.backend {
-            Backend::Sqlite(_) => self.update_dashboard_sqlite(id, title),
+            Backend::Sqlite(_) => self.update_dashboard_sqlite(id, title, variables),
             #[cfg(feature = "cloud")]
-            Backend::Postgres(_) => super::postgres::dashboards::update_dashboard(self, id, title),
+            Backend::Postgres(_) => {
+                super::postgres::dashboards::update_dashboard(self, id, title, variables)
+            }
         }
     }
 
-    fn update_dashboard_sqlite(&self, id: Uuid, title: Option<&str>) -> Result<Dashboard> {
+    fn update_dashboard_sqlite(
+        &self,
+        id: Uuid,
+        title: Option<&str>,
+        variables: Option<&[Variable]>,
+    ) -> Result<Dashboard> {
         let conn = self.sqlite_conn()?;
+        // `variables` is replaced only when the patch supplies it; a `None`
+        // leaves the stored column untouched. SQLite has no per-column "skip",
+        // so a sentinel (`?3 IS NULL` means "no change") drives the COALESCE,
+        // and an explicit empty list is encoded as `Some("[]")` to distinguish
+        // "clear to empty" from "leave alone".
+        let encoded: Option<String> = match variables {
+            None => None,
+            Some(vars) => Some(
+                serde_json::to_string(vars)
+                    .map_err(|e| StoreError::Db(anyhow::anyhow!("encode variables: {e}")))?,
+            ),
+        };
         let n = conn.execute(
-            "UPDATE dashboards SET title = COALESCE(?2, title) WHERE id = ?1",
-            params![id, title],
+            "UPDATE dashboards SET title = COALESCE(?2, title), \
+             variables = COALESCE(?3, variables) WHERE id = ?1",
+            params![id, title, encoded],
         )?;
         if n == 0 {
             return Err(StoreError::NotFound("dashboard"));
@@ -164,6 +222,7 @@ impl Store {
                     site_id: Some(site_id),
                     slug: "default".into(),
                     title: "Default".into(),
+                    variables: Vec::new(),
                     created_at: chrono::Utc::now(),
                 };
                 self.create_dashboard(&dashboard)?;

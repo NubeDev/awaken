@@ -80,6 +80,49 @@ fn opening_a_legacy_db_migrates_widgets_onto_a_default_dashboard() {
     assert_eq!(store2.list_widgets(None, None).unwrap().len(), 1);
 }
 
+/// v6 — dashboards gain a `variables` JSON column. A v5-shape DB has a
+/// `dashboards` table without it; opening must add the column, keep the existing
+/// board, and read it back with an empty variable list. Re-opening is a no-op.
+#[test]
+fn opening_a_v5_db_adds_dashboard_variables() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("v5.db");
+    let dash_id = uuid::Uuid::new_v4();
+
+    // A v5-shape dashboards table: the pre-v6 column set (no `variables`).
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE dashboards (
+                id BLOB PRIMARY KEY, org TEXT NOT NULL, site_id BLOB,
+                slug TEXT NOT NULL, title TEXT NOT NULL, created_at TEXT NOT NULL
+            );
+            ",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO dashboards VALUES (?1,'acme',NULL,'overview','Overview','2026-01-01T00:00:00Z')",
+            rusqlite::params![dash_id],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 5").unwrap();
+    }
+
+    let store = Store::open(&path).unwrap();
+    let dashboards = store.list_dashboards("acme", None).unwrap();
+    assert_eq!(dashboards.len(), 1, "the legacy dashboard is preserved");
+    assert_eq!(dashboards[0].slug, "overview");
+    assert!(
+        dashboards[0].variables.is_empty(),
+        "a legacy board reads back with no variables"
+    );
+
+    // Re-open is idempotent.
+    let store2 = Store::open(&path).unwrap();
+    assert_eq!(store2.list_dashboards("acme", None).unwrap().len(), 1);
+}
+
 /// A fresh database (base schema already at the newest shape) opens, stamps the
 /// version, and runs no destructive step.
 #[test]

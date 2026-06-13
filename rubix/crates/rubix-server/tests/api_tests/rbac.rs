@@ -77,6 +77,7 @@ fn seed_dashboard(store: &Store, org: &str, slug: &str) -> Uuid {
             site_id: None,
             slug: slug.into(),
             title: slug.into(),
+            variables: Vec::new(),
             created_at: Utc::now(),
         })
         .expect("seed dashboard");

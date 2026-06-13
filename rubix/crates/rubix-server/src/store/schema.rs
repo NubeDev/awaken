@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS dashboards (
     site_id    TEXT REFERENCES sites(id) ON DELETE CASCADE,
     slug       TEXT NOT NULL,
     title      TEXT NOT NULL,
+    -- Dashboard variables as a JSON array (docs/design/variables-and-templating.md
+    -- §1). Travels with the dashboard snapshot; NULL/absent decodes to an empty
+    -- list. Legacy files gain this column in migration v6.
+    variables  TEXT,
     created_at TEXT NOT NULL
 );
 -- A slug is unique within its scope. Two partial indexes: site-scoped boards
@@ -298,6 +302,10 @@ CREATE TABLE IF NOT EXISTS dashboards (
     site_id    TEXT REFERENCES sites(id) ON DELETE CASCADE,
     slug       TEXT NOT NULL,
     title      TEXT NOT NULL,
+    -- Dashboard variables as a JSON array (docs/design/variables-and-templating.md
+    -- §1). Travels with the dashboard snapshot; NULL/absent decodes to an empty
+    -- list. Legacy files gain this column in migration v6.
+    variables  TEXT,
     created_at TEXT NOT NULL
 );
 -- A slug is unique within its scope. Two partial indexes: site-scoped boards

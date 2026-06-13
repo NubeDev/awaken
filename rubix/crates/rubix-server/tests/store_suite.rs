@@ -9,7 +9,7 @@ use chrono::Utc;
 use rubix_core::Equip;
 use rubix_core::{
     GridLayout, HisSample, Point, PointKind, PointValue, PriorityArray, Site, Spark, SparkSeverity,
-    TagSet, Widget, WidgetKind, WidgetSettings,
+    TagSet, Variable, VariableConfig, VariableKind, Widget, WidgetKind, WidgetSettings,
 };
 use rubix_flow::BoardGraph;
 use rubix_server::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
@@ -232,6 +232,40 @@ fn run_suite(store: &Store) {
     );
     let cleared = store.update_widget_settings(widget.id, None).unwrap();
     assert!(cleared.settings.is_none());
+
+    // Dashboard variables round-trip through the JSON column (WS-02): a default
+    // board starts with none; a patch replaces the list wholesale; a `None`
+    // patch leaves them intact; an explicit empty list clears them.
+    assert!(store
+        .get_dashboard(dashboard_id)
+        .unwrap()
+        .variables
+        .is_empty());
+    let site_var = Variable {
+        name: "site".into(),
+        label: Some("Site".into()),
+        kind: VariableKind::Site,
+        config: VariableConfig::Site {},
+        current: serde_json::Value::Null,
+        multi: true,
+        include_all: true,
+        hidden: false,
+    };
+    let with_var = store
+        .update_dashboard(dashboard_id, None, Some(std::slice::from_ref(&site_var)))
+        .unwrap();
+    assert_eq!(with_var.variables, vec![site_var.clone()]);
+    // A title-only patch leaves the variables intact.
+    let renamed = store
+        .update_dashboard(dashboard_id, Some("Renamed"), None)
+        .unwrap();
+    assert_eq!(renamed.title, "Renamed");
+    assert_eq!(renamed.variables, vec![site_var]);
+    // An explicit empty list clears them.
+    let emptied = store
+        .update_dashboard(dashboard_id, None, Some(&[]))
+        .unwrap();
+    assert!(emptied.variables.is_empty());
 
     // Boards: versioning, latest-per-scope, get, delete. An org-level flow and a
     // site-scoped flow can share a slug; they are distinct boards.

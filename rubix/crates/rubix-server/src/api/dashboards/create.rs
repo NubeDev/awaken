@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
 use chrono::Utc;
-use rubix_core::{validate_slug, Dashboard};
+use rubix_core::{validate_slug, validate_variables, Dashboard, Variable};
 use serde::Deserialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -24,6 +24,10 @@ pub struct CreateDashboard {
     pub site_id: Option<Uuid>,
     pub slug: String,
     pub title: String,
+    /// Dashboard variables (docs/design/variables-and-templating.md §1). Empty /
+    /// omitted for a board with no parameterisation.
+    #[serde(default)]
+    pub variables: Vec<Variable>,
 }
 
 #[utoipa::path(post, path = "/api/v1/dashboards", request_body = CreateDashboard, tag = "dashboards",
@@ -41,6 +45,7 @@ pub(crate) async fn create_dashboard(
     if req.title.trim().is_empty() {
         return Err(ApiError::BadRequest("title must not be empty".into()));
     }
+    validate_variables(&req.variables).map_err(|e| ApiError::BadRequest(e.to_string()))?;
     authorize_dashboard_write(&principal, &state.store, &req.org, req.site_id)?;
 
     let dashboard = Dashboard {
@@ -49,6 +54,7 @@ pub(crate) async fn create_dashboard(
         site_id: req.site_id,
         slug: req.slug,
         title: req.title,
+        variables: req.variables,
         created_at: Utc::now(),
     };
     let stored = dashboard.clone();

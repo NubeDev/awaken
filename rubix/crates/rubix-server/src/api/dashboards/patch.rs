@@ -3,7 +3,7 @@
 
 use axum::extract::{Path, State};
 use axum::Json;
-use rubix_core::Dashboard;
+use rubix_core::{validate_variables, Dashboard, Variable};
 use serde::Deserialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -18,6 +18,10 @@ use crate::AppState;
 pub struct PatchDashboard {
     #[serde(default)]
     pub title: Option<String>,
+    /// Replace the dashboard's variables wholesale (the editor owns the full
+    /// list). Omit to leave them unchanged; send `[]` to clear them.
+    #[serde(default)]
+    pub variables: Option<Vec<Variable>>,
 }
 
 #[utoipa::path(patch, path = "/api/v1/dashboards/{id}", params(("id" = Uuid, Path)),
@@ -31,6 +35,9 @@ pub(crate) async fn patch_dashboard(
     Path(id): Path<Uuid>,
     Json(req): Json<PatchDashboard>,
 ) -> Result<Json<Dashboard>, ApiError> {
+    if let Some(variables) = &req.variables {
+        validate_variables(variables).map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    }
     let store = state.store.clone();
     let current = blocking(move || Ok(store.get_dashboard(id)?)).await?;
     authorize_dashboard_write_existing(
@@ -40,7 +47,11 @@ pub(crate) async fn patch_dashboard(
         current.site_id,
         id,
     )?;
-    let updated =
-        blocking(move || Ok(state.store.update_dashboard(id, req.title.as_deref())?)).await?;
+    let updated = blocking(move || {
+        Ok(state
+            .store
+            .update_dashboard(id, req.title.as_deref(), req.variables.as_deref())?)
+    })
+    .await?;
     Ok(Json(updated))
 }

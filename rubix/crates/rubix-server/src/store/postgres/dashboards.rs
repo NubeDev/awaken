@@ -1,10 +1,10 @@
 //! Dashboard rows, Postgres backend. Mirrors [`super::super::dashboards`].
 
-use rubix_core::Dashboard;
+use rubix_core::{Dashboard, Variable};
 use uuid::Uuid;
 
 use super::super::codec::ts_of;
-use super::super::dashboards::DASHBOARD_COLS;
+use super::super::dashboards::{decode_variables, encode_variables, DASHBOARD_COLS};
 use super::super::{Result, Store, StoreError};
 use super::codec::{require, ts_col, uuid_of};
 
@@ -14,13 +14,16 @@ fn dashboard_of(row: &postgres::Row) -> Result<Dashboard> {
         .map(|s| Uuid::parse_str(&s))
         .transpose()
         .map_err(|e| StoreError::Db(anyhow::anyhow!("bad dashboard site_id uuid: {e}")))?;
+    let variables: Option<String> = row.get(5);
     Ok(Dashboard {
         id: uuid_of(row, 0)?,
         org: row.get(1),
         site_id,
         slug: row.get(3),
         title: row.get(4),
-        created_at: ts_col(row, 5)?,
+        variables: decode_variables(variables.as_deref())
+            .map_err(|e| StoreError::Db(anyhow::anyhow!("decode dashboard variables: {e}")))?,
+        created_at: ts_col(row, 6)?,
     })
 }
 
@@ -30,15 +33,18 @@ pub(crate) fn create_dashboard(store: &Store, dashboard: &Dashboard) -> Result<(
         require(&mut *client, "sites", "site", site_id)?;
     }
     let site_id = dashboard.site_id.map(|s| s.to_string());
+    let variables = encode_variables(&dashboard.variables)
+        .map_err(|e| StoreError::Db(anyhow::anyhow!("encode dashboard variables: {e}")))?;
     client.execute(
-        "INSERT INTO dashboards (id, org, site_id, slug, title, created_at) \
-         VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO dashboards (id, org, site_id, slug, title, variables, created_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
         &[
             &dashboard.id.to_string(),
             &dashboard.org,
             &site_id,
             &dashboard.slug,
             &dashboard.title,
+            &variables,
             &ts_of(&dashboard.created_at),
         ],
     )?;
@@ -70,15 +76,30 @@ pub(crate) fn get_dashboard(store: &Store, id: Uuid) -> Result<Dashboard> {
     dashboard_of(&row)
 }
 
-pub(crate) fn update_dashboard(store: &Store, id: Uuid, title: Option<&str>) -> Result<Dashboard> {
+pub(crate) fn update_dashboard(
+    store: &Store,
+    id: Uuid,
+    title: Option<&str>,
+    variables: Option<&[Variable]>,
+) -> Result<Dashboard> {
     let mut client = store.postgres_conn()?;
+    // `variables` is replaced only when present; a `None` leaves it untouched
+    // (the `COALESCE` keeps the stored value when the bound parameter is NULL).
+    let encoded: Option<String> = match variables {
+        None => None,
+        Some(vars) => Some(
+            serde_json::to_string(vars)
+                .map_err(|e| StoreError::Db(anyhow::anyhow!("encode variables: {e}")))?,
+        ),
+    };
     let row = client
         .query_opt(
             &format!(
-                "UPDATE dashboards SET title = COALESCE($2, title) \
+                "UPDATE dashboards SET title = COALESCE($2, title), \
+                 variables = COALESCE($3, variables) \
                  WHERE id = $1 RETURNING {DASHBOARD_COLS}"
             ),
-            &[&id.to_string(), &title],
+            &[&id.to_string(), &title, &encoded],
         )?
         .ok_or(StoreError::NotFound("dashboard"))?;
     dashboard_of(&row)
@@ -99,6 +120,7 @@ pub(crate) fn default_dashboard_for_site(store: &Store, site: &rubix_core::Site)
         site_id: Some(site.id),
         slug: "default".into(),
         title: "Default".into(),
+        variables: Vec::new(),
         created_at: chrono::Utc::now(),
     };
     create_dashboard(store, &dashboard)?;

@@ -135,6 +135,13 @@ pub struct Dashboard {
     pub slug: String,
     /// Human-facing board name.
     pub title: String,
+    /// Dashboard variables — the parameterisation that lets one board serve a
+    /// fleet (docs/design/variables-and-templating.md §1). Stored in the
+    /// dashboard's config (it travels with export/import as part of the
+    /// snapshot, not a separate table). Empty for a board with no variables
+    /// (back-compat: an older row decodes to an empty list).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variables: Vec<crate::Variable>,
     pub created_at: DateTime<Utc>,
 }
 

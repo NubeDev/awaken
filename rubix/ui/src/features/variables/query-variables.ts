@@ -27,14 +27,24 @@ function sendValue(value: VariableValue | undefined): VariableValue {
  */
 export function queryVariablesFor(
   sql: string,
-  variables: Variable[]
+  variables: Variable[],
+  /** Built-in page-context seeds (`$__nav_slug`, `$__nav_name`, `$__tag(key)`)
+   *  that are not authored variables but resolve from context (design §2). A
+   *  referenced built-in present here binds; absent ones fall through to the
+   *  server's unknown-variable error. */
+  contextSeeds: Record<string, VariableValue> = {}
 ): QueryVariable[] {
   const byName = new Map(variables.map((v) => [v.name, v]))
   const out: QueryVariable[] = []
   for (const name of referencedVariables(sql)) {
     const variable = byName.get(name)
-    if (!variable) continue
-    out.push({ name, value: sendValue(variable.current) })
+    if (variable) {
+      out.push({ name, value: sendValue(variable.current) })
+      continue
+    }
+    if (name in contextSeeds) {
+      out.push({ name, value: sendValue(contextSeeds[name]) })
+    }
   }
   return out
 }

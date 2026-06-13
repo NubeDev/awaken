@@ -431,6 +431,15 @@ export type VariableKind =
   | 'site'
   | 'interval'
   | 'textbox'
+  | 'context'
+
+/**
+ * `rubix_core::ContextSource` — which page-context layer a `context` variable
+ * reads (docs/design/page-context-and-nav.md §2). `nav` reads the open node
+ * (`slug`/`name`/`path[n]`), `url` a bare `?key=…` param, `tag` the board's
+ * tag, `values` a nav node's `context.values[key]`.
+ */
+export type ContextSource = 'nav' | 'url' | 'tag' | 'values'
 
 /**
  * `rubix_core::VariableConfig` — per-kind config, tagged on `kind` (matching the
@@ -444,6 +453,7 @@ export type VariableConfig =
   | { kind: 'site' }
   | { kind: 'interval'; options: string[] }
   | { kind: 'textbox' }
+  | { kind: 'context'; source: ContextSource; key: string }
 
 /** One option / single selected value: always a scalar (never nested). */
 export type ScalarValue = PointValue | null

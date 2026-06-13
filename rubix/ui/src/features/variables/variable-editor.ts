@@ -25,6 +25,8 @@ export function defaultConfig(kind: VariableKind): VariableConfig {
       return { kind: 'interval', options: ['1m', '5m', '1h'] }
     case 'textbox':
       return { kind: 'textbox' }
+    case 'context':
+      return { kind: 'context', source: 'values', key: '' }
   }
 }
 

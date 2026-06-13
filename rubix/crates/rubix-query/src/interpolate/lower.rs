@@ -76,6 +76,17 @@ pub fn lower(
             continue;
         }
 
+        // `$__tag(key)` is a built-in page-context token
+        // (docs/design/page-context-and-nav.md §2): it binds the value of the
+        // variable named `__tag(key)` that the caller seeds from the board's
+        // tags. Recognised before `$__sqlIn`/bare so the `(key)` is captured.
+        if let Some((name, end)) = parse_tag(sql, i)? {
+            let value = lookup(variables, &name)?;
+            emit_single(&mut out, &mut params, &mut next, &name, value)?;
+            i = end;
+            continue;
+        }
+
         if let Some((name, end)) = parse_sql_in(sql, i)? {
             let values = lookup(variables, &name)?.scalars();
             if values.is_empty() {
@@ -189,6 +200,31 @@ fn positional_end(sql: &str, at: usize) -> Option<usize> {
     let rest = &sql[at + 1..];
     let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
     (digits > 0).then_some(at + 1 + digits)
+}
+
+/// If `sql[at..]` opens `$__tag(key)`, return `("__tag(key)", end)` past the
+/// `)`. The returned name matches the synthetic variable a context-aware caller
+/// seeds for each board tag, so the value binds through the normal lookup path
+/// (docs/design/page-context-and-nav.md §2).
+fn parse_tag(sql: &str, at: usize) -> Result<Option<(String, usize)>, InterpolateError> {
+    const PREFIX: &str = "$__tag(";
+    if !sql[at..].starts_with(PREFIX) {
+        return Ok(None);
+    }
+    let key_start = at + PREFIX.len();
+    let rest = &sql[key_start..];
+    match rest.find(')') {
+        Some(rel) => {
+            let key = rest[..rel].trim();
+            // The synthetic variable name the caller seeds is `__tag(<key>)`
+            // verbatim (less the leading `$`); reconstruct it here.
+            let name = format!("__tag({key})");
+            Ok(Some((name, key_start + rel + 1)))
+        }
+        None => Err(InterpolateError::Unterminated {
+            near: sql[at..].chars().take(16).collect(),
+        }),
+    }
 }
 
 /// If `sql[at..]` opens `$__sqlIn(name)`, return `(name, end)` past the `)`.
@@ -415,6 +451,33 @@ mod tests {
         let out = lower("WHERE site_id $__sqlIn(site)", &vars, 0, None).unwrap();
         assert_eq!(out.sql, "WHERE site_id IN ($1, $2)");
         assert_eq!(out.params.len(), 2);
+    }
+
+    #[test]
+    fn tag_token_binds_synthetic_tag_variable() {
+        // `$__tag(building)` looks up the caller-seeded `__tag(building)` value
+        // and binds it as one parameter (docs/design/page-context-and-nav.md §2).
+        let vars = vec![one("__tag(building)", "b1")];
+        let out = lower("WHERE building = $__tag(building)", &vars, 0, None).unwrap();
+        assert_eq!(out.sql, "WHERE building = $1");
+        assert_eq!(out.params, vec![BoundParam::Text("b1".into())]);
+    }
+
+    #[test]
+    fn tag_token_value_with_sql_metachars_binds_never_executes() {
+        let vars = vec![one("__tag(building)", "'); DROP TABLE points; --")];
+        let out = lower("WHERE building = $__tag(building)", &vars, 0, None).unwrap();
+        assert_eq!(out.sql, "WHERE building = $1");
+        assert_eq!(
+            out.params,
+            vec![BoundParam::Text("'); DROP TABLE points; --".into())]
+        );
+    }
+
+    #[test]
+    fn unterminated_tag_token_errors() {
+        let err = lower("WHERE x = $__tag(building", &[], 0, None).unwrap_err();
+        assert!(matches!(err, InterpolateError::Unterminated { .. }));
     }
 
     #[test]

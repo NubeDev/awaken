@@ -8,7 +8,12 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { usePatchDashboard } from '@/api/hooks'
-import type { Dashboard, Variable, VariableKind } from '@/api/types'
+import type {
+  ContextSource,
+  Dashboard,
+  Variable,
+  VariableKind,
+} from '@/api/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -42,7 +47,10 @@ const KINDS: VariableKind[] = [
   'interval',
   'textbox',
   'datasource',
+  'context',
 ]
+
+const CONTEXT_SOURCES: ContextSource[] = ['values', 'nav', 'url', 'tag']
 
 type VariableEditorDialogProps = {
   open: boolean
@@ -318,6 +326,39 @@ function KindConfig({
         }
         placeholder='Constant value'
       />
+    )
+  }
+  if (config.kind === 'context') {
+    return (
+      <div className='flex items-center gap-2'>
+        <Select
+          value={config.source}
+          onValueChange={(v) =>
+            onChange({ config: { ...config, source: v as ContextSource } })
+          }
+        >
+          <SelectTrigger size='sm' className='w-28'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CONTEXT_SOURCES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          className='h-8 flex-1 font-mono text-[12px]'
+          value={config.key}
+          onChange={(e) =>
+            onChange({ config: { ...config, key: e.target.value } })
+          }
+          placeholder={
+            config.source === 'nav' ? 'slug | name | path[0]' : 'key (e.g. site)'
+          }
+        />
+      </div>
     )
   }
   return null

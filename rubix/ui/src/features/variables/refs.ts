@@ -13,6 +13,9 @@
  *  letter or underscore. Built-in tokens (`$__org`, `$__sqlIn`) start with `$__`
  *  and are handled by the dedicated patterns below. */
 const SQL_IN = /\$__sqlIn\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g
+// `$__tag(key)` is a built-in page-context token; the captured name is the
+// synthetic `__tag(key)` variable a context-aware caller seeds (design §2).
+const TAG = /\$__tag\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g
 const BRACE = /\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::[^}]*)?\}/g
 const BARE = /\$([A-Za-z_][A-Za-z0-9_]*)/g
 
@@ -28,6 +31,13 @@ export function referencedVariables(sql: string): string[] {
   // Mask the structured tokens as we read them, so the bare-`$name` pass does
   // not re-match the `$` that opens `${...}` or `$__sqlIn(...)`.
   let masked = sql
+  // `$__tag(key)` is masked first as the synthetic `__tag(key)` name so the
+  // bare scan does not re-read its inner `$`/`(key)`.
+  TAG.lastIndex = 0
+  masked = masked.replace(TAG, (whole, key: string) => {
+    names.add(`__tag(${key})`)
+    return ' '.repeat(whole.length)
+  })
   for (const re of [SQL_IN, BRACE]) {
     re.lastIndex = 0
     masked = masked.replace(re, (whole, name: string) => {

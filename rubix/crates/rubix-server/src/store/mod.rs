@@ -20,6 +20,7 @@ mod migrate;
 mod open;
 mod point_row;
 mod points;
+mod prefs;
 #[cfg(feature = "cloud")]
 mod postgres;
 mod rules;

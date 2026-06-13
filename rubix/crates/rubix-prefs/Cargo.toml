@@ -1,0 +1,21 @@
+[package]
+name = "rubix-prefs"
+description = "Rubix user/org preferences + units conversion: closed Quantity/Unit enums, uom-backed conversion, and the three-layer resolver. Vendored from the starter platform; pure (no I/O)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+utoipa.workspace = true
+# Conversion factors are delegated to `uom` internally; the registry is the
+# thin serialisable veneer. Never hand-write conversion math (SCOPE R4).
+uom = { version = "0.36", default-features = false, features = ["f64", "si", "std"] }
+# ISO 4217 currency codes — the resolver's `currency: auto` derives from locale.
+iso_currency = { version = "0.5", features = ["with-serde"] }
+
+[lints]
+workspace = true

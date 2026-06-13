@@ -54,6 +54,7 @@ fn result_body(result: ResultSet) -> DatasourceResultBody {
         columns: serde_json::to_value(result.columns).unwrap_or(Value::Null),
         rows: serde_json::to_value(result.rows).unwrap_or(Value::Null),
         breached: result.breached,
+        units: serde_json::Map::new(),
     }
 }
 

@@ -3516,6 +3516,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "iso_country"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20633e788d3948ea7336861fdb09ec247f5dae4267e8f0743fa97de26c28624d"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
+name = "iso_currency"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fed4b3f0921193400b1df556228bfd917c57c7fa38bda904d552653c5c3b641b"
+dependencies = [
+ "iso_country",
+ "proc-macro2",
+ "quote",
+ "serde",
+]
+
+[[package]]
 name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5725,6 +5746,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-prefs"
+version = "0.1.0"
+dependencies = [
+ "iso_currency",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uom",
+ "utoipa",
+]
+
+[[package]]
 name = "rubix-query"
 version = "0.1.0"
 dependencies = [
@@ -5780,6 +5813,7 @@ dependencies = [
  "rubix-datasource",
  "rubix-driver",
  "rubix-flow",
+ "rubix-prefs",
  "rubix-query",
  "rubix-rules",
  "rubix-tools",
@@ -7566,6 +7600,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "uom"
+version = "0.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffd36e5350a65d112584053ee91843955826bf9e56ec0d1351214e01f6d7cd9c"
+dependencies = [
+ "num-traits",
+ "typenum",
 ]
 
 [[package]]

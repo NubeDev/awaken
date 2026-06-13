@@ -18,6 +18,7 @@ import {
 import { pointKeyexpr } from '@/api/keyexpr'
 import { tagNames } from '@/api/tags'
 import type { Point, Site, Equip } from '@/api/types'
+import { useDateTime } from '@/datetime/use-date-time'
 import { ageShort, formatValue } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -61,6 +62,9 @@ export function PointDetail({
   const pin = useCreateWidget()
   const del = useDeletePoint()
   const { data: history = [] } = usePointHistory(point.id)
+  // Backend-resolved tz + time format (WS-11): the chart axis renders in the
+  // viewer's preferences via the mounted PreferencesProvider, no local choice.
+  const { time } = useDateTime()
   const [range, setRange] = useState<Range>('24h')
   const [editOpen, setEditOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -84,13 +88,10 @@ export function PointDetail({
         .filter((s) => typeof s.value === 'number')
         .slice(-RANGE_SAMPLES[range])
         .map((s) => ({
-          t: new Date(s.ts).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
+          t: time(s.ts),
           value: s.value as number,
         })),
-    [history, range]
+    [history, range, time]
   )
 
   const keyexpr =

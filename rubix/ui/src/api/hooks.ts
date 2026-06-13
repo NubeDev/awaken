@@ -21,6 +21,7 @@ import type {
   PatchPoint,
   PatchSite,
   PatchWidget,
+  PreferencesPatch,
   ProvisionOrg,
   RunStatus,
   UpdateRule,
@@ -781,5 +782,39 @@ export function useGrantDashboard(dashboardId: Uuid) {
     mutationFn: (body: CreateDashboardGrant) =>
       api.grants.grantDashboard(dashboardId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['grants'] }),
+  })
+}
+
+// --- Units & datetime preferences (WS-11) ------------------------------------
+
+/** The caller's fully-resolved preferences (`GET /api/v1/me/preferences`). */
+export function useMyPreferences() {
+  return useQuery({
+    queryKey: qk.myPreferences,
+    queryFn: ({ signal }) => api.preferences.getMe(signal),
+    // Prefs change rarely; no polling. Cache generously.
+    staleTime: 5 * 60_000,
+  })
+}
+
+/** Patch the caller's preferences; on success the resolved view is refreshed. */
+export function useUpdateMyPreferences() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: PreferencesPatch) => api.preferences.patchMe(body),
+    onSuccess: (resolved) => {
+      // Seed the cache with the server's re-resolved view so the provider
+      // updates without a second round-trip.
+      qc.setQueryData(qk.myPreferences, resolved)
+    },
+  })
+}
+
+/** The closed unit registry (`GET /api/v1/units`) — quantity pickers read it. */
+export function useUnits() {
+  return useQuery({
+    queryKey: qk.units,
+    queryFn: ({ signal }) => api.units.list(signal),
+    staleTime: Infinity, // closed registry; never changes for a build
   })
 }

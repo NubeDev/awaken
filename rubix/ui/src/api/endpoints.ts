@@ -39,8 +39,11 @@ import type {
   Point,
   PointEnvelope,
   PortOutput,
+  PreferencesPatch,
   ProvisionOrg,
   QueryResult,
+  ResolvedPreferences,
+  UnitsDocument,
   CreateDashboard,
   CreateWidget,
   PatchWidget,
@@ -246,8 +249,44 @@ export const dashboards = {
 }
 
 export const query = {
-  run: (sql: string) =>
-    request<QueryResult>('/api/v1/query', { method: 'POST', body: { sql } }),
+  /**
+   * Run a DataFusion query. `units` selects the `Accept-Units` mode
+   * (`'preferred'` converts to the viewer's units, `'canonical'` returns raw
+   * SI); omit for the server default (preferred).
+   */
+  run: (sql: string, units?: 'preferred' | 'canonical') =>
+    request<QueryResult>('/api/v1/query', {
+      method: 'POST',
+      body: { sql },
+      headers: units ? { 'accept-units': units } : undefined,
+    }),
+}
+
+/**
+ * Units & datetime preferences (WS-11). `getMe`/`patchMe` are the per-user
+ * surface (any authenticated caller); the org pair is admin-only. `patchMe`
+ * sends a `PreferencesPatch` and returns the re-resolved view.
+ */
+export const preferences = {
+  getMe: (signal?: AbortSignal) =>
+    request<ResolvedPreferences>('/api/v1/me/preferences', { signal }),
+  patchMe: (body: PreferencesPatch) =>
+    request<ResolvedPreferences>('/api/v1/me/preferences', {
+      method: 'PATCH',
+      body,
+    }),
+  getOrg: (org: string, signal?: AbortSignal) =>
+    request<ResolvedPreferences>(`/api/v1/orgs/${org}/preferences`, { signal }),
+  patchOrg: (org: string, body: PreferencesPatch) =>
+    request<ResolvedPreferences>(`/api/v1/orgs/${org}/preferences`, {
+      method: 'PATCH',
+      body,
+    }),
+}
+
+export const units = {
+  list: (signal?: AbortSignal) =>
+    request<UnitsDocument>('/api/v1/units', { signal }),
 }
 
 // Rules are org-owned with an optional site (`?site_id=`); a site rule overrides

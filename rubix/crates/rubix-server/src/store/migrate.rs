@@ -43,6 +43,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 4,
         step: migrate_v4_rbac_identity,
     },
+    Migration {
+        version: 5,
+        step: migrate_v5_prefs,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -223,6 +227,57 @@ fn migrate_v4_rbac_identity(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<
         CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
         CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
         CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
+        ",
+    )
+}
+
+/// v5 — units & datetime preferences (WS-11): `prefs_org` + `prefs_user`. New
+/// tables only (no existing data to migrate), so pure `CREATE TABLE IF NOT
+/// EXISTS` — a no-op on a fresh database (the base schema already created them)
+/// and additive on a legacy one. Shapes mirror [`super::schema::SCHEMA_SQLITE`]
+/// exactly; keep them in sync.
+fn migrate_v5_prefs(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS prefs_org (
+            org              TEXT PRIMARY KEY,
+            timezone         TEXT,
+            locale           TEXT,
+            language         TEXT,
+            unit_system      TEXT,
+            temperature_unit TEXT,
+            pressure_unit    TEXT,
+            speed_unit       TEXT,
+            length_unit      TEXT,
+            mass_unit        TEXT,
+            date_format      TEXT,
+            time_format      TEXT,
+            week_start       TEXT,
+            number_format    TEXT,
+            currency         TEXT,
+            updated_at       INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS prefs_user (
+            user_id          TEXT NOT NULL,
+            org              TEXT NOT NULL,
+            timezone         TEXT,
+            locale           TEXT,
+            language         TEXT,
+            unit_system      TEXT,
+            temperature_unit TEXT,
+            pressure_unit    TEXT,
+            speed_unit       TEXT,
+            length_unit      TEXT,
+            mass_unit        TEXT,
+            date_format      TEXT,
+            time_format      TEXT,
+            week_start       TEXT,
+            number_format    TEXT,
+            currency         TEXT,
+            theme            TEXT,
+            updated_at       INTEGER NOT NULL,
+            PRIMARY KEY (user_id, org)
+        );
         ",
     )
 }

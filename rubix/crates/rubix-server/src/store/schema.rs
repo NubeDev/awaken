@@ -164,6 +164,50 @@ CREATE TABLE IF NOT EXISTS grants (
     created_at    TEXT NOT NULL,
     UNIQUE (org, subject_kind, subject_id, resource_kind, resource_ref, permission)
 );
+-- Units & datetime preferences (WS-11). Two layers — org and user — both
+-- all-nullable (NULL = inherit); the resolver collapses user -> org -> system
+-- default per column. `org` is the tenant key (rubix's workspace). Columns are
+-- TEXT carrying enum wire tokens, the 'auto' sentinel, or a concrete unit code.
+-- See rubix-prefs::resolver and docs/scope WS-11.
+CREATE TABLE IF NOT EXISTS prefs_org (
+    org              TEXT PRIMARY KEY,
+    timezone         TEXT,
+    locale           TEXT,
+    language         TEXT,
+    unit_system      TEXT,
+    temperature_unit TEXT,
+    pressure_unit    TEXT,
+    speed_unit       TEXT,
+    length_unit      TEXT,
+    mass_unit        TEXT,
+    date_format      TEXT,
+    time_format      TEXT,
+    week_start       TEXT,
+    number_format    TEXT,
+    currency         TEXT,
+    updated_at       INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS prefs_user (
+    user_id          TEXT NOT NULL,
+    org              TEXT NOT NULL,
+    timezone         TEXT,
+    locale           TEXT,
+    language         TEXT,
+    unit_system      TEXT,
+    temperature_unit TEXT,
+    pressure_unit    TEXT,
+    speed_unit       TEXT,
+    length_unit      TEXT,
+    mass_unit        TEXT,
+    date_format      TEXT,
+    time_format      TEXT,
+    week_start       TEXT,
+    number_format    TEXT,
+    currency         TEXT,
+    theme            TEXT,
+    updated_at       INTEGER NOT NULL,
+    PRIMARY KEY (user_id, org)
+);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -346,6 +390,46 @@ CREATE TABLE IF NOT EXISTS grants (
     permission    TEXT NOT NULL,
     created_at    TEXT NOT NULL,
     UNIQUE (org, subject_kind, subject_id, resource_kind, resource_ref, permission)
+);
+-- Units & datetime preferences (WS-11); mirrors SCHEMA_SQLITE, updated_at BIGINT.
+CREATE TABLE IF NOT EXISTS prefs_org (
+    org              TEXT PRIMARY KEY,
+    timezone         TEXT,
+    locale           TEXT,
+    language         TEXT,
+    unit_system      TEXT,
+    temperature_unit TEXT,
+    pressure_unit    TEXT,
+    speed_unit       TEXT,
+    length_unit      TEXT,
+    mass_unit        TEXT,
+    date_format      TEXT,
+    time_format      TEXT,
+    week_start       TEXT,
+    number_format    TEXT,
+    currency         TEXT,
+    updated_at       BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS prefs_user (
+    user_id          TEXT NOT NULL,
+    org              TEXT NOT NULL,
+    timezone         TEXT,
+    locale           TEXT,
+    language         TEXT,
+    unit_system      TEXT,
+    temperature_unit TEXT,
+    pressure_unit    TEXT,
+    speed_unit       TEXT,
+    length_unit      TEXT,
+    mass_unit        TEXT,
+    date_format      TEXT,
+    time_format      TEXT,
+    week_start       TEXT,
+    number_format    TEXT,
+    currency         TEXT,
+    theme            TEXT,
+    updated_at       BIGINT NOT NULL,
+    PRIMARY KEY (user_id, org)
 );
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);

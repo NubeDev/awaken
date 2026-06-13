@@ -347,6 +347,23 @@ export interface ChartConfig {
 export interface WidgetSettings {
   layout?: GridLayout
   config?: ChartConfig
+  /**
+   * Per-column quantity declarations the server reads to convert a result
+   * column into the viewer's preferred unit (WS-11). Absent/empty → every
+   * column passes through as a bare number.
+   */
+  fields?: SeriesField[]
+}
+
+/**
+ * `rubix_core::SeriesField` — declares what a result column *is*, so the server
+ * can convert it at the response edge. `quantity`/`stored_unit` are wire codes
+ * from `GET /api/v1/units`; a field with no `quantity` is not convertible.
+ */
+export interface SeriesField {
+  column: string
+  quantity?: string
+  stored_unit?: string
 }
 
 /** `rubix_core::Widget` — a pinned dashboard tile row (`GET /api/v1/widgets`). */
@@ -697,4 +714,69 @@ export interface CreateDashboardGrant {
   subject_kind: SubjectKind
   subject_id: string
   permission: Permission
+}
+
+// --- Units & datetime preferences (WS-11) -------------------------------------
+
+/**
+ * `rubix_prefs::ResolvedPreferences` — the fully-resolved view returned by
+ * `GET /api/v1/me/preferences`. Every field is concrete (the server collapsed
+ * user → org → system default and the `"auto"` derivations), so the UI can
+ * format/convert without re-deriving anything. Enum fields carry the wire
+ * tokens the backend serialises.
+ */
+export interface ResolvedPreferences {
+  timezone: string
+  locale: string
+  language: string
+  unit_system: 'metric' | 'imperial'
+  temperature_unit: string
+  pressure_unit: string
+  speed_unit: string
+  length_unit: string
+  mass_unit: string
+  /** e.g. `"YYYY-MM-DD"`, `"DD/MM/YYYY"`, `"MM/DD/YYYY"`. */
+  date_format: string
+  /** `"24h"` | `"12h"`. */
+  time_format: string
+  week_start: 'monday' | 'sunday' | 'saturday' | string
+  /** e.g. `"1,234.56"`, `"1.234,56"`, `"1 234,56"`. */
+  number_format: string
+  currency: string
+  theme: 'light' | 'dark' | 'system'
+}
+
+/**
+ * `rubix_prefs::PreferencesPatch` — the `PATCH` body. Every field is optional;
+ * a present `null` reverts that field to inherit, an omitted key leaves it. A
+ * per-unit field accepts a concrete unit code or the `"auto"` sentinel.
+ */
+export interface PreferencesPatch {
+  timezone?: string | null
+  locale?: string | null
+  language?: string | null
+  unit_system?: 'metric' | 'imperial' | null
+  temperature_unit?: string | null
+  pressure_unit?: string | null
+  speed_unit?: string | null
+  length_unit?: string | null
+  mass_unit?: string | null
+  date_format?: string | null
+  time_format?: string | null
+  week_start?: string | null
+  number_format?: string | null
+  currency?: string | null
+  theme?: 'light' | 'dark' | 'system' | null
+}
+
+/** One quantity's registry entry from `GET /api/v1/units`. */
+export interface QuantityEntry {
+  quantity: string
+  canonical: string
+  allowed: string[]
+}
+
+/** `GET /api/v1/units` payload — the closed unit registry. */
+export interface UnitsDocument {
+  quantities: QuantityEntry[]
 }

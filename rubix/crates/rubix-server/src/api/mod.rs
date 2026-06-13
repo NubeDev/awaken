@@ -13,6 +13,7 @@ mod his;
 mod openapi;
 mod orgs;
 mod points;
+mod preferences;
 mod query;
 mod rules;
 mod runs;
@@ -21,12 +22,14 @@ mod sites;
 mod sparks;
 mod tag_query;
 mod teams;
+mod units_ctx;
 mod tokens;
 mod users;
 mod whoami;
 mod widgets;
 
 pub use openapi::ApiDoc;
+pub use units_ctx::{UnitsCtx, UnitsMode};
 
 use axum::routing::get;
 use axum::Router;
@@ -47,8 +50,23 @@ pub fn router(state: AppState) -> Router {
         .merge(sparks::router())
         .merge(widgets::router())
         .merge(dashboards::router())
-        .merge(query::router())
-        .merge(datasources::router())
+        // The query + datasource surfaces carry unit-bearing series, so they get
+        // the Accept-Units layer: it resolves the caller's prefs once and stashes
+        // a `UnitsCtx` for the handlers to convert with. Other routes don't emit
+        // converted quantities, so they skip the per-request prefs round-trip.
+        .merge(
+            query::router().layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                units_ctx::accept_units,
+            )),
+        )
+        .merge(preferences::router())
+        .merge(
+            datasources::router().layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                units_ctx::accept_units,
+            )),
+        )
         .merge(rules::router())
         .merge(boards::router())
         .merge(agent::router())

@@ -3,6 +3,9 @@ import type { Uuid } from './types'
 
 export const qk = {
   whoami: ['whoami'] as const,
+  myPreferences: ['preferences', 'me'] as const,
+  orgPreferences: (org: string) => ['preferences', 'org', org] as const,
+  units: ['units'] as const,
   sites: ['sites'] as const,
   site: (id: Uuid) => ['sites', id] as const,
   orgs: ['orgs'] as const,

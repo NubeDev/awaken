@@ -11,7 +11,7 @@ use crate::store::{GrantRecord, TeamRecord, UserRecord};
 
 use super::{
     agent, boards, command, dashboards, datasources, equips, grants, health, his, orgs, points,
-    query, rules, runs, sites, sparks, teams, tokens, users, whoami, widgets,
+    preferences, query, rules, runs, sites, sparks, teams, tokens, users, whoami, widgets,
 };
 
 /// Registers the `bearer` HTTP security scheme so routes can mark themselves
@@ -76,6 +76,11 @@ impl Modify for BearerSecurity {
         sparks::delete::delete_spark,
         sparks::ack::ack_spark,
         query::run::run_query,
+        preferences::get_me_preferences,
+        preferences::patch_me_preferences,
+        preferences::get_org_preferences,
+        preferences::patch_org_preferences,
+        preferences::get_units,
         datasources::run::run_query,
         datasources::named::invoke_named,
         datasources::describe::describe_datasource,
@@ -148,7 +153,13 @@ impl Modify for BearerSecurity {
         UserRecord, TeamRecord, GrantRecord,
         users::CreateUser, users::PatchUser,
         teams::CreateTeam, teams::PatchTeam, teams::AddMember,
-        grants::CreateGrant, grants::CreateDashboardGrant))
+        grants::CreateGrant, grants::CreateDashboardGrant,
+        preferences::UnitsDocument,
+        rubix_prefs::preferences::ResolvedPreferences,
+        rubix_prefs::preferences::UnitSystem, rubix_prefs::preferences::DateFormat,
+        rubix_prefs::preferences::TimeFormat, rubix_prefs::preferences::WeekStart,
+        rubix_prefs::preferences::NumberFormat, rubix_prefs::preferences::Theme,
+        rubix_prefs::units::Unit))
 )]
 pub struct ApiDoc;
 

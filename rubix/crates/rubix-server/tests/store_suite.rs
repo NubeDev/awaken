@@ -220,6 +220,7 @@ fn run_suite(store: &Store) {
             h: 3,
         }),
         config: Some(serde_json::json!({ "type": "bar" })),
+        fields: Vec::new(),
     };
     let updated = store
         .update_widget_settings(widget.id, Some(&settings))

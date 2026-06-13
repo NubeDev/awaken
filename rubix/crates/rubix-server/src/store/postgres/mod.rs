@@ -16,6 +16,7 @@ pub(super) mod his;
 pub(super) mod his_flush;
 pub(super) mod keyexpr;
 pub(super) mod points;
+pub(super) mod prefs;
 pub(super) mod rules;
 pub(super) mod runs;
 pub(super) mod sites;

@@ -192,6 +192,32 @@ pub struct WidgetSettings {
     /// server; absent → the kind's default rendering.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config: Option<serde_json::Value>,
+    /// Per-column quantity declarations the server *does* read (unlike `config`):
+    /// they let the response edge convert a result column into the viewer's
+    /// preferred unit (WS-11). Absent / empty → every column passes through as a
+    /// bare number (back-compat). See [`SeriesField`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<SeriesField>,
+}
+
+/// Declares what a result column *is*, so the server can convert it at the
+/// presentation edge. `quantity` / `stored_unit` are the closed-enum wire codes
+/// from the units registry (`GET /api/v1/units`); they are carried as strings
+/// here to keep `rubix-core` free of the units crate, and validated into typed
+/// `Quantity`/`Unit` by the server when it converts. A field with no `quantity`
+/// is not convertible — its column passes through untouched.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, ToSchema)]
+pub struct SeriesField {
+    /// The result column this declaration applies to.
+    pub column: String,
+    /// The quantity wire code (e.g. `"temperature"`). Enables conversion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<String>,
+    /// The unit the stored/queried column is already in (e.g. a legacy table in
+    /// `"fahrenheit"`). Absent → the column is assumed canonical SI for its
+    /// quantity. Normalised on read before conversion to the viewer's unit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stored_unit: Option<String>,
 }
 
 /// A tile's cell on the dashboard grid, in `react-grid-layout` units

@@ -12,8 +12,8 @@ mod value;
 
 pub use error::CoreError;
 pub use model::{
-    Dashboard, Equip, GridLayout, HisSample, Point, PointKind, Site, Spark, SparkSeverity, Widget,
-    WidgetKind, WidgetSettings,
+    Dashboard, Equip, GridLayout, HisSample, Point, PointKind, SeriesField, Site, Spark,
+    SparkSeverity, Widget, WidgetKind, WidgetSettings,
 };
 pub use priority::{PriorityArray, PRIORITY_LEVELS};
 pub use tags::{validate_slug, TagSet};

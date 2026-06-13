@@ -18,6 +18,7 @@ mod api_tests {
     mod mcp;
     mod orgs;
     mod points;
+    mod preferences;
     mod query;
     mod rbac;
     mod rollup;

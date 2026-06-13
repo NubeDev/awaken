@@ -23,6 +23,8 @@ interface RequestOptions {
   body?: unknown
   query?: Record<string, string | number | undefined>
   signal?: AbortSignal
+  /** Extra request headers (e.g. `Accept-Units` for unit negotiation). */
+  headers?: Record<string, string>
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -45,8 +47,11 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
-function buildHeaders(hasBody: boolean): HeadersInit | undefined {
-  const headers: Record<string, string> = {}
+function buildHeaders(
+  hasBody: boolean,
+  extra?: Record<string, string>
+): HeadersInit | undefined {
+  const headers: Record<string, string> = { ...extra }
   if (hasBody) headers['content-type'] = 'application/json'
   const token = currentAccessToken()
   if (token) headers['authorization'] = `Bearer ${token}`
@@ -57,11 +62,11 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, query, signal } = options
+  const { method = 'GET', body, query, signal, headers } = options
   const res = await fetch(buildUrl(path, query), {
     method,
     signal,
-    headers: buildHeaders(body !== undefined),
+    headers: buildHeaders(body !== undefined, headers),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) throw new ApiError(res.status, await readError(res))

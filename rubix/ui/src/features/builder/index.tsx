@@ -14,6 +14,7 @@ import { useVariableResolution } from '../variables/use-resolution'
 import { useVarUrlState } from '../variables/use-var-url-state'
 import { usePageContext } from '../nav/use-page-context'
 import { TagEditor } from '../nav/tag-editor'
+import { HistoryButton } from '../audit/components/history-button'
 import { VariableBar } from '../variables/variable-bar'
 import { VariableEditorDialog } from '../variables/variable-editor-dialog'
 import { DashboardFormDialog } from './components/dashboard-form-dialog'
@@ -110,6 +111,13 @@ export function Builder() {
             </Button>
           ) : null}
           {selected ? <TagEditor dashboardId={selected.id} /> : null}
+          {selected ? (
+            <HistoryButton
+              kind='dashboard'
+              id={selected.id}
+              resourceName={selected.title}
+            />
+          ) : null}
           <div className='ms-auto'>
             <TimeRangePicker />
           </div>

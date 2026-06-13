@@ -235,6 +235,7 @@ export type ConfigFieldType =
   | 'number'
   | 'boolean'
   | 'enum'
+  | 'json'
 
 /** One configurable field on a node's `config` map. */
 export interface ConfigFieldView {
@@ -425,4 +426,86 @@ export interface ProvisionOrg {
   slug: string
   display_name: string
   tags?: TagSet
+}
+
+// --- Rules engine (Rules Studio) ----------------------------------------------
+// Mirror the `rubix-server` stored-rule routes and the dry-run debugger spine.
+// A rule is a Rhai script operating on a `Frame` (the `df` variable) built from
+// a point's history (`ts` + `value` columns); it returns a verdict.
+
+/** `rubix-rules::ParamSpec` — one declared parameter of a rule. */
+export interface ParamSpec {
+  required: boolean
+  description?: string
+}
+
+/** `rubix-rules::ParamSchema` — a rule's declared parameter map. */
+export interface ParamSchema {
+  params: Record<string, ParamSpec>
+}
+
+/** `rubix-server::RuleView` — a stored rule as returned by the rules routes. */
+export interface RuleView {
+  id: Uuid
+  org: string
+  name: string
+  script: string
+  params: ParamSchema
+  created_at: IsoTimestamp
+}
+
+/** Body for `POST /api/v1/orgs/{org}/rules`. */
+export interface CreateRule {
+  name: string
+  script: string
+  params?: ParamSchema
+}
+
+/** Body for `PUT /api/v1/orgs/{org}/rules/{name}` — script + params only. */
+export interface UpdateRule {
+  script: string
+  params?: ParamSchema
+}
+
+/**
+ * `rubix-rules::RuleResult` — a rule's verdict over the frame it ran on.
+ * `severity` is meaningful when `flagged`; `value` is the optional score a
+ * composing rule reads.
+ */
+export interface RuleResult {
+  flagged: boolean
+  severity: SparkSeverity
+  message: string
+  value: number | null
+}
+
+/** One resolved input row the dry-run returns so the UI can chart the frame. */
+export interface FrameRow {
+  ts: IsoTimestamp
+  value: number | null
+}
+
+/** The dry-run input frame summary: row count plus the rows the rule saw. */
+export interface FrameSummary {
+  row_count: number
+  rows: FrameRow[]
+}
+
+/**
+ * Body for `POST /api/v1/orgs/{org}/rules/dry-run`. Exactly one of `script`
+ * (inline) or `rule` (stored id-or-name) is the source; `point` selects the
+ * input window by keyexpr (omit to run against an empty frame).
+ */
+export interface DryRunRequest {
+  script?: string
+  rule?: string
+  params?: Record<string, unknown>
+  point?: string
+  limit?: number
+}
+
+/** `rubix-server::DryRunResponse` — the verdict plus the frame it ran over. */
+export interface DryRunResponse {
+  result: RuleResult
+  frame: FrameSummary
 }

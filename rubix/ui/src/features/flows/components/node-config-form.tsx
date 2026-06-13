@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import type { ConfigFieldView } from '@/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -88,6 +90,10 @@ function Control({
     )
   }
 
+  if (field.field_type === 'json') {
+    return <JsonControl id={id} field={field} value={value} onChange={onChange} />
+  }
+
   if (field.field_type === 'enum') {
     const current = value === undefined ? defaultText : String(value)
     return (
@@ -119,6 +125,75 @@ function Control({
       step={field.field_type === 'integer' ? 1 : 'any'}
       onChange={(e) => onChange(field.name, coerce(field, e.target.value))}
     />
+  )
+}
+
+/**
+ * A JSON object control: a mono textarea that parses on edit and only writes a
+ * valid object back to the config map. Invalid JSON shows an inline error and
+ * does not persist — the last valid value is kept, so a half-typed edit never
+ * corrupts the node config. An emptied field clears the key (schema default).
+ */
+function JsonControl({
+  id,
+  field,
+  value,
+  onChange,
+}: {
+  id: string
+  field: ConfigFieldView
+  value: unknown
+  onChange: (key: string, value: unknown) => void
+}) {
+  const initial =
+    value === undefined
+      ? field.default !== undefined
+        ? JSON.stringify(field.default, null, 2)
+        : ''
+      : JSON.stringify(value, null, 2)
+  const [text, setText] = useState(initial)
+  const [error, setError] = useState<string | undefined>()
+  const errorId = `${id}-error`
+
+  function handle(next: string) {
+    setText(next)
+    if (next.trim() === '') {
+      setError(undefined)
+      onChange(field.name, undefined)
+      return
+    }
+    try {
+      const parsed = JSON.parse(next)
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        setError('Must be a JSON object (e.g. { "z": 3 }).')
+        return
+      }
+      setError(undefined)
+      onChange(field.name, parsed)
+    } catch {
+      setError('Invalid JSON.')
+    }
+  }
+
+  return (
+    <div className='flex flex-col gap-1'>
+      <Textarea
+        id={id}
+        value={text}
+        rows={4}
+        spellCheck={false}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`font-mono text-[11px] ${error ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+        placeholder='{ }'
+        onChange={(e) => handle(e.target.value)}
+      />
+      {error && (
+        <p id={errorId} className='text-destructive text-[10.5px]'>
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 

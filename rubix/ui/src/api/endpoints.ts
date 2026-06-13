@@ -11,10 +11,13 @@ import type {
   CreateBoard,
   CreateEquip,
   CreatePoint,
+  CreateRule,
   CreateSite,
   ChatRequest,
   ChatResponse,
   CurRequest,
+  DryRunRequest,
+  DryRunResponse,
   Equip,
   HisSample,
   OrgSummary,
@@ -32,10 +35,12 @@ import type {
   Dashboard,
   PatchDashboard,
   ResumeResponse,
+  RuleView,
   RunBoardResponse,
   RunRecord,
   Site,
   Spark,
+  UpdateRule,
   Uuid,
   Widget,
   WriteRequest,
@@ -202,4 +207,31 @@ export const dashboards = {
 export const query = {
   run: (sql: string) =>
     request<QueryResult>('/api/v1/query', { method: 'POST', body: { sql } }),
+}
+
+export const rules = {
+  list: (org: string, signal?: AbortSignal) =>
+    request<RuleView[]>(`/api/v1/orgs/${org}/rules`, { signal }),
+  get: (org: string, name: string, signal?: AbortSignal) =>
+    request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, { signal }),
+  create: (org: string, body: CreateRule) =>
+    request<RuleView>(`/api/v1/orgs/${org}/rules`, { method: 'POST', body }),
+  update: (org: string, name: string, body: UpdateRule) =>
+    request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, {
+      method: 'PUT',
+      body,
+    }),
+  remove: (org: string, name: string) =>
+    request<void>(`/api/v1/orgs/${org}/rules/${name}`, { method: 'DELETE' }),
+  /** Rules that compose this one — the change-impact / blast-radius list. */
+  referencing: (org: string, name: string, signal?: AbortSignal) =>
+    request<RuleView[]>(`/api/v1/orgs/${org}/rules/${name}/referencing`, {
+      signal,
+    }),
+  /** Run a rule once against a point's history without emitting a spark. */
+  dryRun: (org: string, body: DryRunRequest) =>
+    request<DryRunResponse>(`/api/v1/orgs/${org}/rules/dry-run`, {
+      method: 'POST',
+      body,
+    }),
 }

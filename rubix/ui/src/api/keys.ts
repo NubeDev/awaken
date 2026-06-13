@@ -26,4 +26,8 @@ export const qk = {
     ['widgets', params.siteId ?? null, params.dashboardId ?? null] as const,
   dashboards: (org?: string, siteId?: Uuid) =>
     ['dashboards', org ?? 'all', siteId ?? 'all'] as const,
+  rules: (org?: string) => ['rules', org ?? 'all'] as const,
+  rule: (org: string, name: string) => ['rules', org, name] as const,
+  ruleReferencing: (org: string, name: string) =>
+    ['rules', org, name, 'referencing'] as const,
 }

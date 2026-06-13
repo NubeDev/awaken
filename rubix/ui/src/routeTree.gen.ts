@@ -22,6 +22,7 @@ import { Route as AuthenticatedTenantsIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedSparksIndexRouteImport } from './routes/_authenticated/sparks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedRunsIndexRouteImport } from './routes/_authenticated/runs/index'
+import { Route as AuthenticatedRulesIndexRouteImport } from './routes/_authenticated/rules/index'
 import { Route as AuthenticatedPointsIndexRouteImport } from './routes/_authenticated/points/index'
 import { Route as AuthenticatedHistoryIndexRouteImport } from './routes/_authenticated/history/index'
 import { Route as AuthenticatedFlowsIndexRouteImport } from './routes/_authenticated/flows/index'
@@ -99,6 +100,11 @@ const AuthenticatedRunsIndexRoute = AuthenticatedRunsIndexRouteImport.update({
   path: '/runs/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRulesIndexRoute = AuthenticatedRulesIndexRouteImport.update({
+  id: '/rules/',
+  path: '/rules/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPointsIndexRoute =
   AuthenticatedPointsIndexRouteImport.update({
     id: '/points/',
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/flows/': typeof AuthenticatedFlowsIndexRoute
   '/history/': typeof AuthenticatedHistoryIndexRoute
   '/points/': typeof AuthenticatedPointsIndexRoute
+  '/rules/': typeof AuthenticatedRulesIndexRoute
   '/runs/': typeof AuthenticatedRunsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/sparks/': typeof AuthenticatedSparksIndexRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByTo {
   '/flows': typeof AuthenticatedFlowsIndexRoute
   '/history': typeof AuthenticatedHistoryIndexRoute
   '/points': typeof AuthenticatedPointsIndexRoute
+  '/rules': typeof AuthenticatedRulesIndexRoute
   '/runs': typeof AuthenticatedRunsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/sparks': typeof AuthenticatedSparksIndexRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/_authenticated/flows/': typeof AuthenticatedFlowsIndexRoute
   '/_authenticated/history/': typeof AuthenticatedHistoryIndexRoute
   '/_authenticated/points/': typeof AuthenticatedPointsIndexRoute
+  '/_authenticated/rules/': typeof AuthenticatedRulesIndexRoute
   '/_authenticated/runs/': typeof AuthenticatedRunsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/sparks/': typeof AuthenticatedSparksIndexRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/flows/'
     | '/history/'
     | '/points/'
+    | '/rules/'
     | '/runs/'
     | '/settings/'
     | '/sparks/'
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/flows'
     | '/history'
     | '/points'
+    | '/rules'
     | '/runs'
     | '/settings'
     | '/sparks'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/flows/'
     | '/_authenticated/history/'
     | '/_authenticated/points/'
+    | '/_authenticated/rules/'
     | '/_authenticated/runs/'
     | '/_authenticated/settings/'
     | '/_authenticated/sparks/'
@@ -385,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRunsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/rules/': {
+      id: '/_authenticated/rules/'
+      path: '/rules'
+      fullPath: '/rules/'
+      preLoaderRoute: typeof AuthenticatedRulesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/points/': {
       id: '/_authenticated/points/'
       path: '/points'
@@ -471,6 +490,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFlowsIndexRoute: typeof AuthenticatedFlowsIndexRoute
   AuthenticatedHistoryIndexRoute: typeof AuthenticatedHistoryIndexRoute
   AuthenticatedPointsIndexRoute: typeof AuthenticatedPointsIndexRoute
+  AuthenticatedRulesIndexRoute: typeof AuthenticatedRulesIndexRoute
   AuthenticatedRunsIndexRoute: typeof AuthenticatedRunsIndexRoute
   AuthenticatedSparksIndexRoute: typeof AuthenticatedSparksIndexRoute
   AuthenticatedTenantsIndexRoute: typeof AuthenticatedTenantsIndexRoute
@@ -485,6 +505,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFlowsIndexRoute: AuthenticatedFlowsIndexRoute,
   AuthenticatedHistoryIndexRoute: AuthenticatedHistoryIndexRoute,
   AuthenticatedPointsIndexRoute: AuthenticatedPointsIndexRoute,
+  AuthenticatedRulesIndexRoute: AuthenticatedRulesIndexRoute,
   AuthenticatedRunsIndexRoute: AuthenticatedRunsIndexRoute,
   AuthenticatedSparksIndexRoute: AuthenticatedSparksIndexRoute,
   AuthenticatedTenantsIndexRoute: AuthenticatedTenantsIndexRoute,

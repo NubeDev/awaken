@@ -9,9 +9,11 @@ import { qk } from './keys'
 import type {
   CreateEquip,
   CreatePoint,
+  CreateRule,
   CreateSite,
   CreateDashboard,
   CreateWidget,
+  DryRunRequest,
   PatchDashboard,
   CurRequest,
   PatchBoard,
@@ -19,6 +21,7 @@ import type {
   PatchPoint,
   PatchSite,
   ProvisionOrg,
+  UpdateRule,
   Uuid,
   WriteRequest,
 } from './types'
@@ -423,5 +426,83 @@ export function useDeleteDashboard() {
       qc.invalidateQueries({ queryKey: ['dashboards'] })
       qc.invalidateQueries({ queryKey: ['widgets'] })
     },
+  })
+}
+
+// --- Rules engine (Rules Studio) ----------------------------------------------
+
+/** An org's stored rules. `org` comes from the active tenant (site.org). */
+export function useRules(org: string | undefined) {
+  return useQuery({
+    queryKey: qk.rules(org),
+    queryFn: ({ signal }) => api.rules.list(org as string, signal),
+    enabled: Boolean(org),
+  })
+}
+
+/** One stored rule by name within an org. */
+export function useRule(org: string | undefined, name: string | undefined) {
+  return useQuery({
+    queryKey: org && name ? qk.rule(org, name) : ['rules', 'none'],
+    queryFn: ({ signal }) => api.rules.get(org as string, name as string, signal),
+    enabled: Boolean(org && name),
+  })
+}
+
+/**
+ * Rules that compose this one — the change-impact list surfaced before an edit
+ * or delete. Only fetched when a rule is selected.
+ */
+export function useReferencingRules(
+  org: string | undefined,
+  name: string | undefined
+) {
+  return useQuery({
+    queryKey: org && name ? qk.ruleReferencing(org, name) : ['rules', 'none', 'ref'],
+    queryFn: ({ signal }) =>
+      api.rules.referencing(org as string, name as string, signal),
+    enabled: Boolean(org && name),
+  })
+}
+
+/** Create a rule under an org; refresh the org's rule list. */
+export function useCreateRule(org: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateRule) => api.rules.create(org as string, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.rules(org) }),
+  })
+}
+
+/** Update a rule's script/params; refresh the list and the rule itself. */
+export function useUpdateRule(org: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, body }: { name: string; body: UpdateRule }) =>
+      api.rules.update(org as string, name, body),
+    onSuccess: (rule) => {
+      qc.invalidateQueries({ queryKey: qk.rules(org) })
+      if (org) qc.invalidateQueries({ queryKey: qk.rule(org, rule.name) })
+    },
+  })
+}
+
+/** Delete a rule by name; refresh the org's rule list. */
+export function useDeleteRule(org: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api.rules.remove(org as string, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.rules(org) }),
+  })
+}
+
+/**
+ * Dry-run a rule against a point's history without emitting a spark. The
+ * debugger's tight edit→run loop drives this; it is not cached (each run is a
+ * fresh evaluation of the current script).
+ */
+export function useDryRunRule(org: string | undefined) {
+  return useMutation({
+    mutationFn: (body: DryRunRequest) => api.rules.dryRun(org as string, body),
   })
 }

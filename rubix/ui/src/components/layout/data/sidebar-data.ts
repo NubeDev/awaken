@@ -6,6 +6,7 @@ import {
   Workflow,
   Database,
   Sparkles,
+  ScrollText,
   Building2,
   Building,
 } from 'lucide-react'
@@ -38,12 +39,13 @@ export const sidebarData: SidebarData = {
         { title: 'Sparks', url: '/sparks', icon: Zap },
         { title: 'Points & Equip', url: '/points', icon: Network },
         { title: 'Flow Boards', url: '/flows', icon: Workflow },
+        { title: 'Rules Studio', url: '/rules', icon: ScrollText },
       ],
     },
     {
       title: 'Analyze',
       items: [
-        { title: 'History & SQL', url: '/history', icon: Database },
+        { title: 'Query & SQL', url: '/history', icon: Database },
         { title: 'Agent Runs', url: '/runs', icon: Sparkles },
       ],
     },

@@ -1,6 +1,7 @@
 import {
   Building,
   Database,
+  History,
   KeyRound,
   LayoutDashboard,
   ListTree,
@@ -21,6 +22,7 @@ export const ADMIN_NAV_TITLES = [
   'Teams',
   'Access',
   'Navigation',
+  'Audit log',
 ] as const
 
 /**
@@ -70,6 +72,7 @@ export function scopedNavGroups(
         { title: 'Teams', url: o('/settings/teams'), icon: Users },
         { title: 'Access', url: o('/settings/access'), icon: KeyRound },
         { title: 'Navigation', url: o('/settings/navigation'), icon: ListTree },
+        { title: 'Audit log', url: o('/settings/audit'), icon: History },
       ],
     },
   ]

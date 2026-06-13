@@ -30,6 +30,7 @@ import { Route as AuthenticatedOOrgSettingsTeamsRouteImport } from './routes/_au
 import { Route as AuthenticatedOOrgSettingsOrgsRouteImport } from './routes/_authenticated/o/$org/settings/orgs'
 import { Route as AuthenticatedOOrgSettingsNavigationRouteImport } from './routes/_authenticated/o/$org/settings/navigation'
 import { Route as AuthenticatedOOrgSettingsMembersRouteImport } from './routes/_authenticated/o/$org/settings/members'
+import { Route as AuthenticatedOOrgSettingsAuditRouteImport } from './routes/_authenticated/o/$org/settings/audit'
 import { Route as AuthenticatedOOrgSettingsAccessRouteImport } from './routes/_authenticated/o/$org/settings/access'
 import { Route as AuthenticatedOOrgSSiteSlugRouteRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/route'
 import { Route as AuthenticatedOOrgDashboardsDashSlugIndexRouteImport } from './routes/_authenticated/o/$org/dashboards/$dashSlug/index'
@@ -157,6 +158,12 @@ const AuthenticatedOOrgSettingsMembersRoute =
     path: '/settings/members',
     getParentRoute: () => AuthenticatedOOrgRouteRoute,
   } as any)
+const AuthenticatedOOrgSettingsAuditRoute =
+  AuthenticatedOOrgSettingsAuditRouteImport.update({
+    id: '/settings/audit',
+    path: '/settings/audit',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
 const AuthenticatedOOrgSettingsAccessRoute =
   AuthenticatedOOrgSettingsAccessRouteImport.update({
     id: '/settings/access',
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/o/$org/': typeof AuthenticatedOOrgIndexRoute
   '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
   '/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/o/$org/settings/audit': typeof AuthenticatedOOrgSettingsAuditRoute
   '/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/o/$org/settings/navigation': typeof AuthenticatedOOrgSettingsNavigationRoute
   '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
@@ -273,6 +281,7 @@ export interface FileRoutesByTo {
   '/o/$org': typeof AuthenticatedOOrgIndexRoute
   '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
   '/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/o/$org/settings/audit': typeof AuthenticatedOOrgSettingsAuditRoute
   '/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/o/$org/settings/navigation': typeof AuthenticatedOOrgSettingsNavigationRoute
   '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
@@ -308,6 +317,7 @@ export interface FileRoutesById {
   '/_authenticated/o/$org/': typeof AuthenticatedOOrgIndexRoute
   '/_authenticated/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
   '/_authenticated/o/$org/settings/access': typeof AuthenticatedOOrgSettingsAccessRoute
+  '/_authenticated/o/$org/settings/audit': typeof AuthenticatedOOrgSettingsAuditRoute
   '/_authenticated/o/$org/settings/members': typeof AuthenticatedOOrgSettingsMembersRoute
   '/_authenticated/o/$org/settings/navigation': typeof AuthenticatedOOrgSettingsNavigationRoute
   '/_authenticated/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/o/$org/'
     | '/o/$org/s/$siteSlug'
     | '/o/$org/settings/access'
+    | '/o/$org/settings/audit'
     | '/o/$org/settings/members'
     | '/o/$org/settings/navigation'
     | '/o/$org/settings/orgs'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/o/$org'
     | '/o/$org/s/$siteSlug'
     | '/o/$org/settings/access'
+    | '/o/$org/settings/audit'
     | '/o/$org/settings/members'
     | '/o/$org/settings/navigation'
     | '/o/$org/settings/orgs'
@@ -408,6 +420,7 @@ export interface FileRouteTypes {
     | '/_authenticated/o/$org/'
     | '/_authenticated/o/$org/s/$siteSlug'
     | '/_authenticated/o/$org/settings/access'
+    | '/_authenticated/o/$org/settings/audit'
     | '/_authenticated/o/$org/settings/members'
     | '/_authenticated/o/$org/settings/navigation'
     | '/_authenticated/o/$org/settings/orgs'
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOOrgSettingsMembersRouteImport
       parentRoute: typeof AuthenticatedOOrgRouteRoute
     }
+    '/_authenticated/o/$org/settings/audit': {
+      id: '/_authenticated/o/$org/settings/audit'
+      path: '/settings/audit'
+      fullPath: '/o/$org/settings/audit'
+      preLoaderRoute: typeof AuthenticatedOOrgSettingsAuditRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
     '/_authenticated/o/$org/settings/access': {
       id: '/_authenticated/o/$org/settings/access'
       path: '/settings/access'
@@ -721,6 +741,7 @@ interface AuthenticatedOOrgRouteRouteChildren {
   AuthenticatedOOrgIndexRoute: typeof AuthenticatedOOrgIndexRoute
   AuthenticatedOOrgSSiteSlugRouteRoute: typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
   AuthenticatedOOrgSettingsAccessRoute: typeof AuthenticatedOOrgSettingsAccessRoute
+  AuthenticatedOOrgSettingsAuditRoute: typeof AuthenticatedOOrgSettingsAuditRoute
   AuthenticatedOOrgSettingsMembersRoute: typeof AuthenticatedOOrgSettingsMembersRoute
   AuthenticatedOOrgSettingsNavigationRoute: typeof AuthenticatedOOrgSettingsNavigationRoute
   AuthenticatedOOrgSettingsOrgsRoute: typeof AuthenticatedOOrgSettingsOrgsRoute
@@ -736,6 +757,7 @@ const AuthenticatedOOrgRouteRouteChildren: AuthenticatedOOrgRouteRouteChildren =
     AuthenticatedOOrgSSiteSlugRouteRoute:
       AuthenticatedOOrgSSiteSlugRouteRouteWithChildren,
     AuthenticatedOOrgSettingsAccessRoute: AuthenticatedOOrgSettingsAccessRoute,
+    AuthenticatedOOrgSettingsAuditRoute: AuthenticatedOOrgSettingsAuditRoute,
     AuthenticatedOOrgSettingsMembersRoute:
       AuthenticatedOOrgSettingsMembersRoute,
     AuthenticatedOOrgSettingsNavigationRoute:

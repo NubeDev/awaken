@@ -1,11 +1,17 @@
 # Feature — External Datasources (read-only SQL passthrough)
 
-> Verified: **library-verified** on `rubix-gaps` (2026-06-13). Core engine built
-> and unit-tested in isolation (`cargo test -p rubix-datasource` → 38 unit pass,
-> 5 live-DB tests `#[ignore]`d); `cargo clippy` clean; `unsafe_code = forbid`.
-> **Not yet wired into a running stack** — there is no HTTP route, spark node, or
-> AI tool over it, so there are no live-stack gates here. Integration is owned by
-> a separate session. Source: `crates/rubix-datasource/`. Design:
+> Verified: **library-verified + integrated** on `rubix-gaps` (2026-06-13). Core
+> engine built and unit-tested in isolation (`cargo test -p rubix-datasource` →
+> 38 unit pass, 5 live-DB tests `#[ignore]`d); `cargo clippy` clean;
+> `unsafe_code = forbid`. **Now wired into the running stack** — a
+> `datasources.json` boot loader, HTTP routes, a `datasource` board node, the
+> `{datasource, sql}` dashboard widget binding, and read-only AI named-query +
+> describe tools, all covered by `rubix-server`/`rubix-flow`/`rubix-tools` tests.
+> The remaining live-stack gates (a real read against a throwaway Postgres
+> *through* the route/node/tool) still need the `RUBIX_DS_TEST_*` Postgres the
+> crate's `#[ignore]`d `tests/live_postgres.rs` uses. Source:
+> `crates/rubix-datasource/` + integration in `crates/rubix-server/`,
+> `crates/rubix-flow/`, `crates/rubix-tools/`. Design:
 > [docs/design/datasources.md](../../../docs/design/datasources.md).
 
 Covers: reading external SQL databases (primarily TimescaleDB/Postgres) by
@@ -170,8 +176,24 @@ on the strict path), and `describe_introspects_information_schema`.
 - [x] Registry owns creds + one small pool per id; password never logged.
 - [x] `describe` = declared blob or `information_schema` introspection.
 - [x] `unsafe_code = forbid`; clippy clean; 38 unit tests green; 5 live `#[ignore]`.
-- [ ] **Integration** — not in scope here. No HTTP route / spark node / AI tool /
-      `datasources.json` loaded by a running binary yet (owned by another session).
+- [x] **Integration** — wired into the running stack:
+  - `datasources.json` boot loader (`RUBIX_DATASOURCES`) builds the live
+    registry onto `AppState` (`Some` only when ≥1 entry resolves; fail-closed on
+    a bad credential/host; surfaces off when absent).
+  - HTTP routes: `POST /api/v1/datasources/{id}/query` (operator SQL),
+    `.../named/{name}` (named query), `GET .../describe` — lenient path,
+    `{columns, rows, breached}`, 503 when no manifest.
+  - `datasource` board node (`rubix-flow`): operator SQL or named query →
+    `{columns, rows, breached}` on `output`, **strict** cap policy (a breach
+    fails the node — the spark path), fail-closed with no registry.
+  - `{datasource, sql}` dashboard widget kind (`target` = id, `query` = SQL),
+    validated on create; renders via the `/query` route.
+  - AI tools (read band, named-query only): `datasource_query` +
+    `describe_datasource`, withheld when no manifest.
+  - **Remaining for full live verification:** a real read against a throwaway
+    Postgres *through* a route/node/tool (the in-repo tests prove wiring +
+    fail-closed; the SQL-touching path is proven by the crate's `#[ignore]`d
+    live-DB tests, not yet end-to-end through the HTTP/board/tool layer).
 
 ---
 
@@ -197,12 +219,29 @@ on the strict path), and `describe_introspects_information_schema`.
 
 ## Known issues / fixes
 
-Library built clean; no backend bug to record (there is no rubix backend behind it
-yet). One **workspace-level build note** surfaced during this work, now resolved:
-the `sqlx` facade pulled a second `libsqlite3-sys` that collided with `rusqlite`'s;
-fixed by depending on `sqlx-core` + `sqlx-postgres` directly (see Gotchas). Verified:
-`sqlx-sqlite` no longer appears in `Cargo.lock` and only `libsqlite3-sys 0.35` resolves.
+Library built clean; no engine bug to record. One **workspace-level build note**
+surfaced during this work, now resolved: the `sqlx` facade pulled a second
+`libsqlite3-sys` that collided with `rusqlite`'s; fixed by depending on
+`sqlx-core` + `sqlx-postgres` directly (see Gotchas). Verified: `sqlx-sqlite` no
+longer appears in `Cargo.lock` and only `libsqlite3-sys 0.35` resolves.
 
-> Separately: the workspace currently fails to load because a **different**,
-> in-progress crate (`crates/rubix-rules/`) is listed in `members` but has no
-> `src/lib.rs` yet — that is the rules session's to resolve, not this feature.
+Integration notes from wiring it in:
+
+- **The board `datasource` node uses the strict cap policy; routes and the AI
+  tool use the lenient one.** Same executor, different breach handling by
+  consumer (docs "Truncation on the spark path"): a spark must not fold a
+  truncated grid into a finding, so the node turns a breach into an `error`
+  output, while a dashboard/route read returns the truncated grid with
+  `breached: true`.
+- **`PointAccess` gained `query_datasource` returning `serde_json::Value`, not a
+  `rubix-datasource` type** — keeping `rubix-flow` free of the engine crate (the
+  same boundary that keeps it free of axum/sqlite/zenoh). The server impl bridges
+  the sync port to the async executor with `block_in_place` + `block_on`, the
+  pattern an awaited `agent_call` already uses.
+- **The agent cannot author raw SQL against a datasource.** The AI tool exposes
+  named-query invocation only, and the `pin_widget` tool rejects the
+  `datasource` widget kind — both deliberate, per the design's AI trust model.
+- **The widgets table gained a nullable `query` column** (SQLite + Postgres). No
+  migration framework exists (the store is `CREATE TABLE IF NOT EXISTS`,
+  fresh-DB), so an existing dev DB must be recreated to pick up the column — the
+  same clean-DB assumption the rest of this suite runs under.

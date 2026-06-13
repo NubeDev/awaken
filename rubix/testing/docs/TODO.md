@@ -152,14 +152,21 @@ them. (See **library-verified** in [README.md](README.md).)
       creds never logged), single-statement + bound-param executor, row/byte/
       wall-clock caps with a lenient/strict breach split, operator-registered
       named queries (the AI tier), and `information_schema`/declared-blob describe.
-      ✅ library-verified 2026-06-13 — `cargo test -p rubix-datasource` 38 pass
-      (+5 live-DB `#[ignore]`), clippy clean, `unsafe_code = forbid`. Core engine
-      only; **no integration** (no HTTP route / spark node / AI tool /
-      `datasources.json` loaded). → [features/DATASOURCE.md](features/DATASOURCE.md)
-  - [ ] **Integration follow-up** (separate session): a `{datasource, sql}` widget
-        binding + render path, a datasource spark node (breach = node error), and a
-        read-only AI named-query tool under the existing gating. Then this flips
-        from library-verified to a live feature gate.
+      ✅ library-verified + integrated 2026-06-13 — `cargo test -p rubix-datasource`
+      38 pass (+5 live-DB `#[ignore]`), clippy clean, `unsafe_code = forbid`. Now
+      wired into the running stack (see follow-up). → [features/DATASOURCE.md](features/DATASOURCE.md)
+  - [x] **Integration follow-up**: a `datasources.json` boot loader
+        (`RUBIX_DATASOURCES` → `AppState`); HTTP routes
+        (`/api/v1/datasources/{id}/query|named/{name}|describe`, lenient path); a
+        `datasource` board node (`rubix-flow`, **strict** breach = node error,
+        fail-closed without a registry); the `{datasource, sql}` dashboard widget
+        kind (`target` = id, `query` = SQL, validated on create); and read-only AI
+        `datasource_query` + `describe_datasource` tools (named-query only).
+        Proven by `rubix-server` api tests (`datasources.rs`, `widgets.rs`,
+        `tools.rs`), `rubix-flow` node tests, and `rubix-tools` tool tests.
+        **Still needs** a live read against a throwaway Postgres *through* the
+        route/node/tool to flip to a fully live feature gate (the SQL-touching
+        path is proven by the crate's `#[ignore]`d live-DB tests today).
 
 - [x] **Rules engine** — sandboxed Rhai rule layer that turns queried rows into a
       finding: a DataFusion-first vectorized engine behind a curated primitive

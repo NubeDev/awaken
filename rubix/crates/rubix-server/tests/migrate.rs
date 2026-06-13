@@ -343,3 +343,70 @@ fn opening_a_v3_db_adds_rbac_identity_tables() {
     assert_eq!(store2.list_users("acme").unwrap().len(), 1);
     assert_eq!(store2.list_teams("acme").unwrap().len(), 1);
 }
+
+/// v9 — the change ledger. A v8-shape DB (no `changes` / `undo_cursors` tables)
+/// must gain them on open, keep existing data, and let the ledger round-trip
+/// (docs/design/audit-and-undo.md). Re-opening is a no-op.
+#[test]
+fn opening_a_v8_db_adds_the_change_ledger() {
+    use rubix_core::{Actor, Change};
+    use rubix_server::store::{new_change_id, new_group_id, ChangeFilter};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("v8.db");
+    let site_id = uuid::Uuid::new_v4();
+
+    // A v8-shape DB: a base table exists, but neither ledger table does.
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE sites (
+                id BLOB PRIMARY KEY, org TEXT NOT NULL, slug TEXT NOT NULL,
+                display_name TEXT NOT NULL, tags TEXT NOT NULL, created_at TEXT NOT NULL,
+                UNIQUE (org, slug)
+            );
+            ",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sites VALUES (?1,'kfc','hq','KFC HQ','{}','2026-01-01T00:00:00Z')",
+            rusqlite::params![site_id],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA user_version = 8").unwrap();
+    }
+
+    let store = Store::open(&path).unwrap();
+    // Pre-existing data survived.
+    assert_eq!(store.list_sites(None).unwrap().len(), 1, "site preserved");
+
+    // The ledger round-trips. A snapshot carrying an injection-shaped string binds
+    // as a literal, never executes.
+    let (id, at) = new_change_id();
+    let change = Change::create(
+        id,
+        at,
+        "kfc",
+        None,
+        Actor::User { subject: "sub-1".into() },
+        "dashboard",
+        uuid::Uuid::new_v4(),
+        serde_json::json!({"title": "'); DROP TABLE changes; --"}),
+        new_group_id(),
+        None,
+    );
+    store.record_change(&change).unwrap();
+    let rows = store.list_changes("kfc", &ChangeFilter::default()).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, change.id);
+    // The injected value was inert: the ledger is still here.
+    assert_eq!(store.list_changes("kfc", &ChangeFilter::default()).unwrap().len(), 1);
+
+    // The per-actor cursor round-trips.
+    assert!(store.cas_undo_cursor("kfc", "sub-1", 0, &[]).unwrap());
+
+    // Re-open is idempotent.
+    let store2 = Store::open(&path).unwrap();
+    assert_eq!(store2.list_changes("kfc", &ChangeFilter::default()).unwrap().len(), 1);
+}

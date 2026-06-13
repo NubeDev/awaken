@@ -16,7 +16,7 @@ audit ledger as a parallel substrate the others wire into.
 
 | # | Workstream | Doc | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- | --- |
-| WS-01 | SQL interpolation engine in `rubix-query` + both query paths accept `variables` (injection boundary) | variables | 🔵 | 2026-06-13T13:13:46Z | | |
+| WS-01 | SQL interpolation engine in `rubix-query` + both query paths accept `variables` (injection boundary) | variables | ✅ | 2026-06-13T13:13:46Z | 2026-06-13T14:05:00Z | 4fe4e5b8 |
 | WS-02 | Dashboard `variables` model + DTO/OpenAPI/TS + resolution/cascading + variable bar/editor + `?var-*` URL | variables | ⬜ | | | |
 | WS-03 | Time macros (`$__from`/`$__to`/`$__timeFilter`/`$__timeGroup`/`$__interval`) in engine + query DTOs + frozen-`now` + `point_history` wiring | time-range | ⬜ | | | |
 | WS-04 | Time store + relative resolver + TimeRangePicker + auto-refresh loop + `?from/to/refresh` URL + drag-zoom (UI) | time-range | ⬜ | | | |
@@ -52,3 +52,4 @@ audit ledger as a parallel substrate the others wire into.
 <!-- The loop appends one line per wake here: <utc> <action> (spawned WS-xx / gated WS-xx ✅ / blocked WS-xx ⛔ / idle). -->
 - (pending first wake)
 - 2026-06-13T13:13:46Z spawned WS-01 (SQL interpolation engine, backend)
+- 2026-06-13T14:05:00Z gated WS-01 ✅ (engine + both query paths accept `variables`, injection-safe)

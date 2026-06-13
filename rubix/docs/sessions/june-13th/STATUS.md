@@ -19,7 +19,7 @@ audit ledger as a parallel substrate the others wire into.
 | WS-01 | SQL interpolation engine in `rubix-query` + both query paths accept `variables` (injection boundary) | variables | ✅ | 2026-06-13T13:13:46Z | 2026-06-13T14:05:00Z | 4fe4e5b8 |
 | WS-02 | Dashboard `variables` model + DTO/OpenAPI/TS + resolution/cascading + variable bar/editor + `?var-*` URL | variables | ✅ | 2026-06-13T13:35:22Z | 2026-06-13T14:08:20Z | 2b766136 |
 | WS-03 | Time macros (`$__from`/`$__to`/`$__timeFilter`/`$__timeGroup`/`$__interval`) in engine + query DTOs + frozen-`now` + `point_history` wiring | time-range | ✅ | 2026-06-13T14:10:12Z | 2026-06-13T14:40:00Z | 5e4e4de1 |
-| WS-04 | Time store + relative resolver + TimeRangePicker + auto-refresh loop + `?from/to/refresh` URL + drag-zoom (UI) | time-range | ⬜ | | | |
+| WS-04 | Time store + relative resolver + TimeRangePicker + auto-refresh loop + `?from/to/refresh` URL + drag-zoom (UI) | time-range | ✅ | 2026-06-13T14:30:13Z | 2026-06-13T15:05:00Z | 4b3798ae |
 | WS-05 | Entity-tag store/routes/authz + `nav_nodes` table + nav CRUD/reorder/reparent + `nav_node` grant kind + default-tree seed | page-context | ⬜ | | | |
 | WS-06 | `context` VariableKind full-stack + `PageContext` assembly/precedence + `varRevision`/resolution wiring + nested sidebar + Navigation builder (UI) | page-context | ⬜ | | | |
 | WS-07 | `changes` + `undo_cursors` tables + `ChangeRecorder` + `Reversible` registry + cascade grouping + coverage guard | audit-undo | ⬜ | | | |
@@ -58,3 +58,6 @@ audit ledger as a parallel substrate the others wire into.
 - 2026-06-13T14:08:20Z gated WS-02 ✅ (re-spawned to finish: frontend committed 2b766136, both gates green; pre-existing sim flake + 2 clippy warns git-blamed to other WSs, not WS-02)
 - 2026-06-13T14:10:12Z spawned WS-03 (time macros in engine + query DTOs + frozen-now + point_history wiring, backend)
 - 2026-06-13T14:40:00Z gated WS-03 ✅ (engine time macros + query DTO time_range/interval_secs + frozen-now, injection-safe; cargo+clippy green; frontend gate unrunnable in sandbox, additive TS noted for WS-04)
+- 2026-06-13T14:30:13Z spawned WS-04 (time store + relative resolver + TimeRangePicker + auto-refresh + ?from/to/refresh URL + drag-zoom, frontend)
+- 2026-06-13T14:32:00Z supervisor infra-fix: installed `rubix/ui/node_modules` (standalone project, NOT in awaken pnpm workspace — frontend gate was un-runnable). `pnpm test:unit` now green 74/74; gate restored for WS-04/06/09. node_modules gitignored, backend still green.
+- 2026-06-13T15:05:00Z gated WS-04 ✅ (time store + resolver + TimeRangePicker + auto-refresh/hidden-tab-pause + ?from/to/refresh URL + chart drag-zoom; widget/his queries thread time_range/interval_secs + snapped cache keys; build + test:unit 104/104 + lint(0 err) + check:fake all green)

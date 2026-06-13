@@ -67,6 +67,9 @@ import type {
   PatchNavNode,
   EntityTags,
   TagEntityKind,
+  Change,
+  AuditQuery,
+  UndoResult,
 } from './types'
 
 export const sites = {
@@ -458,6 +461,36 @@ export const nav = {
     request<NavNode>(`/api/v1/nav/${id}`, { method: 'PATCH', body }),
   remove: (id: Uuid) =>
     request<void>(`/api/v1/nav/${id}`, { method: 'DELETE' }),
+}
+
+// --- Audit & undo/redo (docs/design/audit-and-undo.md) ------------------------
+// The read surface is admin-gated server-side (`require_admin(org)`); undo/redo
+// act on the authenticated principal's own change cursor and return the touched
+// resource ids so the UI invalidates exactly the matching query keys.
+
+export const audit = {
+  /** The org's change log, newest-first, narrowed by the optional filters. */
+  list: (q: AuditQuery, signal?: AbortSignal) =>
+    request<Change[]>('/api/v1/audit', {
+      query: {
+        org: q.org,
+        kind: q.kind,
+        resource_id: q.resource_id,
+        actor: q.actor,
+        op: q.op,
+        limit: q.limit,
+      },
+      signal,
+    }),
+  /** One resource's change timeline (powers the per-resource History tab). */
+  timeline: (kind: string, id: Uuid, signal?: AbortSignal) =>
+    request<Change[]>(`/api/v1/audit/${kind}/${id}`, { signal }),
+  /** Undo the caller's most-recent change group in `org`; returns touched ids. */
+  undo: (org: string) =>
+    request<UndoResult>('/api/v1/undo', { method: 'POST', body: { org } }),
+  /** Redo the caller's most-recently-undone change group in `org`. */
+  redo: (org: string) =>
+    request<UndoResult>('/api/v1/redo', { method: 'POST', body: { org } }),
 }
 
 export const tags = {

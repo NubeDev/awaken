@@ -36,7 +36,9 @@ import type {
   PatchTeam,
   CreateGrant,
   CreateDashboardGrant,
+  AuditQuery,
 } from './types'
+import { invalidationKeys } from '@/features/audit/invalidate'
 
 const LIVE_INTERVAL = 5_000
 
@@ -869,6 +871,71 @@ export function useGrantDashboard(dashboardId: Uuid) {
     mutationFn: (body: CreateDashboardGrant) =>
       api.grants.grantDashboard(dashboardId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['grants'] }),
+  })
+}
+
+// --- Audit & undo/redo (docs/design/audit-and-undo.md) ------------------------
+
+/**
+ * The org's audit log, narrowed by the active filters. Admin-gated server-side
+ * (`require_admin(org)`); the screen also hides itself for a non-`can_admin`
+ * caller. Disabled until an org resolves. The query key folds the filter shape so
+ * a filter change refetches without colliding with another filter's page.
+ */
+export function useAudit(org: string | undefined, filter: Omit<AuditQuery, 'org'>) {
+  const filterKey = JSON.stringify(filter)
+  return useQuery({
+    queryKey: qk.audit(org ?? 'none', filterKey),
+    queryFn: ({ signal }) =>
+      api.audit.list({ org: org as string, ...filter }, signal),
+    enabled: Boolean(org),
+  })
+}
+
+/**
+ * One resource's change timeline — the per-resource History tab (timeline +
+ * before→after diff). Only fetched when a resource is selected.
+ */
+export function useResourceHistory(
+  kind: string | undefined,
+  id: Uuid | undefined
+) {
+  return useQuery({
+    queryKey: qk.auditTimeline(kind ?? 'none', id ?? ('none' as Uuid)),
+    queryFn: ({ signal }) => api.audit.timeline(kind as string, id as Uuid, signal),
+    enabled: Boolean(kind && id),
+  })
+}
+
+/**
+ * Undo the caller's most-recent change group in `org`. On success the returned
+ * touched-resource ids drive precise invalidation so the canvas refreshes exactly
+ * what moved, and the audit log itself refreshes.
+ */
+export function useUndo(org: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.audit.undo(org as string),
+    onSuccess: (result) => {
+      for (const queryKey of invalidationKeys(result)) {
+        qc.invalidateQueries({ queryKey })
+      }
+      qc.invalidateQueries({ queryKey: ['audit'] })
+    },
+  })
+}
+
+/** Redo the caller's most-recently-undone change group; same invalidation path. */
+export function useRedo(org: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.audit.redo(org as string),
+    onSuccess: (result) => {
+      for (const queryKey of invalidationKeys(result)) {
+        qc.invalidateQueries({ queryKey })
+      }
+      qc.invalidateQueries({ queryKey: ['audit'] })
+    },
   })
 }
 

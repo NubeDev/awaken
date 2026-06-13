@@ -60,4 +60,10 @@ export const qk = {
   /** An entity's tag set (key per kind+id). */
   entityTags: (kind: string, id: Uuid) => ['tags', kind, id] as const,
   tagKeys: (kind: string, org: string) => ['tags', 'keys', kind, org] as const,
+  /** The admin audit-log query, keyed on the org + the active filter shape. */
+  audit: (org: string, filter?: string) =>
+    ['audit', org, filter ?? 'all'] as const,
+  /** One resource's change timeline (the per-resource History tab). */
+  auditTimeline: (kind: string, id: Uuid) =>
+    ['audit', 'timeline', kind, id] as const,
 }

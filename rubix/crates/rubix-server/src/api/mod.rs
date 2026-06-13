@@ -19,8 +19,10 @@ mod rules;
 mod runs;
 mod scope_auth;
 mod sites;
+mod nav;
 mod sparks;
 mod tag_query;
+mod tags;
 mod teams;
 mod time_range;
 mod units_ctx;
@@ -76,6 +78,8 @@ pub fn router(state: AppState) -> Router {
         .merge(users::router())
         .merge(teams::router())
         .merge(grants::router())
+        .merge(tags::router())
+        .merge(nav::router())
         .merge(crate::mcp::router())
         .with_state(state)
 }

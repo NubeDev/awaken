@@ -10,9 +10,9 @@ use crate::error::ErrorBody;
 use crate::store::{GrantRecord, TeamRecord, UserRecord};
 
 use super::{
-    agent, boards, command, dashboards, datasources, equips, grants, health, his, orgs, points,
-    preferences, query, rules, runs, sites, sparks, teams, time_range, tokens, users, whoami,
-    widgets,
+    agent, boards, command, dashboards, datasources, equips, grants, health, his, nav, orgs,
+    points, preferences, query, rules, runs, sites, sparks, tags, teams, time_range, tokens, users,
+    whoami, widgets,
 };
 
 /// Registers the `bearer` HTTP security scheme so routes can mark themselves
@@ -137,6 +137,15 @@ impl Modify for BearerSecurity {
         grants::delete_grant,
         grants::list_dashboard_grants,
         grants::create_dashboard_grant,
+        nav::create::create_nav_node,
+        nav::list::list_nav,
+        nav::get::get_nav_node,
+        nav::update::update_nav_node,
+        nav::delete::delete_nav_node,
+        tags::put::put_tags,
+        tags::get::get_tags,
+        tags::entities::tagged_entities,
+        tags::keys::tag_keys,
     ),
     components(schemas(ErrorBody, RunRecord, RunStatus, RunOrigin, PendingWrite,
         whoami::Whoami,
@@ -159,6 +168,9 @@ impl Modify for BearerSecurity {
         users::CreateUser, users::PatchUser,
         teams::CreateTeam, teams::PatchTeam, teams::AddMember,
         grants::CreateGrant, grants::CreateDashboardGrant,
+        nav::dto::CreateNavNode, nav::dto::PatchNavNode,
+        rubix_core::NavNode, rubix_core::NavTarget, rubix_core::NavRoute,
+        rubix_core::NavContext, rubix_core::EntityTags, rubix_core::TagEntityKind,
         preferences::UnitsDocument,
         rubix_prefs::preferences::ResolvedPreferences,
         rubix_prefs::preferences::UnitSystem, rubix_prefs::preferences::DateFormat,

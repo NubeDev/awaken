@@ -855,3 +855,92 @@ export interface QuantityEntry {
 export interface UnitsDocument {
   quantities: QuantityEntry[]
 }
+
+// ── Nav tree + entity tags (docs/design/page-context-and-nav.md) ──────────────
+
+/**
+ * `rubix_core::NavRoute` — the closed allow-list of built-in static pages a
+ * `route` nav target may point at. The server rejects any other value.
+ */
+export type NavRoute =
+  | 'sites'
+  | 'equips'
+  | 'points'
+  | 'dashboards'
+  | 'datasources'
+  | 'rules'
+  | 'boards'
+  | 'sparks'
+  | 'runs'
+  | 'audit'
+  | 'access'
+
+/**
+ * `rubix_core::NavTarget` — what a nav node mounts. A tagged union on `kind`: a
+ * `group` is a header with no destination, a `dashboard` mounts a board by id
+ * (validated to live in the node's org), a `route` opens a built-in page.
+ */
+export type NavTarget =
+  | { kind: 'group' }
+  | { kind: 'dashboard'; dashboard_id: string }
+  | { kind: 'route'; route: NavRoute }
+
+/**
+ * `rubix_core::NavContext` — the page context a `dashboard` node injects:
+ * free-form variable `values` and entity `tags`. Only meaningful on a
+ * `dashboard` target.
+ */
+export interface NavContext {
+  values?: Record<string, unknown>
+  tags?: Record<string, string>
+}
+
+/**
+ * `rubix_core::NavNode` — one org-scoped, nestable nav-tree row. Returned flat
+ * (in `parent_id` / `sort_order` order); the client assembles the nesting.
+ */
+export interface NavNode {
+  id: string
+  org: string
+  parent_id: string | null
+  title: string
+  sort_order: number
+  target: NavTarget
+  context?: NavContext | null
+  icon?: string | null
+  accent?: string | null
+}
+
+/** `POST /api/v1/nav` body. Identity (`id`) is server-assigned. */
+export interface CreateNavNode {
+  org: string
+  parent_id?: string | null
+  title: string
+  sort_order?: number
+  target: NavTarget
+  context?: NavContext | null
+  icon?: string | null
+  accent?: string | null
+}
+
+/**
+ * `PATCH /api/v1/nav/{id}` body. Every field optional; an absent field is left
+ * unchanged. A present `parent_id: null` moves the node to root; a present
+ * `context: null` clears it. `org` is immutable identity and not patchable.
+ */
+export interface PatchNavNode {
+  parent_id?: string | null
+  title?: string
+  sort_order?: number
+  target?: NavTarget
+  context?: NavContext | null
+  icon?: string | null
+  accent?: string | null
+}
+
+/**
+ * `rubix_core::EntityTags` — an entity's full tag set (`PUT`/`GET
+ * /api/v1/tags/{kind}/{id}`). A map of key → value; a `null` value is a
+ * present-but-unset key. The `PUT` replaces the set wholesale.
+ */
+export type EntityTags = Record<string, string | null>

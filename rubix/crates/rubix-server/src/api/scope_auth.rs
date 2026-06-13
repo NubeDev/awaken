@@ -57,6 +57,36 @@ pub(crate) fn resource_ref(kind: &str, addr: &str) -> String {
     format!("{kind}:{addr}")
 }
 
+/// Two-layer read of a nav node: org-scope read OR a `nav_node:<id>`/`nav_node:*`
+/// read grant (docs/design/page-context-and-nav.md §6). A nav node is purely
+/// org-scoped (no site), so Layer-1 is the org read. Used both to gate opening a
+/// node and to filter the tree `GET` per node.
+pub(crate) fn may_read_nav_node(
+    principal: &RequestPrincipal,
+    store: &Store,
+    org: &str,
+    id: Uuid,
+) -> bool {
+    let res_ref = resource_ref("nav_node", &id.to_string());
+    may_read_resource(principal, store, org, None, "nav_node", &res_ref)
+}
+
+/// Two-layer write of a nav node (create/update/delete/reorder). `id` is `None`
+/// for create (no resource id yet → Layer-1 org write or a `nav_node:*` wildcard
+/// grant authorizes it).
+pub(crate) fn authorize_nav_node_write(
+    principal: &RequestPrincipal,
+    store: &Store,
+    org: &str,
+    id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    let res_ref = match id {
+        Some(id) => resource_ref("nav_node", &id.to_string()),
+        None => "*".to_string(),
+    };
+    authorize_resource_write(principal, store, org, None, "nav_node", &res_ref)
+}
+
 /// The Layer-2 subjects a principal matches against grants: its own user
 /// (`user:<id>`) plus each team it belongs to (`team:<id>`). Empty for a
 /// pure-token principal (no user row), which then relies on Layer 1 alone.

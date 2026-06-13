@@ -16,6 +16,7 @@ mod api_tests {
     mod flow;
     mod his;
     mod mcp;
+    mod nav;
     mod orgs;
     mod points;
     mod preferences;
@@ -27,6 +28,7 @@ mod api_tests {
     mod seed;
     mod sites;
     mod sparks;
+    mod tags;
     mod tenancy;
     mod tools;
     mod whoami;

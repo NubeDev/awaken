@@ -56,7 +56,19 @@ pub(crate) async fn provision_org(
     };
     let org = req.org.clone();
     let stored = site.clone();
-    blocking(move || Ok(state.store.create_site(&stored)?)).await?;
+    let seed_org = req.org.clone();
+    blocking(move || {
+        state.store.create_site(&stored)?;
+        // Seed the default nav tree the first time an org is provisioned, so every
+        // built-in static page is a granted-org-wide node and later gating is
+        // opt-in tightening (docs/design/page-context-and-nav.md §6). Re-provision
+        // (the org already has nodes) skips it.
+        if state.store.list_nav_nodes(&seed_org)?.is_empty() {
+            crate::api::nav::seed_default_tree(&state.store, &seed_org)?;
+        }
+        Ok(())
+    })
+    .await?;
 
     Ok((
         StatusCode::CREATED,

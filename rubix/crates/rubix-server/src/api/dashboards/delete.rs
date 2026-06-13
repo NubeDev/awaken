@@ -28,6 +28,16 @@ pub(crate) async fn delete_dashboard(
         current.site_id,
         id,
     )?;
-    blocking(move || Ok(state.store.delete_dashboard(id)?)).await?;
+    // Sweep the board's tags and rewrite any nav node that mounts it back to a
+    // group target (docs/design/page-context-and-nav.md §4): losing a board must
+    // not delete the node, and stale tags must not linger. Done before the row is
+    // removed so a failure leaves the dashboard intact.
+    blocking(move || {
+        state.store.sweep_nav_dashboard(id)?;
+        state.store.sweep_entity_tags("dashboard", id)?;
+        state.store.delete_dashboard(id)?;
+        Ok(())
+    })
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }

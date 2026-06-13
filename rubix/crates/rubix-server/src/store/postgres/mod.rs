@@ -7,6 +7,7 @@
 use super::{Result, Store};
 
 pub(super) mod boards;
+pub(super) mod changes;
 pub(super) mod codec;
 pub(super) mod command;
 pub(super) mod dashboards;
@@ -32,7 +33,7 @@ pub(super) mod widgets;
 /// Postgres pass from a clean slate (the SQLite pass uses a fresh temp file).
 pub(super) fn truncate_all(store: &Store) -> Result<()> {
     store.postgres_conn()?.batch_execute(
-        "TRUNCATE nav_nodes, entity_tags, tokens, grants, memberships, teams, users, runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
+        "TRUNCATE changes, undo_cursors, nav_nodes, entity_tags, tokens, grants, memberships, teams, users, runs, widgets, his, sparks, boards, points, equips, sites RESTART IDENTITY CASCADE",
     )?;
     Ok(())
 }

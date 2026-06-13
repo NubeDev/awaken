@@ -240,8 +240,41 @@ CREATE TABLE IF NOT EXISTS nav_nodes (
     icon       TEXT,
     accent     TEXT
 );
+-- The append-only change ledger (docs/design/audit-and-undo.md, the substrate).
+-- One row per logical mutation: `before`/`after` are full JSON snapshots (NULL by
+-- op — Create has no before, Delete no after); `group_id` joins the rows of one
+-- logical operation so a cascade undoes as one step. Org-scoped: every audit read
+-- filters by `org`. Legacy files gain this table in migration v9.
+CREATE TABLE IF NOT EXISTS changes (
+    id          TEXT PRIMARY KEY,
+    at          TEXT NOT NULL,
+    org         TEXT NOT NULL,
+    site_id     TEXT,
+    actor       TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    op          TEXT NOT NULL,
+    before      TEXT,
+    after       TEXT,
+    group_id    TEXT NOT NULL,
+    correlation TEXT
+);
+-- Per-actor undo cursor (docs/design/audit-and-undo.md, undo/redo): one row per
+-- `(org, subject)`. `redo_stack` is a JSON array of undone `group_id`s (LIFO);
+-- `epoch` is the CAS guard so two concurrent undos cannot double-pop. Legacy files
+-- gain this table in migration v9.
+CREATE TABLE IF NOT EXISTS undo_cursors (
+    org        TEXT NOT NULL,
+    subject    TEXT NOT NULL,
+    redo_stack TEXT NOT NULL DEFAULT '[]',
+    epoch      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (org, subject)
+);
 CREATE INDEX IF NOT EXISTS idx_entity_tags_reverse ON entity_tags (org, kind, key, value);
 CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree ON nav_nodes (org, parent_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_changes_org_at ON changes (org, at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_resource ON changes (org, kind, resource_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_group ON changes (group_id);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
@@ -490,8 +523,34 @@ CREATE TABLE IF NOT EXISTS nav_nodes (
     icon       TEXT,
     accent     TEXT
 );
+-- The append-only change ledger + per-actor undo cursor (mirrors SCHEMA_SQLITE;
+-- see docs/design/audit-and-undo.md). `epoch` is BIGINT here.
+CREATE TABLE IF NOT EXISTS changes (
+    id          TEXT PRIMARY KEY,
+    at          TEXT NOT NULL,
+    org         TEXT NOT NULL,
+    site_id     TEXT,
+    actor       TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    op          TEXT NOT NULL,
+    before      TEXT,
+    after       TEXT,
+    group_id    TEXT NOT NULL,
+    correlation TEXT
+);
+CREATE TABLE IF NOT EXISTS undo_cursors (
+    org        TEXT NOT NULL,
+    subject    TEXT NOT NULL,
+    redo_stack TEXT NOT NULL DEFAULT '[]',
+    epoch      BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (org, subject)
+);
 CREATE INDEX IF NOT EXISTS idx_entity_tags_reverse ON entity_tags (org, kind, key, value);
 CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree ON nav_nodes (org, parent_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_changes_org_at ON changes (org, at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_resource ON changes (org, kind, resource_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_changes_group ON changes (group_id);
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);

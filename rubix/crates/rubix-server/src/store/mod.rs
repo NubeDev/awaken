@@ -7,6 +7,7 @@
 
 mod backend;
 mod boards;
+mod changes;
 mod codec;
 mod command;
 mod dashboards;
@@ -25,6 +26,7 @@ mod points;
 mod prefs;
 #[cfg(feature = "cloud")]
 mod postgres;
+mod reversible;
 mod rules;
 mod runs;
 mod schema;
@@ -35,8 +37,12 @@ mod tokens;
 mod users;
 mod widgets;
 
+pub use changes::{new_change_id, new_group_id, ChangeFilter, UndoCursor};
 pub use error::StoreError;
 pub use grants::{GrantRecord, Permission, SubjectKind};
+pub use reversible::{
+    apply_group_forward, apply_group_inverse, registered_kinds, Reversible, ReverserRegistry,
+};
 pub use keyexpr::PointKey;
 pub use open::Store;
 pub use rules::RuleRecord;

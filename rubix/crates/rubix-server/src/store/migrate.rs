@@ -59,6 +59,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 8,
         step: migrate_v8_nav_nodes,
     },
+    Migration {
+        version: 9,
+        step: migrate_v9_change_ledger,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -347,6 +351,44 @@ fn migrate_v8_nav_nodes(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> 
         );
         CREATE INDEX IF NOT EXISTS idx_nav_nodes_tree
             ON nav_nodes (org, parent_id, sort_order);
+        ",
+    )
+}
+
+/// v9 — the append-only change ledger (docs/design/audit-and-undo.md "The
+/// substrate"): the org-scoped `changes` table and the per-actor `undo_cursors`
+/// table. New tables only (no existing data to migrate), so pure `CREATE TABLE IF
+/// NOT EXISTS` — a no-op on a fresh database (the base schema already created them)
+/// and additive on a legacy one. Shapes mirror [`super::schema::SCHEMA_SQLITE`]
+/// exactly; keep them in sync.
+fn migrate_v9_change_ledger(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS changes (
+            id          TEXT PRIMARY KEY,
+            at          TEXT NOT NULL,
+            org         TEXT NOT NULL,
+            site_id     TEXT,
+            actor       TEXT NOT NULL,
+            kind        TEXT NOT NULL,
+            resource_id TEXT NOT NULL,
+            op          TEXT NOT NULL,
+            before      TEXT,
+            after       TEXT,
+            group_id    TEXT NOT NULL,
+            correlation TEXT
+        );
+        CREATE TABLE IF NOT EXISTS undo_cursors (
+            org        TEXT NOT NULL,
+            subject    TEXT NOT NULL,
+            redo_stack TEXT NOT NULL DEFAULT '[]',
+            epoch      INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (org, subject)
+        );
+        CREATE INDEX IF NOT EXISTS idx_changes_org_at ON changes (org, at DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_changes_resource
+            ON changes (org, kind, resource_id, at DESC);
+        CREATE INDEX IF NOT EXISTS idx_changes_group ON changes (group_id);
         ",
     )
 }

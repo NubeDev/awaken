@@ -18,7 +18,8 @@ export const qk = {
       params.tags ?? null,
     ] as const,
   point: (id: Uuid) => ['points', 'one', id] as const,
-  pointHistory: (id: Uuid) => ['points', id, 'history'] as const,
+  pointHistory: (id: Uuid, timeKey = 'live') =>
+    ['points', id, 'history', timeKey] as const,
   sparks: (siteId?: Uuid) => ['sparks', siteId ?? 'all'] as const,
   agentStatus: ['agent', 'status'] as const,
   runs: ['runs'] as const,
@@ -38,8 +39,8 @@ export const qk = {
    * references no variable gets a constant `varRevision` (`'none'`), so an
    * unrelated selection change never invalidates it.
    */
-  widgetData: (widgetId: Uuid, varRevision: string) =>
-    ['widget-data', widgetId, varRevision] as const,
+  widgetData: (widgetId: Uuid, varRevision: string, timeKey = 'live') =>
+    ['widget-data', widgetId, varRevision, timeKey] as const,
   dashboards: (org?: string, siteId?: Uuid) =>
     ['dashboards', org ?? 'all', siteId ?? 'all'] as const,
   rules: (org?: string) => ['rules', org ?? 'all'] as const,
@@ -48,7 +49,8 @@ export const qk = {
     ['rules', org, name, 'referencing'] as const,
   users: (org?: string) => ['users', org ?? 'all'] as const,
   teams: (org?: string) => ['teams', org ?? 'all'] as const,
-  teamMembers: (org: string, id: Uuid) => ['teams', org, id, 'members'] as const,
+  teamMembers: (org: string, id: Uuid) =>
+    ['teams', org, id, 'members'] as const,
   grants: (org?: string, resourceRef?: string) =>
     ['grants', org ?? 'all', resourceRef ?? 'all'] as const,
   dashboardGrants: (id: Uuid) => ['grants', 'dashboard', id] as const,

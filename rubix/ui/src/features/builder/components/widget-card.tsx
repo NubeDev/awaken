@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { GripVertical, X } from 'lucide-react'
 import { useDeleteWidget, usePointHistory } from '@/api/hooks'
 import type { Point, Widget } from '@/api/types'
+import { useTimeStore } from '@/stores/time-store'
 import { ageShort, formatValue } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { useQueryTime } from '@/features/time/use-query-time'
 import { HistoryChart, type ChartRow } from '../lib/charts'
 import { BoardOutputCard } from './board-output-card'
 
@@ -85,7 +87,7 @@ function RemoveButton({ widget }: { widget: Widget }) {
 function TileHeader({ widget }: { widget: Widget }) {
   return (
     <div className='flex items-center gap-1'>
-      <span className='drag-handle text-muted-foreground/50 hover:text-muted-foreground -ms-1 cursor-grab active:cursor-grabbing'>
+      <span className='drag-handle -ms-1 cursor-grab text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing'>
         <GripVertical className='size-3.5' />
       </span>
       <span className='eyebrow text-[10px]'>{widget.title}</span>
@@ -114,16 +116,27 @@ function PointValueCard({ widget, point }: { widget: Widget; point: Point }) {
 }
 
 function PointHistoryCard({ widget, point }: { widget: Widget; point: Point }) {
-  const { data: history = [] } = usePointHistory(point.id)
+  // Thread the resolved dashboard range into the `his` read so the tile fetches
+  // only the in-range span (docs/design/time-range-and-refresh.md §4) instead of
+  // fetching-all-and-slicing. The bounds bind server-side as `start`/`end`.
+  const { fromMs, toMs, tickKey } = useQueryTime()
+  const refreshSecs = useTimeStore((s) => s.refresh)
+  const { data: history = [] } = usePointHistory(point.id, {
+    start: new Date(fromMs).toISOString(),
+    end: new Date(toMs).toISOString(),
+    tickKey,
+    refreshSecs,
+  })
+  const setRange = useTimeStore((s) => s.setRange)
   const rows: ChartRow[] = history
     .filter((s) => typeof s.value === 'number')
-    .slice(-48)
     .map((s) => ({
       t: new Date(s.ts).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       }),
       value: s.value as number,
+      ms: new Date(s.ts).getTime(),
     }))
 
   return (
@@ -140,6 +153,15 @@ function PointHistoryCard({ widget, point }: { widget: Widget; point: Point }) {
             type={widget.settings?.config?.type ?? 'area'}
             gradientId={`wFill-${widget.id}`}
             height='100%'
+            // Drag-zoom sets the global range to the dragged span as absolute
+            // instants (docs/design/time-range-and-refresh.md §6); the picker's
+            // quick ranges are the "zoom out" affordance back to a relative range.
+            onZoom={(fromMs, toMs) =>
+              setRange(
+                new Date(fromMs).toISOString(),
+                new Date(toMs).toISOString()
+              )
+            }
           />
         )}
       </div>

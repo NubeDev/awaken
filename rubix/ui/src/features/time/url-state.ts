@@ -7,8 +7,12 @@
  * instants; `refresh` is the interval in seconds (`0` = off). Absent params mean
  * "use the defaults", so a clean link carries no time noise.
  */
-import { DEFAULT_RANGE, DEFAULT_REFRESH, isRefreshSecs } from './presets'
-import type { RefreshSecs } from './presets'
+import {
+  DEFAULT_RANGE,
+  DEFAULT_REFRESH,
+  isRefreshSecs,
+  type RefreshSecs,
+} from './presets'
 
 export interface TimeUrlState {
   from: string
@@ -32,7 +36,9 @@ export function readTimeParams(params: URLSearchParams): TimeUrlState {
 
   const refreshNum = refreshRaw === null ? NaN : Number(refreshRaw)
   const refresh =
-    refreshRaw !== null && isRefreshSecs(refreshNum) ? refreshNum : DEFAULT_REFRESH
+    refreshRaw !== null && isRefreshSecs(refreshNum)
+      ? refreshNum
+      : DEFAULT_REFRESH
 
   if (from && to) {
     return { from, to, refresh }

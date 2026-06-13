@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useDashboards, useEquips, usePoints, useWidgets } from '@/api/hooks'
 import { keyexprIndex, keyexprIndexMulti } from '@/api/keyexpr'
-import { useScope } from '@/context/scope-provider'
 import type { Dashboard, Site, Widget } from '@/api/types'
+import { useScope } from '@/context/scope-provider'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Main } from '@/components/layout/main'
 import { PageHeader } from '@/components/layout/page-header'
-import { Button } from '@/components/ui/button'
-import { SlidersHorizontal } from 'lucide-react'
+import { TimeRangePicker } from '../time/time-range-picker'
+import { useTimeRangeSync } from '../time/use-time-range'
+import { useVariableResolution } from '../variables/use-resolution'
+import { useVarUrlState } from '../variables/use-var-url-state'
+import { VariableBar } from '../variables/variable-bar'
+import { VariableEditorDialog } from '../variables/variable-editor-dialog'
 import { DashboardFormDialog } from './components/dashboard-form-dialog'
 import { DashboardPicker } from './components/dashboard-picker'
 import { WidgetBinder } from './components/widget-binder'
 import { WidgetCanvas } from './components/widget-canvas'
 import { WidgetPalette } from './components/widget-palette'
-import { VariableBar } from '../variables/variable-bar'
-import { VariableEditorDialog } from '../variables/variable-editor-dialog'
-import { useVariableResolution } from '../variables/use-resolution'
-import { useVarUrlState } from '../variables/use-var-url-state'
 import type { PaletteEntry } from './lib/palette'
 
 type Bindable = Extract<PaletteEntry, { available: true }>
@@ -32,6 +34,10 @@ export function Builder() {
   // org-level dashboards route where no single site is selected. `site` is the
   // active site when on a site route; `sites` scopes the create-dialog picker.
   const { org, site, sites } = useScope()
+
+  // Bind the time store to the URL (`?from/to/refresh`) and run the auto-refresh
+  // loop (paused on a hidden tab) for every widget on the open dashboard.
+  useTimeRangeSync()
 
   const { data: dashboards = [] } = useDashboards(org)
   const [pickedId, setPickedId] = useState<string | undefined>()
@@ -91,6 +97,9 @@ export function Builder() {
               <SlidersHorizontal className='size-3.5' /> Variables
             </Button>
           ) : null}
+          <div className='ms-auto'>
+            <TimeRangePicker />
+          </div>
         </div>
 
         {selected && resolved.some((r) => !r.variable.hidden) ? (
@@ -103,7 +112,11 @@ export function Builder() {
           </div>
         ) : varError ? (
           <div className='mb-3'>
-            <VariableBar resolved={[]} error={varError} onChange={setSelection} />
+            <VariableBar
+              resolved={[]}
+              error={varError}
+              onChange={setSelection}
+            />
           </div>
         ) : null}
 

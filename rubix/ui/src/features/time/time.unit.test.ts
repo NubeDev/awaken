@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { dateToToken, isValidToken } from './absolute'
+import { rangeLabel } from './label'
+import { isRefreshSecs } from './presets'
 import {
   resolveBound,
   resolveRange,
   snapToTick,
   TimeRangeError,
 } from './resolve'
-import { isRefreshSecs } from './presets'
 import { readTimeParams, writeTimeParams } from './url-state'
+import { deriveIntervalSecs } from './use-query-time'
 
 // A fixed frozen instant: 2026-06-13T14:37:42.500Z.
 const NOW = Date.parse('2026-06-13T14:37:42.500Z')
@@ -135,5 +138,50 @@ describe('time url-state', () => {
   it('ignores a non-preset refresh value', () => {
     const s = readTimeParams(new URLSearchParams('refresh=7'))
     expect(s.refresh).toBe(5)
+  })
+})
+
+describe('rangeLabel', () => {
+  it('shows the quick-preset label for a matching range', () => {
+    expect(rangeLabel('now-6h', 'now')).toBe('Last 6 hours')
+    expect(rangeLabel('now/d', 'now')).toBe('Today')
+  })
+
+  it('shows the raw tokens for a custom relative range', () => {
+    expect(rangeLabel('now-3h', 'now')).toBe('now-3h → now')
+  })
+
+  it('localises absolute bounds', () => {
+    const label = rangeLabel('2026-06-13T00:00:00.000Z', 'now')
+    expect(label).toContain(' → now')
+    expect(label).not.toBe('2026-06-13T00:00:00.000Z → now')
+  })
+})
+
+describe('absolute helpers', () => {
+  it('dateToToken yields an ISO instant', () => {
+    expect(dateToToken(new Date('2026-06-13T12:00:00.000Z'))).toBe(
+      '2026-06-13T12:00:00.000Z'
+    )
+  })
+
+  it('isValidToken accepts relative and absolute, rejects garbage', () => {
+    expect(isValidToken('now-6h')).toBe(true)
+    expect(isValidToken('now/d')).toBe(true)
+    expect(isValidToken('2026-01-01T00:00:00Z')).toBe(true)
+    expect(isValidToken('lunchtime')).toBe(false)
+    expect(isValidToken('now-5q')).toBe(false)
+  })
+})
+
+describe('deriveIntervalSecs', () => {
+  it('buckets a span toward ~300 points, min 1 second', () => {
+    const sixHours = 6 * 3_600_000
+    // 6h = 21600s / 300 ≈ 72s
+    expect(deriveIntervalSecs(0, sixHours)).toBe(72)
+  })
+
+  it('never returns below 1 second for a tiny span', () => {
+    expect(deriveIntervalSecs(0, 500)).toBe(1)
   })
 })

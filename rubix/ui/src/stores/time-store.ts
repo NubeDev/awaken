@@ -4,7 +4,6 @@ import {
   DEFAULT_REFRESH,
   type RefreshSecs,
 } from '@/features/time/presets'
-
 /**
  * Dashboard time-range + refresh store (docs/design/time-range-and-refresh.md
  * §§1-3). Holds the (possibly relative) `{from, to}` selection, the auto-refresh

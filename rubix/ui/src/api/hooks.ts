@@ -25,6 +25,7 @@ import type {
   ProvisionOrg,
   QueryVariable,
   RunStatus,
+  TimeRangeBody,
   UpdateRule,
   Uuid,
   Widget,
@@ -173,12 +174,39 @@ export function useDeletePoint() {
   })
 }
 
-export function usePointHistory(id: Uuid | undefined) {
+/**
+ * A point's history. With a `time` arg (the resolved dashboard range) the read
+ * is bounded server-side to `start`/`end` and keyed on the snapped range so the
+ * tile fetches only the in-range span and re-fetches on a range/refresh change
+ * (docs/design/time-range-and-refresh.md §4); without it, the prior live-poll
+ * behaviour is preserved (whole window, 5 s poll).
+ */
+export function usePointHistory(
+  id: Uuid | undefined,
+  time?: {
+    start: string
+    end: string
+    tickKey: string
+    refreshSecs: number
+  }
+) {
+  // `time.tickKey` is the snapped range + refresh tick, the canonical cache
+  // discriminator; the `start`/`end` it derives need not also list in the key.
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
   return useQuery({
-    queryKey: qk.pointHistory(id ?? 'none'),
-    queryFn: ({ signal }) => api.points.history(id as Uuid, signal),
+    queryKey: qk.pointHistory(id ?? 'none', time?.tickKey),
+    queryFn: ({ signal }) =>
+      api.points.history(
+        id as Uuid,
+        time ? { start: time.start, end: time.end } : undefined,
+        signal
+      ),
     enabled: Boolean(id),
-    refetchInterval: LIVE_INTERVAL,
+    refetchInterval: time
+      ? time.refreshSecs > 0
+        ? time.refreshSecs * 1000
+        : false
+      : LIVE_INTERVAL,
   })
 }
 
@@ -351,7 +379,11 @@ export function useBoardOutputs(
   live: boolean
 ) {
   return useQuery({
-    queryKey: [...qk.boardOutputs(slug ?? 'none'), scope.org, scope.siteId ?? 'org'],
+    queryKey: [
+      ...qk.boardOutputs(slug ?? 'none'),
+      scope.org,
+      scope.siteId ?? 'org',
+    ],
     queryFn: ({ signal }) =>
       api.boards.outputs(
         slug as string,
@@ -452,17 +484,40 @@ export function useWidgetData(args: {
   sql: string | undefined
   variables: QueryVariable[]
   varRevision: string
+  /**
+   * The dashboard time range + derived bucket the SQL's time macros bind against
+   * (docs/design/time-range-and-refresh.md §4). `tickKey` is the snapped range +
+   * refresh tick folded into the cache key so a range/refresh change re-fetches
+   * cleanly; omit to fall back to the prior whole-window 5 s live poll.
+   */
+  time?: {
+    timeRange: TimeRangeBody
+    intervalSecs: number
+    tickKey: string
+    refreshSecs: number
+  }
 }) {
-  const { widgetId, sql, variables, varRevision } = args
-  // `varRevision` is a hash of the resolved values the `sql`/`variables` carry,
-  // so it is the canonical cache discriminator; listing `sql`/`variables` too
-  // would be redundant (and they are objects that change identity each render).
+  const { widgetId, sql, variables, varRevision, time } = args
+  // `varRevision` and the time `tickKey` are hashes of the resolved values the
+  // `sql`/`variables`/range carry, so they are the canonical cache
+  // discriminators; listing `sql`/`variables`/`time` too would be redundant (and
+  // they are objects that change identity each render).
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   return useQuery({
-    queryKey: qk.widgetData(widgetId, varRevision),
-    queryFn: () => api.query.run(sql as string, { variables }),
+    queryKey: qk.widgetData(widgetId, varRevision, time?.tickKey),
+    queryFn: () =>
+      api.query.run(sql as string, {
+        variables,
+        ...(time
+          ? { timeRange: time.timeRange, intervalSecs: time.intervalSecs }
+          : {}),
+      }),
     enabled: Boolean(sql),
-    refetchInterval: LIVE_INTERVAL,
+    refetchInterval: time
+      ? time.refreshSecs > 0
+        ? time.refreshSecs * 1000
+        : false
+      : LIVE_INTERVAL,
   })
 }
 
@@ -579,7 +634,10 @@ export function useRule(
   siteId?: Uuid
 ) {
   return useQuery({
-    queryKey: org && name ? [...qk.rule(org, name), siteId ?? 'org'] : ['rules', 'none'],
+    queryKey:
+      org && name
+        ? [...qk.rule(org, name), siteId ?? 'org']
+        : ['rules', 'none'],
     queryFn: ({ signal }) =>
       api.rules.get(org as string, name as string, siteId, signal),
     enabled: Boolean(org && name),
@@ -774,7 +832,8 @@ export function useRemoveTeamMember(org: string, teamId: Uuid) {
 export function useGrants(org: string | undefined, resourceRef?: string) {
   return useQuery({
     queryKey: qk.grants(org, resourceRef),
-    queryFn: ({ signal }) => api.grants.list(org as string, resourceRef, signal),
+    queryFn: ({ signal }) =>
+      api.grants.list(org as string, resourceRef, signal),
     enabled: Boolean(org),
   })
 }

@@ -118,8 +118,22 @@ export const points = {
     request<PointEnvelope>(`/api/v1/points/${id}`, { method: 'PATCH', body }),
   remove: (id: Uuid) =>
     request<void>(`/api/v1/points/${id}`, { method: 'DELETE' }),
-  history: (id: Uuid, signal?: AbortSignal) =>
-    request<HisSample[]>(`/api/v1/points/${id}/his`, { signal }),
+  /**
+   * Point history over an optional range. `start`/`end` are RFC 3339 instants
+   * the dashboard time range resolves to (docs/design/time-range-and-refresh.md
+   * §4); omit for the server default window. Server-side `HisQuery { start, end,
+   * limit }` filters the read so a history tile fetches only the in-range span
+   * rather than fetching-all-and-slicing.
+   */
+  history: (
+    id: Uuid,
+    range?: { start?: string; end?: string },
+    signal?: AbortSignal
+  ) =>
+    request<HisSample[]>(`/api/v1/points/${id}/his`, {
+      query: { start: range?.start, end: range?.end },
+      signal,
+    }),
   write: (id: Uuid, body: WriteRequest) =>
     request<PointEnvelope>(`/api/v1/points/${id}/write`, {
       method: 'POST',
@@ -279,7 +293,9 @@ export const query = {
         sql,
         ...(opts?.variables?.length ? { variables: opts.variables } : {}),
         ...(opts?.timeRange ? { time_range: opts.timeRange } : {}),
-        ...(opts?.intervalSecs != null ? { interval_secs: opts.intervalSecs } : {}),
+        ...(opts?.intervalSecs != null
+          ? { interval_secs: opts.intervalSecs }
+          : {}),
       },
       headers: opts?.units ? { 'accept-units': opts.units } : undefined,
     }),
@@ -328,7 +344,12 @@ export const rules = {
     }),
   create: (org: string, body: CreateRule) =>
     request<RuleView>(`/api/v1/orgs/${org}/rules`, { method: 'POST', body }),
-  update: (org: string, name: string, siteId: Uuid | undefined, body: UpdateRule) =>
+  update: (
+    org: string,
+    name: string,
+    siteId: Uuid | undefined,
+    body: UpdateRule
+  ) =>
     request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, {
       method: 'PUT',
       query: { site_id: siteId },
@@ -340,7 +361,12 @@ export const rules = {
       query: { site_id: siteId },
     }),
   /** Rules that compose this one — the change-impact / blast-radius list. */
-  referencing: (org: string, name: string, siteId?: Uuid, signal?: AbortSignal) =>
+  referencing: (
+    org: string,
+    name: string,
+    siteId?: Uuid,
+    signal?: AbortSignal
+  ) =>
     request<RuleView[]>(`/api/v1/orgs/${org}/rules/${name}/referencing`, {
       query: { site_id: siteId },
       signal,

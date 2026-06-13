@@ -17,8 +17,10 @@ mod keyexpr;
 mod open;
 mod point_row;
 mod points;
+mod dashboards;
 #[cfg(feature = "cloud")]
 mod postgres;
+mod rules;
 mod runs;
 mod schema;
 mod sites;
@@ -29,5 +31,6 @@ mod widgets;
 pub use error::StoreError;
 pub use keyexpr::PointKey;
 pub use open::Store;
+pub use rules::RuleRecord;
 
 pub(crate) type Result<T> = std::result::Result<T, StoreError>;

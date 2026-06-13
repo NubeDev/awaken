@@ -9,13 +9,16 @@ mod api_tests {
     mod boards;
     mod bus;
     mod command;
+    mod dashboards;
     mod dispatch;
     mod flow;
     mod his;
     mod mcp;
+    mod orgs;
     mod points;
     mod query;
     mod rollup;
+    mod rules;
     mod runs;
     mod seed;
     mod sites;

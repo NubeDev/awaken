@@ -26,6 +26,7 @@ rubix-core.workspace = true
 rubix-driver.workspace = true
 rubix-flow.workspace = true
 rubix-query.workspace = true
+rubix-rules.workspace = true
 rubix-tools.workspace = true
 awaken-runtime-contract.workspace = true
 awaken-runtime.workspace = true

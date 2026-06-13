@@ -42,7 +42,8 @@ pub(crate) async fn run_board(
 ) -> Result<Json<RunBoardResponse>, ApiError> {
     let access = Arc::new(
         StorePointAccess::with_bus(state.store.clone(), state.bus.clone())
-            .with_agent(state.agent.clone()),
+            .with_agent(state.agent.clone())
+            .with_org(req.board.tenant_org()),
     );
     let outputs = req
         .board

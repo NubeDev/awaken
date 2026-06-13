@@ -15,6 +15,7 @@ use uuid::Uuid;
 
 use crate::agent::AGENT_ID;
 use crate::bus::ZenohBus;
+use crate::flow::TableRuleStore;
 use crate::store::Store;
 
 /// Store-backed point access handed to [`rubix_flow::BoardGraph::load`]. An
@@ -28,6 +29,9 @@ pub struct StorePointAccess {
     store: Store,
     bus: Option<ZenohBus>,
     agent: Option<Arc<AgentRuntime>>,
+    /// Tenant scope a `rule` node resolves stored rules through. `None` makes a
+    /// stored-rule node fail closed (an inline-script node runs regardless).
+    org: Option<String>,
 }
 
 impl StorePointAccess {
@@ -36,6 +40,7 @@ impl StorePointAccess {
             store,
             bus: None,
             agent: None,
+            org: None,
         }
     }
 
@@ -45,6 +50,7 @@ impl StorePointAccess {
             store,
             bus,
             agent: None,
+            org: None,
         }
     }
 
@@ -52,6 +58,14 @@ impl StorePointAccess {
     /// after `with_bus` on the scheduler/HTTP board paths.
     pub fn with_agent(mut self, agent: Option<Arc<AgentRuntime>>) -> Self {
         self.agent = agent;
+        self
+    }
+
+    /// Bind the org a `rule` node resolves stored rules and composition in. Set
+    /// on the board-run paths from the board's tenant context; absent, a
+    /// stored-rule node fails closed.
+    pub fn with_org(mut self, org: Option<String>) -> Self {
+        self.org = org;
         self
     }
 }
@@ -138,6 +152,15 @@ impl PointAccess for StorePointAccess {
     /// `block_on` — the supported way to await on a multi-thread runtime worker
     /// without starving it (a current-thread runtime would panic, which is the
     /// correct fail-fast: an awaited `agent_call` needs the multi-thread flavor).
+    /// The org-scoped rule store a `rule` node resolves stored rules and
+    /// `rule(name, …)` composition through. `None` when no org is bound, so a
+    /// stored-rule node fails closed (an inline-script node needs no store).
+    fn rule_store(&self) -> Option<Arc<dyn rubix_rules::RuleStore>> {
+        self.org
+            .clone()
+            .map(|org| Arc::new(TableRuleStore::new(self.store.clone(), org)) as Arc<dyn rubix_rules::RuleStore>)
+    }
+
     fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {
         let agent = self.agent_or_fail()?.clone();
         let result = tokio::task::block_in_place(|| {

@@ -4,12 +4,15 @@ mod agent;
 mod blocking;
 mod boards;
 mod command;
+mod dashboards;
 mod equips;
 mod health;
 mod his;
 mod openapi;
+mod orgs;
 mod points;
 mod query;
+mod rules;
 mod runs;
 mod sites;
 mod sparks;
@@ -29,13 +32,16 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(health::healthz))
         .route("/api-docs/openapi.json", get(openapi::openapi_json))
         .merge(sites::router())
+        .merge(orgs::router())
         .merge(equips::router())
         .merge(points::router())
         .merge(command::router())
         .merge(his::router())
         .merge(sparks::router())
         .merge(widgets::router())
+        .merge(dashboards::router())
         .merge(query::router())
+        .merge(rules::router())
         .merge(boards::router())
         .merge(agent::router())
         .merge(runs::router())

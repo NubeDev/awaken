@@ -26,7 +26,9 @@ pub(super) async fn evaluate(
     agent: &Option<Arc<AgentRuntime>>,
 ) {
     let access = Arc::new(
-        StorePointAccess::with_bus(store.clone(), bus.clone()).with_agent(agent.clone()),
+        StorePointAccess::with_bus(store.clone(), bus.clone())
+            .with_agent(agent.clone())
+            .with_org(graph.tenant_org()),
     );
     match graph.run(access).await {
         Ok(outputs) => {

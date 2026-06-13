@@ -58,13 +58,37 @@ CREATE TABLE IF NOT EXISTS boards (
     created_at  TEXT NOT NULL,
     UNIQUE (slug, version)
 );
-CREATE TABLE IF NOT EXISTS widgets (
+CREATE TABLE IF NOT EXISTS dashboards (
     id         TEXT PRIMARY KEY,
-    site_id    TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-    kind       TEXT NOT NULL,
+    org        TEXT NOT NULL,
+    site_id    TEXT REFERENCES sites(id) ON DELETE CASCADE,
+    slug       TEXT NOT NULL,
     title      TEXT NOT NULL,
-    target     TEXT NOT NULL,
     created_at TEXT NOT NULL
+);
+-- A slug is unique within its scope. Two partial indexes: site-scoped boards
+-- are unique per (org, site); org overviews (NULL site_id) per (org).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_site_slug
+    ON dashboards (org, site_id, slug) WHERE site_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_overview_slug
+    ON dashboards (org, slug) WHERE site_id IS NULL;
+CREATE TABLE IF NOT EXISTS widgets (
+    id           TEXT PRIMARY KEY,
+    dashboard_id TEXT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+    site_id      TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    target       TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rules (
+    id          TEXT PRIMARY KEY,
+    org         TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    script      TEXT NOT NULL,
+    params      TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    UNIQUE (org, name)
 );
 CREATE TABLE IF NOT EXISTS runs (
     id            TEXT PRIMARY KEY,
@@ -94,6 +118,9 @@ CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
 CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
 CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_widgets_dashboard ON widgets (dashboard_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
 ";
 
 /// Postgres dialect of the same schema. Identifiers and shapes mirror
@@ -161,13 +188,37 @@ CREATE TABLE IF NOT EXISTS boards (
     created_at   TEXT NOT NULL,
     UNIQUE (slug, version)
 );
-CREATE TABLE IF NOT EXISTS widgets (
+CREATE TABLE IF NOT EXISTS dashboards (
     id         TEXT PRIMARY KEY,
-    site_id    TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-    kind       TEXT NOT NULL,
+    org        TEXT NOT NULL,
+    site_id    TEXT REFERENCES sites(id) ON DELETE CASCADE,
+    slug       TEXT NOT NULL,
     title      TEXT NOT NULL,
-    target     TEXT NOT NULL,
     created_at TEXT NOT NULL
+);
+-- A slug is unique within its scope. Two partial indexes: site-scoped boards
+-- are unique per (org, site); org overviews (NULL site_id) per (org).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_site_slug
+    ON dashboards (org, site_id, slug) WHERE site_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_overview_slug
+    ON dashboards (org, slug) WHERE site_id IS NULL;
+CREATE TABLE IF NOT EXISTS widgets (
+    id           TEXT PRIMARY KEY,
+    dashboard_id TEXT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+    site_id      TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    target       TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rules (
+    id          TEXT PRIMARY KEY,
+    org         TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    script      TEXT NOT NULL,
+    params      TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    UNIQUE (org, name)
 );
 CREATE TABLE IF NOT EXISTS runs (
     id            TEXT PRIMARY KEY,
@@ -197,4 +248,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
 CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
 CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_widgets_dashboard ON widgets (dashboard_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
 ";

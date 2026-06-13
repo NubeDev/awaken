@@ -28,7 +28,8 @@ pub(crate) async fn run_stored_board(
         .map_err(|e| ApiError::Internal(e.into()))??;
     let access = Arc::new(
         StorePointAccess::with_bus(state.store.clone(), state.bus.clone())
-            .with_agent(state.agent.clone()),
+            .with_agent(state.agent.clone())
+            .with_org(board.graph.tenant_org()),
     );
     let outputs = board
         .graph

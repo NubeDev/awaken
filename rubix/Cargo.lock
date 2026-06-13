@@ -5777,6 +5777,7 @@ dependencies = [
  "r2d2_sqlite",
  "reqwest 0.12.28",
  "rubix-core",
+ "rubix-datasource",
  "rubix-driver",
  "rubix-flow",
  "rubix-query",

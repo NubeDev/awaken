@@ -14,6 +14,7 @@ import { ADMIN_NAV_TITLES, scopedNavGroups } from './data/scoped-nav'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
 import { SiteSwitcher } from './site-switcher'
+import { NavTree } from '@/features/nav/nav-tree'
 
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
@@ -60,6 +61,10 @@ export function AppSidebar() {
         <SiteSwitcher />
       </SidebarHeader>
       <SidebarContent>
+        {/* The user-built nav tree (docs/design/page-context-and-nav.md §4)
+            renders above the scope-derived groups and is empty until nodes
+            exist, so the flat nav stays the default. */}
+        <NavTree />
         {navGroups.map((props) => (
           <NavGroup key={props.title} {...props} />
         ))}

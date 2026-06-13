@@ -26,6 +26,7 @@
 mod compose;
 mod error;
 mod frame;
+mod params;
 mod register;
 mod result;
 mod run;
@@ -35,6 +36,7 @@ mod store;
 
 pub use error::RuleError;
 pub use frame::Frame;
+pub use params::{params_from_json, Params};
 pub use result::RuleResult;
 pub use run::{run_rule, RuleSource};
 pub use sandbox::SandboxLimits;
@@ -42,5 +44,11 @@ pub use severity::Severity;
 pub use store::{MemoryRuleStore, ParamSchema, ParamSpec, RuleStore, StoredRule};
 
 // Re-exported for callers that build a frame from Arrow data they already hold.
+// The whole `arrow` module is surfaced (not just `SchemaRef`/`RecordBatch`) so
+// an integrator constructs `Schema`/`Field`/array builders against the exact
+// arrow version this crate's `Frame::new` accepts, with no separate arrow
+// dependency to keep in lockstep. This does not add a rubix-crate dependency —
+// the crate stays standalone.
+pub use datafusion::arrow;
 pub use datafusion::arrow::datatypes::SchemaRef;
 pub use datafusion::arrow::record_batch::RecordBatch;

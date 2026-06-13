@@ -13,9 +13,13 @@ mod error;
 mod node;
 mod port;
 
-pub use board::{BoardConnection, BoardGraph, BoardNode, NodeOutput, COMPONENTS};
+pub use board::{
+    component_schemas, BoardConnection, BoardGraph, BoardNode, ComponentKind, ComponentSchema,
+    ConfigField, FieldType, NodeOutput, PortSchema, PortType, COMPONENTS,
+};
 pub use error::FlowError;
 pub use node::{
-    AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, TriggerActor, WritePointActor,
+    map_severity, AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor, RuleActor,
+    TriggerActor, WritePointActor,
 };
 pub use port::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};

@@ -6,7 +6,10 @@
 //! STACK-DEISGN.md: "point write (always through the priority array, never
 //! raw)".
 
+use std::sync::Arc;
+
 use rubix_core::{HisSample, PointValue, SparkSeverity};
+use rubix_rules::RuleStore;
 
 /// A finding a rule board wants to record. The board names the owning site by
 /// its `{org}/{site}` keyexpr prefix (the same way it addresses points); the
@@ -93,5 +96,15 @@ pub trait PointAccess: Send + Sync + 'static {
     /// default rejects it for the same fail-closed reason as [`Self::request_agent`].
     fn request_agent_blocking(&self, _request: AgentRequest) -> anyhow::Result<AgentOutcome> {
         anyhow::bail!("agent_call: this point access has no agent runtime")
+    }
+
+    /// The tenant-scoped store a `rule` node resolves stored rules and
+    /// composition (`rule(name, …)`) through. The default returns `None`, so a
+    /// `PointAccess` that does not back a rule store (test fakes, the agent's own
+    /// board access) makes a stored-rule `rule` node fail closed. The server's
+    /// store-backed impl overrides this. An inline-script `rule` node needs no
+    /// store and runs regardless.
+    fn rule_store(&self) -> Option<Arc<dyn RuleStore>> {
+        None
     }
 }

@@ -1,8 +1,17 @@
 //! `emit_spark` node: a rule board records a finding. Config gives `site` (the
 //! `{org}/{site}` keyexpr prefix), `rule`, `severity` (`info`/`warning`/
-//! `fault`, default `warning`), and an optional `message`. A `value` inport, if
-//! connected, overrides the message with the upstream payload rendered as text
-//! — so a board can compute a finding string and feed it here.
+//! `fault`, default `warning`), and an optional `message`.
+//!
+//! Two inports feed the finding text and severity:
+//!
+//! - `finding` — a structured `{ message, severity, value }` object from a
+//!   upstream `rule` node. When connected, the rule's verdict is authoritative:
+//!   its message and its severity drive the spark, overriding both config
+//!   fields. This is the rule-node path — a rule's `finding("fault", …)` records
+//!   a fault even if the node's static `severity` says otherwise.
+//! - `value` — a scalar payload rendered as text, overriding the `message`
+//!   config only. Severity stays config-driven. This is the legacy
+//!   computed-string path.
 //!
 //! Sparks go through [`PointAccess::emit_spark`]; the host resolves the site
 //! prefix to an id, persists the spark, and publishes it on the bus.
@@ -28,7 +37,7 @@ pub struct EmitSparkActor {
 impl EmitSparkActor {
     pub fn new(access: Arc<dyn PointAccess>) -> Self {
         Self {
-            base: ActorBase::new(&["value"], &["output", "error"]),
+            base: ActorBase::new(&["value", "finding"], &["output", "error"]),
             access,
             body: Arc::new(emit),
         }
@@ -42,13 +51,25 @@ fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
     let Some(rule) = config_str(context, "rule") else {
         return error_out("emit_spark: missing `rule` config");
     };
-    let severity = match severity_of(context) {
-        Ok(s) => s,
-        Err(e) => return error_out(e),
-    };
-    let message = match message_of(context) {
-        Some(m) => m,
-        None => return error_out("emit_spark: no `message` config and no `value` input"),
+
+    // A structured `finding` from a rule node is authoritative for both message
+    // and severity; fall back to the `value`/config path otherwise.
+    let (severity, message) = match finding_input(context) {
+        Some(Ok(f)) => (f.severity, f.message),
+        Some(Err(e)) => return error_out(e),
+        None => {
+            let severity = match severity_of(context) {
+                Ok(s) => s,
+                Err(e) => return error_out(e),
+            };
+            let message = match message_of(context) {
+                Some(m) => m,
+                None => {
+                    return error_out("emit_spark: no `message` config and no `value`/`finding` input")
+                }
+            };
+            (severity, message)
+        }
     };
     let draft = SparkDraft {
         site_prefix,
@@ -60,6 +81,40 @@ fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
         Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
         Err(e) => error_out(format!("emit_spark: {e}")),
     }
+}
+
+/// A structured finding from the `finding` inport: the rule verdict's
+/// authoritative message and (already-mapped) severity. Returns `None` when the
+/// inport is not connected, `Some(Err)` when a connected payload is malformed.
+fn finding_input(context: &ActorContext) -> Option<Result<StructuredFinding, String>> {
+    let msg = context.get_payload().get("finding")?;
+    let Message::Object(obj) = msg else {
+        return Some(Err(format!(
+            "emit_spark: `finding` input must be a rule verdict object, got {msg:?}"
+        )));
+    };
+    let value = serde_json::Value::from(obj.as_ref().clone());
+    Some(parse_finding(&value))
+}
+
+/// The rule-verdict shape the `finding` inport carries.
+struct StructuredFinding {
+    message: String,
+    severity: SparkSeverity,
+}
+
+fn parse_finding(value: &serde_json::Value) -> Result<StructuredFinding, String> {
+    let message = value
+        .get("message")
+        .and_then(|m| m.as_str())
+        .ok_or("emit_spark: `finding` input missing string `message`")?
+        .to_string();
+    let severity = value
+        .get("severity")
+        .ok_or("emit_spark: `finding` input missing `severity`")?;
+    let severity: SparkSeverity = serde_json::from_value(severity.clone())
+        .map_err(|_| format!("emit_spark: invalid `finding` severity {severity}"))?;
+    Ok(StructuredFinding { message, severity })
 }
 
 /// Severity from config, defaulting to `warning`. An unknown token is an error

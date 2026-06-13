@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rubix-core", "crates/rubix-driver", "crates/rubix-driver-sim", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-server", "crates/rubix-tools"]
+members = ["crates/rubix-core", "crates/rubix-datasource", "crates/rubix-driver", "crates/rubix-driver-sim", "crates/rubix-flow", "crates/rubix-query", "crates/rubix-rules", "crates/rubix-server", "crates/rubix-tools"]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,6 +13,7 @@ rubix-core = { path = "crates/rubix-core" }
 rubix-driver = { path = "crates/rubix-driver" }
 rubix-flow = { path = "crates/rubix-flow" }
 rubix-query = { path = "crates/rubix-query" }
+rubix-rules = { path = "crates/rubix-rules" }
 rubix-tools = { path = "crates/rubix-tools" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

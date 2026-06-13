@@ -1,10 +1,12 @@
 # Feature — Rules Engine (composable spark rules)
 
-> Verified: **library-verified** on `rubix-gaps` (2026-06-13). The `rubix-rules`
+> Verified: **verified (live)** on `rubix-gaps` (2026-06-13). The `rubix-rules`
 > crate is built and its own suite is green (`cargo test -p rubix-rules`, 71 tests,
-> clippy clean, `unsafe_code = "forbid"`). It is **not yet wired into the server**,
-> so the live HTTP/board gates below are **blocked on integration**, not verified —
-> a separate session owns wiring. Source: `crates/rubix-rules/`.
+> clippy clean, `unsafe_code = "forbid"`), **and** it is now wired into the running
+> stack: a board `rule` node (`rubix-flow`), an org-scoped stored-rule store +
+> `/rules` routes (`rubix-server`), and the severity map at the emit boundary. The
+> live gates L1–L3 below are green. Source: `crates/rubix-rules/`,
+> `crates/rubix-flow/src/node/rule/`, `crates/rubix-server/src/{store,api,flow}`.
 
 Covers: the sandboxed Rhai rule layer that turns queried rows into a finding —
 the "compute node" the board graph never had. A rule is a script that *orchestrates*
@@ -12,15 +14,17 @@ the "compute node" the board graph never had. A rule is a script that *orchestra
 *computes* (the curated primitives). Design source of truth:
 [docs/design/rules-engine.md](../../docs/design/rules-engine.md).
 
-**Scope of what exists today:** the engine, the curated primitive surface, the
-rule-result + `finding` constructor, the `RuleStore` trait + in-memory store, and
-the `rule(name, frame, params)` composition primitive with cycle/depth bounding.
-It is a **standalone library**: it depends on no other rubix crate, and queries no
-database — the caller hands in the rows. There is **no board node, no HTTP route,
-no stored-rules table** yet; those are the named integration seams below.
+**Scope of what exists today:** the standalone engine — the curated primitive
+surface, the rule-result + `finding` constructor, the `RuleStore` trait +
+in-memory store, and the `rule(name, frame, params)` composition primitive with
+cycle/depth bounding (`crates/rubix-rules`, no other rubix dep) — **plus** the
+three integration seams now built: the board `rule` node
+(`crates/rubix-flow/src/node/rule/`), the org-scoped stored-rule store + `/rules`
+routes (`crates/rubix-server`), and the `Severity` → `SparkSeverity` map at the
+emit boundary.
 
 Prereq (library gates): `cargo test -p rubix-rules` runs with no stack, no zenoh,
-no DB. The live gates need the integration that does not exist yet.
+no DB. The live gates (L1–L3) run against the integrated board/HTTP path.
 
 ---
 
@@ -118,35 +122,52 @@ error — it is the normal "ran, found nothing" outcome (`run_run_rule.rs`).
 
 ---
 
-## Runbook (live gates — BLOCKED on integration, do not check yet)
+## Runbook (live gates)
 
-These cannot run today: there is no rule board node and no HTTP route. They are
-written now so the integrating session knows exactly what "done" looks like.
+These run against the integrated stack. The board path is covered by
+`crates/rubix-flow/tests/board.rs` (in-process) and the HTTP path by
+`crates/rubix-server/tests/api_tests/rules.rs` (`POST /api/v1/boards/run` over a
+seeded point). CWD `rubix/`.
 
-### L1. Board rule node — query → rule → emit_spark ⛔
+```bash
+cargo test -p rubix-flow --test board rule_node
+cargo test -p rubix-server --test api rules
+```
 
-A board wires a `query_his` node into a new `rule` node into `emit_spark`. The
-rule node calls `run_rule` with the query's `RecordBatch`es as the input frame and
-the node's params; the `RuleResult` drives `emit_spark`.
+### L1. Board rule node — query → rule → emit_spark ✅
 
-⛔ **Blocked:** no `rule` board component exists in `rubix-flow` yet. → seam (1).
+A board wires `query_his` → `rule` → `emit_spark`. The `rule` node builds a
+`Frame` from the query's history rows, calls `run_rule` with the node's params,
+and emits a structured finding on its `finding` outport into `emit_spark`'s
+`finding` inport; a non-flagged result is a `clear` no-emit, a `RuleError` or an
+input caps breach fails the node.
 
-### L2. Stored rule, resolved by name from a real store ⛔
+✅ `rule_node_flags_and_emits_with_rule_severity` (in-process) and
+`inline_rule_board_emits_spark_with_rule_severity` (HTTP) run the full path and
+assert one spark lands. `rule_node_clear_result_emits_no_spark` and the
+caps-breach / broken-script tests prove the fail and no-emit branches.
 
-A rule saved in a tenant-scoped rules table is loaded by name for composition and
-for a board node referencing it by id.
+### L2. Stored rule, resolved by name from a real store ✅
 
-⛔ **Blocked:** the only `RuleStore` today is `MemoryRuleStore` (tests/fixtures).
-No migration, no table, no CRUD route. → seam (2).
+A rule saved in the org-scoped `rules` table is loaded by name for a board node
+referencing it and for `rule(name, …)` composition. Resolution is fail-closed: a
+missing name errors the node and emits nothing.
 
-### L3. Severity maps to the canonical rubix severity / finding path ⛔
+✅ `stored_rule_board_resolves_by_name` (HTTP, via `POST /orgs/{org}/rules` then a
+board referencing it) and `rule_node_resolves_a_stored_rule_by_name` (in-process);
+`missing_stored_rule_fails_closed_no_spark` proves fail-closed. The
+referencing-rules listing is checked by `referencing_lists_the_change_impact`.
 
-A flagged `RuleResult` becomes a real spark finding with the correct rubix
-severity.
+### L3. Severity maps to the canonical rubix severity / finding path ✅
 
-⛔ **Blocked:** the crate uses a local `Severity` mirror (`info`/`warning`/`fault`)
-on purpose (standalone). The map onto `rubix-core` severity + the finding path is
-the integrator's. → seam (3).
+A flagged `RuleResult` becomes a real spark at the rule's own severity — the
+`rubix_rules::Severity` → `rubix_core::SparkSeverity` map (`rubix-flow`
+`node::rule::map_severity`) is applied at the emit boundary, so a rule's
+`finding("fault", …)` records a **fault** even when the `emit_spark` node's static
+`severity` config says `info`.
+
+✅ The L1 tests assert the spark severity equals the rule's verdict severity
+(`fault`/`warning`), not the node config's `info`.
 
 ---
 
@@ -166,25 +187,30 @@ Library (today):
       (`error_surface`).
 - [x] `cargo clippy -p rubix-rules` clean; `unsafe_code = "forbid"`.
 
-Live (blocked on integration — see seams):
+Live (integrated):
 
-- [ ] L1 — board `rule` node runs query→rule→emit_spark end to end.
-- [ ] L2 — a stored rule loads by name from a real tenant-scoped store.
-- [ ] L3 — a flagged result emits a real spark with the canonical severity.
+- [x] L1 — board `rule` node runs query→rule→emit_spark end to end.
+- [x] L2 — a stored rule loads by name from a real org-scoped store
+      (fail-closed on a missing name); referencing-rules listing works.
+- [x] L3 — a flagged result emits a real spark with the canonical severity.
 
 ---
 
-## Integration seams (named, untouched — for the follow-up session)
+## Integration seams (built)
 
-1. **Board `rule` node** in `rubix-flow` — between a query node and `emit_spark`.
-   Calls `rubix_rules::run_rule(store, source, frame, params, limits)` with the
-   query's batches as the `Frame`; hands the `RuleResult` to `emit_spark`.
-2. **Real `RuleStore`** — a tenant-scoped table-backed implementation of the
-   `rubix_rules::RuleStore` trait (`fn load(&self, name) -> Result<StoredRule>`),
-   plus the design's referencing-rules listing. Swapped in for `MemoryRuleStore`.
-3. **Severity / finding mapping** — map `rubix_rules::Severity`
-   (`info`/`warning`/`fault`) onto the canonical `rubix-core` severity and the
-   existing finding path at the emit boundary.
+1. **Board `rule` node** in `rubix-flow` (`src/node/rule/`) — between `query_his`
+   and `emit_spark`. Builds a `Frame` from the query rows (`frame.rs`), calls
+   `rubix_rules::run_rule(store, source, frame, params, limits)`, and emits a
+   structured `{message, severity}` finding into `emit_spark`'s new `finding`
+   inport. The sync engine is bridged into the async actor via `block_in_place`.
+2. **Org-scoped `RuleStore`** — `TableRuleStore` (`rubix-server`
+   `src/flow/rule_store.rs`) backs `rubix_rules::RuleStore::load` with the `rules`
+   table (`src/store/rules.rs`, sqlite + postgres), with CRUD + the referencing
+   listing exposed at `/api/v1/orgs/{org}/rules`. Resolution is fail-closed. The
+   board's tenant org is derived from its keyexpr configs (`BoardGraph::tenant_org`).
+3. **Severity / finding mapping** — `rubix-flow` `node::rule::map_severity` maps
+   `rubix_rules::Severity` onto `rubix_core::SparkSeverity` at the emit boundary;
+   `rubix-rules` stays standalone (no `rubix-core` dep).
 
 Deferred by design (not built, per the scope): stored **functions** + the
 `call(name, frame, params)` primitive (this crate ships the rule/verdict half;
@@ -215,10 +241,11 @@ the rule path), pinned/versioned composition, and the UI editor.
 
 ## Known issues / fixes
 
-Library-verified 2026-06-13 on `rubix-gaps`. The crate was built to
-[docs/design/rules-engine.md](../../docs/design/rules-engine.md) and its own suite
-is green; no backend bug found (there is no integrated backend path yet to find one
-in). Three design-doc ambiguities were resolved in-code, each noted with a comment:
+Library-verified 2026-06-13 on `rubix-gaps`, then **integrated and verified live**
+the same day. The crate was built to
+[docs/design/rules-engine.md](../../docs/design/rules-engine.md); its own suite is
+green and the L1–L3 board/HTTP path is green. No backend bug found in the engine
+during integration. Three engine-design ambiguities were resolved in-code earlier:
 
 1. **`rolling_*`/`lag` signature** — added an explicit `time_col` (a window's
    ordering column cannot be guessed). See Gotchas.
@@ -228,5 +255,27 @@ in). Three design-doc ambiguities were resolved in-code, each noted with a comme
 3. **Reducing primitives vs the no-growth guard** — `describe`/`any_true` route
    through a separate reducing compute path. See Gotchas.
 
-No other rubix crate or file was touched except the one workspace `members` line
-needed to compile the crate.
+Integration resolved four further design ambiguities, each kept the engine
+standalone (no new rubix-crate dep into `rubix-rules`):
+
+4. **Severity authority vs "`emit_spark` needs no change".** The design wires the
+   `RuleResult` to `emit_spark`'s value inport but `emit_spark` read severity only
+   from static config — which would silently override a rule's `finding("fault")`.
+   Resolved by giving `emit_spark` an additive optional `finding` inport carrying
+   `{message, severity}`; when connected the rule's verdict is authoritative, and
+   the legacy scalar `value` path is unchanged. The rule node emits onto it; the
+   `Severity → SparkSeverity` map lives in `rubix-flow`.
+5. **Rule tenancy.** A tenant is `{org}/{site}` but boards carry no org binding.
+   Rules are **org-scoped** (name unique per org); the board's org is derived from
+   its keyexpr node configs (`BoardGraph::tenant_org`), fail-closed when none.
+6. **Sync engine in an async actor.** `run_rule` drives DataFusion on a per-call
+   `block_on`, which panics inside a Tokio worker. The node bridges via
+   `tokio::task::block_in_place` (direct call off a multi-thread runtime).
+7. **API gaps for integrators.** `run_rule` takes a `rhai::Map` and the crate only
+   re-exported `SchemaRef`/`RecordBatch` — too little to build the inputs without a
+   direct `rhai`/`arrow` dep. Added `params_from_json`/`Params` and re-exported the
+   `arrow` module; the crate stays standalone.
+
+Touched outside the crate: the board `rule` node + `emit_spark` `finding` inport
+(`rubix-flow`), the `rules` table + store + `/rules` routes + `rule_store()` wiring
+(`rubix-server`).

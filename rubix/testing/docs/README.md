@@ -85,7 +85,7 @@ Key facts that shape all testing (code-grounded 2026-06-13, see
 | [AI_TOOLS_AND_AGENT.md](features/AI_TOOLS_AND_AGENT.md) | the four tools, priority gating, HITL escalation/runs, spark dispatch, MCP | verified (`bdbd01f7`, 2026-06-13) |
 | [DRIVER_SUPERVISOR.md](features/DRIVER_SUPERVISOR.md) | manifest loading, spawn/liveliness/backoff, capability scoping, fail-closed | verified (`bdbd01f7`, 2026-06-13) |
 | [DATASOURCE.md](features/DATASOURCE.md) | read-only native-SQL passthrough to external DBs (Timescale/PG): bound params, single-statement, caps (lenient/strict), named queries, registry, describe | library-verified (2026-06-13) — core only, **not integrated** |
-| [RULES_ENGINE.md](features/RULES_ENGINE.md) | sandboxed Rhai rule layer over a DataFusion engine: curated vectorized primitives, no-row-explosion invariant, sandbox kill-switches, `rule()` composition (cycle/depth-bounded), finding result | library-verified (2026-06-13) — `rubix-rules` 71/71, clippy clean, **not integrated** |
+| [RULES_ENGINE.md](features/RULES_ENGINE.md) | sandboxed Rhai rule layer over a DataFusion engine: curated vectorized primitives, no-row-explosion invariant, sandbox kill-switches, `rule()` composition (cycle/depth-bounded), finding result; **integrated** — board `rule` node + org-scoped stored-rule store | verified (live) (2026-06-13) — `rubix-rules` 71/71 + L1–L3 live, clippy clean |
 
 > **verified** = run live against a stack and the commands/outputs confirmed.
 > **library-verified** = a standalone library crate, fully unit-tested + clippy-clean

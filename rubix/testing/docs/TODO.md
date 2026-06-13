@@ -87,6 +87,16 @@ live spawn lifecycle, so lean on it when a gate is ambiguous.
       run wrapper, `board` not `graph`, required `display_name`+tagged `trigger`,
       `kind:"sp"` not `"setpoint"`). → [features/BOARDS_REFLOW.md](features/BOARDS_REFLOW.md)
 
+- [x] **Rule node (rules engine integration)** — the board `rule` component
+      between `query_his` and `emit_spark`: builds a frame from query rows, runs an
+      inline or org-stored Rhai rule, and drives the spark with the rule's own
+      (mapped) severity. Caps breach / `RuleError` fails the node; a non-flagged
+      result is a no-emit. Org-scoped stored-rule CRUD + referencing listing at
+      `/api/v1/orgs/{org}/rules`. ✅ verified live 2026-06-13 — L1 query→rule→
+      emit_spark, L2 stored-rule-by-name, L3 rule severity → spark
+      (`POST /api/v1/boards/run` over a seeded point). →
+      [features/RULES_ENGINE.md](features/RULES_ENGINE.md)
+
 ## Phase 4 — Agentic layer (needs `RUBIX_AI=1`)
 
 The signature rubix capability and the most safety-critical. Verify the gating
@@ -101,9 +111,9 @@ bands carefully — a wrong band is a real safety bug, not a doc nit.
       - **Build-blocker note (resolved 2026-06-13):** the earlier `rubix-datasource`
         `libsqlite3-sys` conflict is fixed — the crate now depends on `sqlx-core` +
         `sqlx-postgres` directly (no `sqlx` facade → no `sqlx-sqlite`), so only
-        `libsqlite3-sys 0.35` (rusqlite's) resolves. The *current* workspace
-        non-load is a **different** crate, `crates/rubix-rules/` (in-progress, no
-        `src/lib.rs` yet) — owned by the rules session, not this suite.
+        `libsqlite3-sys 0.35` (rusqlite's) resolves. `crates/rubix-rules/` is now
+        built and integrated (see the rule-node entry in Phase 3), so the earlier
+        in-progress non-load no longer applies.
 
 ---
 
@@ -161,16 +171,19 @@ them. (See **library-verified** in [README.md](README.md).)
       return type, a `RuleStore` trait + in-memory store, and the `rule(name,
       frame, params)` composition primitive (one budget for the whole tree, cycle +
       depth-cap guard, per-tick memoization).
-      ✅ library-verified 2026-06-13 — `cargo test -p rubix-rules` 71 pass, clippy
-      clean, `unsafe_code = forbid`. Engine + composition only; **no integration**
-      (no board `rule` node / HTTP route / stored-rules table / severity map). Built
-      to [docs/design/rules-engine.md](../../docs/design/rules-engine.md). →
+      ✅ verified (live) 2026-06-13 — `cargo test -p rubix-rules` 71 pass, plus the
+      board `rule` node and the org-scoped stored-rule store integrated and proven
+      end to end (L1–L3 live). clippy clean, `unsafe_code = forbid`. Built to
+      [docs/design/rules-engine.md](../../docs/design/rules-engine.md). →
       [features/RULES_ENGINE.md](features/RULES_ENGINE.md)
-  - [ ] **Integration follow-up** (separate session): the board `rule` node wiring
-        query→rule→`emit_spark`, a real tenant-scoped `RuleStore` backed by a
-        rules table (+ referencing-rules listing), and the `rubix_rules::Severity`
-        → `rubix-core` severity / finding-path map. Then this flips from
-        library-verified to a live feature gate (L1–L3 in the runbook).
+  - [x] **Integration follow-up**: the board `rule` node wires
+        query→rule→`emit_spark` (`rubix-flow`); a real org-scoped `RuleStore`
+        backs the `rules` table with CRUD + the referencing-rules listing
+        (`rubix-server` `/api/v1/orgs/{org}/rules`); the `rubix_rules::Severity` →
+        `rubix-core` severity map drives the spark at the emit boundary. Proven
+        live: L1 query→rule→emit_spark, L2 stored-rule-by-name, L3 rule severity →
+        spark (`crates/rubix-server/tests/api_tests/rules.rs`,
+        `crates/rubix-flow/tests/board.rs`).
 
 ---
 

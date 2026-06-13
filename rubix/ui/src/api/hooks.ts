@@ -23,6 +23,7 @@ import type {
   PatchWidget,
   PreferencesPatch,
   ProvisionOrg,
+  QueryVariable,
   RunStatus,
   UpdateRule,
   Uuid,
@@ -434,6 +435,33 @@ export function useWidgets(params: { siteId?: Uuid; dashboardId?: Uuid } = {}) {
   return useQuery({
     queryKey: qk.widgets(params),
     queryFn: ({ signal }) => api.widgets.list(params, signal),
+    refetchInterval: LIVE_INTERVAL,
+  })
+}
+
+/**
+ * A `datasource` widget's SQL result, resolved against the dashboard's current
+ * variable selection. The query keys on `varRevision` (a hash of the values of
+ * the variables this SQL references) so a selection change re-fetches exactly
+ * the dependent widgets and leaves unreferenced ones untouched
+ * (variables-and-templating.md §6). Disabled until SQL is present; polls live so
+ * the tile stays fresh like the other reads.
+ */
+export function useWidgetData(args: {
+  widgetId: Uuid
+  sql: string | undefined
+  variables: QueryVariable[]
+  varRevision: string
+}) {
+  const { widgetId, sql, variables, varRevision } = args
+  // `varRevision` is a hash of the resolved values the `sql`/`variables` carry,
+  // so it is the canonical cache discriminator; listing `sql`/`variables` too
+  // would be redundant (and they are objects that change identity each render).
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return useQuery({
+    queryKey: qk.widgetData(widgetId, varRevision),
+    queryFn: () => api.query.run(sql as string, { variables }),
+    enabled: Boolean(sql),
     refetchInterval: LIVE_INTERVAL,
   })
 }

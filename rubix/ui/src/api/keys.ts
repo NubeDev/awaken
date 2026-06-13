@@ -30,6 +30,16 @@ export const qk = {
   boardOutputs: (slug: string) => ['boards', slug, 'outputs'] as const,
   widgets: (params: { siteId?: Uuid; dashboardId?: Uuid }) =>
     ['widgets', params.siteId ?? null, params.dashboardId ?? null] as const,
+  /**
+   * A single widget's *data* query (the SQL result a `datasource` tile renders),
+   * keyed additionally on `varRevision` — a hash of the resolved values of the
+   * variables the widget's SQL references — so a selection change re-fetches
+   * exactly the dependent widgets (variables-and-templating.md §6). A widget that
+   * references no variable gets a constant `varRevision` (`'none'`), so an
+   * unrelated selection change never invalidates it.
+   */
+  widgetData: (widgetId: Uuid, varRevision: string) =>
+    ['widget-data', widgetId, varRevision] as const,
   dashboards: (org?: string, siteId?: Uuid) =>
     ['dashboards', org ?? 'all', siteId ?? 'all'] as const,
   rules: (org?: string) => ['rules', org ?? 'all'] as const,

@@ -6,11 +6,17 @@ import type { Dashboard, Site, Widget } from '@/api/types'
 import { Card } from '@/components/ui/card'
 import { Main } from '@/components/layout/main'
 import { PageHeader } from '@/components/layout/page-header'
+import { Button } from '@/components/ui/button'
+import { SlidersHorizontal } from 'lucide-react'
 import { DashboardFormDialog } from './components/dashboard-form-dialog'
 import { DashboardPicker } from './components/dashboard-picker'
 import { WidgetBinder } from './components/widget-binder'
 import { WidgetCanvas } from './components/widget-canvas'
 import { WidgetPalette } from './components/widget-palette'
+import { VariableBar } from '../variables/variable-bar'
+import { VariableEditorDialog } from '../variables/variable-editor-dialog'
+import { useVariableResolution } from '../variables/use-resolution'
+import { useVarUrlState } from '../variables/use-var-url-state'
 import type { PaletteEntry } from './lib/palette'
 
 type Bindable = Extract<PaletteEntry, { available: true }>
@@ -50,6 +56,16 @@ export function Builder() {
   const [picked, setPicked] = useState<Bindable | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Dashboard | null>(null)
+  const [editVarsOpen, setEditVarsOpen] = useState(false)
+
+  // Variable resolution + URL state for the selected dashboard. The bar drives
+  // the `?var-*` selection; widgets re-query off the resolved values.
+  const { selection, setSelection } = useVarUrlState()
+  const { resolved, error: varError } = useVariableResolution({
+    org,
+    variables: selected?.variables ?? [],
+    selection,
+  })
 
   return (
     <>
@@ -58,7 +74,7 @@ export function Builder() {
         sub='Compose dashboards for an org or a site'
       />
       <Main fluid fixed className='flex min-h-0 flex-col'>
-        <div className='mb-3'>
+        <div className='mb-3 flex items-center gap-2'>
           <DashboardPicker
             dashboards={dashboards}
             selectedId={selectedId}
@@ -66,7 +82,30 @@ export function Builder() {
             onNew={() => setFormOpen(true)}
             onEdit={(d) => setEditing(d)}
           />
+          {selected ? (
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={() => setEditVarsOpen(true)}
+            >
+              <SlidersHorizontal className='size-3.5' /> Variables
+            </Button>
+          ) : null}
         </div>
+
+        {selected && resolved.some((r) => !r.variable.hidden) ? (
+          <div className='mb-3'>
+            <VariableBar
+              resolved={resolved}
+              error={varError}
+              onChange={setSelection}
+            />
+          </div>
+        ) : varError ? (
+          <div className='mb-3'>
+            <VariableBar resolved={[]} error={varError} onChange={setSelection} />
+          </div>
+        ) : null}
 
         <div className='grid min-h-0 w-full flex-1 gap-3 lg:grid-cols-[230px_1fr]'>
           <Card className='scroll overflow-y-auto p-2.5'>
@@ -138,6 +177,15 @@ export function Builder() {
           onOpenChange={(o) => !o && setEditing(null)}
           org={org}
           sites={sites}
+        />
+      ) : null}
+
+      {selected ? (
+        <VariableEditorDialog
+          open={editVarsOpen}
+          onOpenChange={setEditVarsOpen}
+          org={org}
+          dashboard={selected}
         />
       ) : null}
     </>

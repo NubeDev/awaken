@@ -42,6 +42,7 @@ import type {
   PreferencesPatch,
   ProvisionOrg,
   QueryResult,
+  QueryVariable,
   ResolvedPreferences,
   UnitsDocument,
   CreateDashboard,
@@ -254,11 +255,21 @@ export const query = {
    * (`'preferred'` converts to the viewer's units, `'canonical'` returns raw
    * SI); omit for the server default (preferred).
    */
-  run: (sql: string, units?: 'preferred' | 'canonical') =>
+  run: (
+    sql: string,
+    opts?: {
+      units?: 'preferred' | 'canonical'
+      /** Resolved variables the server binds into the SQL (injection-safe). */
+      variables?: QueryVariable[]
+    }
+  ) =>
     request<QueryResult>('/api/v1/query', {
       method: 'POST',
-      body: { sql },
-      headers: units ? { 'accept-units': units } : undefined,
+      body: {
+        sql,
+        ...(opts?.variables?.length ? { variables: opts.variables } : {}),
+      },
+      headers: opts?.units ? { 'accept-units': opts.units } : undefined,
     }),
 }
 

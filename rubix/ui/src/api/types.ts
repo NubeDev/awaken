@@ -412,7 +412,56 @@ export interface Dashboard {
   site_id?: Uuid | null
   slug: string
   title: string
+  /** Dashboard variables (docs/design/variables-and-templating.md §1). Absent /
+   *  empty for a board with no parameterisation. */
+  variables?: Variable[]
   created_at: IsoTimestamp
+}
+
+/**
+ * `rubix_core::VariableKind` — the closed set of variable kinds (serde
+ * snake_case). Built-ins (`$__org`/`$__site`/`$__user`/`$__from`/`$__to`) are
+ * not authored variables and are not members of this union.
+ */
+export type VariableKind =
+  | 'constant'
+  | 'custom'
+  | 'query'
+  | 'datasource'
+  | 'site'
+  | 'interval'
+  | 'textbox'
+
+/**
+ * `rubix_core::VariableConfig` — per-kind config, tagged on `kind` (matching the
+ * serde `#[serde(tag = "kind")]` wire shape).
+ */
+export type VariableConfig =
+  | { kind: 'constant'; value: PointValue | null }
+  | { kind: 'custom'; options: string[] }
+  | { kind: 'query'; sql: string; datasource_id?: string | null }
+  | { kind: 'datasource'; datasource_kind?: string | null }
+  | { kind: 'site' }
+  | { kind: 'interval'; options: string[] }
+  | { kind: 'textbox' }
+
+/** One option / single selected value: always a scalar (never nested). */
+export type ScalarValue = PointValue | null
+
+/** A variable's selected value(s): a scalar (single) or an array (multi). */
+export type VariableValue = ScalarValue | ScalarValue[]
+
+/** `rubix_core::Variable` — one dashboard variable. */
+export interface Variable {
+  name: string
+  label?: string | null
+  kind: VariableKind
+  config: VariableConfig
+  /** Selected value(s); maintained by the resolution layer. */
+  current?: VariableValue
+  multi?: boolean
+  include_all?: boolean
+  hidden?: boolean
 }
 
 /** `rubix-server::CreateDashboard` — body for `POST /api/v1/dashboards`. */
@@ -422,11 +471,24 @@ export interface CreateDashboard {
   site_id?: Uuid | null
   slug: string
   title: string
+  variables?: Variable[]
 }
 
 /** `rubix-server::PatchDashboard` — body for `PATCH /api/v1/dashboards/{id}`. */
 export interface PatchDashboard {
   title?: string
+  /** Replace the variable list wholesale; omit to leave unchanged, `[]` clears. */
+  variables?: Variable[]
+}
+
+/**
+ * `rubix_query::QueryVariable` — a resolved variable sent on a query request so
+ * the server interpolation engine binds it (never splices) into SQL. `name` is
+ * the SQL reference without the leading `$`; `value` is a scalar or array.
+ */
+export interface QueryVariable {
+  name: string
+  value: VariableValue
 }
 
 /** A single DataFusion `/query` result row: column name -> value. */

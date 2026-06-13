@@ -111,6 +111,11 @@ pub enum WidgetKind {
     PointHistory,
     /// Latest output of a stored board (`target` is a board slug).
     BoardOutput,
+    /// A grid read from an external SQL datasource (`target` is the datasource
+    /// id, `query` carries the operator-authored native SQL). The same
+    /// `{ columns, rows }` shape a point/board tile renders, sourced from a
+    /// TimescaleDB/Postgres historian (docs/design/datasources.md "Consumers").
+    Datasource,
 }
 
 /// A named board of widgets. A dashboard is owned by an `org` (the tenant
@@ -155,7 +160,14 @@ pub struct Widget {
     pub kind: WidgetKind,
     /// Human-facing tile title.
     pub title: String,
-    /// What the tile points at: a point keyexpr or a board slug, per `kind`.
+    /// What the tile points at, per `kind`: a point keyexpr (`point_value`,
+    /// `point_history`), a board slug (`board_output`), or a datasource id
+    /// (`datasource`).
     pub target: String,
+    /// Native SQL for a `datasource` tile (operator-authored, the same trust
+    /// tier as a spark node's SQL). `None` for every other kind, which carry
+    /// their whole binding in `target`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query: Option<String>,
     pub created_at: DateTime<Utc>,
 }

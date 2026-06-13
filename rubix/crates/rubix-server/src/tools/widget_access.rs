@@ -66,6 +66,9 @@ impl WidgetAccess for StoreWidgetAccess {
             kind,
             title: title.to_string(),
             target: target.to_string(),
+            // The agent pins only point/board tiles (the `pin_widget` tool
+            // rejects the `datasource` kind — the AI never authors raw SQL).
+            query: None,
             created_at: Utc::now(),
         };
         self.store.create_widget(&widget)?;

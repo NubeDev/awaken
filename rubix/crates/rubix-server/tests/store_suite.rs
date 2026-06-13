@@ -198,6 +198,7 @@ fn run_suite(store: &Store) {
         kind: WidgetKind::PointValue,
         title: "AHU-3 SP".into(),
         target: keyexpr.clone(),
+        query: None,
         created_at: Utc::now(),
     };
     store.create_widget(&widget).unwrap();

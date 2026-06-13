@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS widgets (
     kind         TEXT NOT NULL,
     title        TEXT NOT NULL,
     target       TEXT NOT NULL,
+    query        TEXT,
     created_at   TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS rules (
@@ -209,6 +210,7 @@ CREATE TABLE IF NOT EXISTS widgets (
     kind         TEXT NOT NULL,
     title        TEXT NOT NULL,
     target       TEXT NOT NULL,
+    query        TEXT,
     created_at   TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS rules (

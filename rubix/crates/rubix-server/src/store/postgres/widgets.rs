@@ -8,7 +8,7 @@ use super::super::widgets::kind_token;
 use super::super::{Result, Store, StoreError};
 use super::codec::{require, token_enum, ts_col, uuid_of};
 
-const WIDGET_COLS: &str = "id, dashboard_id, site_id, kind, title, target, created_at";
+const WIDGET_COLS: &str = "id, dashboard_id, site_id, kind, title, target, query, created_at";
 
 fn widget_of(row: &postgres::Row) -> Result<Widget> {
     Ok(Widget {
@@ -18,7 +18,8 @@ fn widget_of(row: &postgres::Row) -> Result<Widget> {
         kind: token_enum(row, 3)?,
         title: row.get(4),
         target: row.get(5),
-        created_at: ts_col(row, 6)?,
+        query: row.get(6),
+        created_at: ts_col(row, 7)?,
     })
 }
 
@@ -27,8 +28,9 @@ pub(crate) fn create_widget(store: &Store, widget: &Widget) -> Result<()> {
     require(&mut *client, "dashboards", "dashboard", widget.dashboard_id)?;
     require(&mut *client, "sites", "site", widget.site_id)?;
     client.execute(
-        "INSERT INTO widgets (id, dashboard_id, site_id, kind, title, target, created_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO widgets \
+             (id, dashboard_id, site_id, kind, title, target, query, created_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         &[
             &widget.id.to_string(),
             &widget.dashboard_id.to_string(),
@@ -36,6 +38,7 @@ pub(crate) fn create_widget(store: &Store, widget: &Widget) -> Result<()> {
             &kind_token(widget.kind),
             &widget.title,
             &widget.target,
+            &widget.query,
             &ts_of(&widget.created_at),
         ],
     )?;

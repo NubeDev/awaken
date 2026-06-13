@@ -22,8 +22,13 @@ pub struct CreateWidget {
     pub site_id: Uuid,
     pub kind: WidgetKind,
     pub title: String,
-    /// Point keyexpr (`point_*` kinds) or board slug (`board_output`).
+    /// Point keyexpr (`point_*` kinds), board slug (`board_output`), or
+    /// datasource id (`datasource`).
     pub target: String,
+    /// Native SQL for a `datasource` tile (required for that kind, rejected for
+    /// every other). Operator-authored — the same trust tier as a spark node.
+    #[serde(default)]
+    pub query: Option<String>,
 }
 
 #[utoipa::path(post, path = "/api/v1/widgets", request_body = CreateWidget, tag = "widgets",
@@ -38,6 +43,11 @@ pub(crate) async fn create_widget(
             "title and target must not be empty".into(),
         ));
     }
+    // A `datasource` tile carries its SQL in `query` (target is the datasource
+    // id); every other kind carries its whole binding in `target` and must not
+    // set `query`. Validate the pairing up front so a malformed tile never
+    // persists.
+    let query = validate_query(req.kind, req.query)?;
     let store = state.store.clone();
     let widget = blocking(move || {
         let dashboard_id = match req.dashboard_id {
@@ -51,6 +61,7 @@ pub(crate) async fn create_widget(
             kind: req.kind,
             title: req.title,
             target: req.target,
+            query,
             created_at: Utc::now(),
         };
         store.create_widget(&widget)?;
@@ -58,4 +69,22 @@ pub(crate) async fn create_widget(
     })
     .await?;
     Ok((StatusCode::CREATED, Json(widget)))
+}
+
+/// Enforce the `query`/`kind` pairing: a `datasource` tile requires non-empty
+/// SQL; every other kind must omit it. Returns the SQL to persist (`None` for
+/// non-datasource kinds).
+fn validate_query(kind: WidgetKind, query: Option<String>) -> Result<Option<String>, ApiError> {
+    match kind {
+        WidgetKind::Datasource => match query {
+            Some(sql) if !sql.trim().is_empty() => Ok(Some(sql)),
+            _ => Err(ApiError::BadRequest(
+                "a datasource widget requires a non-empty `query` (native SQL)".into(),
+            )),
+        },
+        _ if query.is_some() => Err(ApiError::BadRequest(
+            "`query` is only valid for a datasource widget".into(),
+        )),
+        _ => Ok(None),
+    }
 }

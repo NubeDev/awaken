@@ -107,3 +107,72 @@ async fn empty_title_is_400() {
         .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+/// A `datasource` widget carries its native SQL in `query` (target is the
+/// datasource id). It round-trips through create + get.
+#[tokio::test]
+async fn datasource_widget_round_trips_with_query() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+
+    let (status, created) = app
+        .request(
+            "POST",
+            "/api/v1/widgets",
+            Some(json!({
+                "site_id": site, "kind": "datasource",
+                "title": "Historian daily", "target": "historian",
+                "query": "SELECT time_bucket('1 day', ts) d, avg(v) FROM r GROUP BY 1"
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(created["kind"], "datasource");
+    assert_eq!(created["target"], "historian");
+    assert!(created["query"].as_str().unwrap().contains("time_bucket"));
+
+    let id = created["id"].as_str().unwrap();
+    let (status, got) = app
+        .request("GET", &format!("/api/v1/widgets/{id}"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{got}");
+    assert_eq!(got["query"], created["query"]);
+}
+
+/// A `datasource` widget without `query` is a 400 — the SQL is its binding.
+#[tokio::test]
+async fn datasource_widget_without_query_is_400() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let (status, _) = app
+        .request(
+            "POST",
+            "/api/v1/widgets",
+            Some(json!({
+                "site_id": site, "kind": "datasource",
+                "title": "Historian", "target": "historian"
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+/// `query` on a non-datasource kind is a 400 — those carry their whole binding
+/// in `target`, so a stray `query` is a malformed tile, not silently dropped.
+#[tokio::test]
+async fn query_on_point_widget_is_400() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let (status, _) = app
+        .request(
+            "POST",
+            "/api/v1/widgets",
+            Some(json!({
+                "site_id": site, "kind": "point_value",
+                "title": "AHU-3 fan", "target": "nube/hq/ahu-3/fan",
+                "query": "SELECT 1"
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

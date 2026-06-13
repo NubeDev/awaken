@@ -16,11 +16,12 @@ use std::sync::Arc;
 use awaken_runtime_contract::contract::tool::Tool;
 use rubix_query::QueryScope;
 use rubix_tools::{
-    PinWidgetTool, QueryTool, ReadPointTool, RunBoardTool, ScopedPointAccess, TenantScope,
-    WritePointTool,
+    DatasourceDescribeTool, DatasourceQueryTool, PinWidgetTool, QueryTool, ReadPointTool,
+    RunBoardTool, ScopedPointAccess, TenantScope, WritePointTool,
 };
 
 use super::board_access::StoreBoardAccess;
+use super::datasource_access::RegistryDatasourceAccess;
 use super::query_access::EngineQueryAccess;
 use super::widget_access::StoreWidgetAccess;
 use crate::flow::StorePointAccess;
@@ -76,6 +77,19 @@ pub fn build_tools_scoped(state: &AppState, scope: Option<TenantScope>) -> Vec<A
         if let Some(access) = query_access {
             tools.push(Arc::new(QueryTool::new(Arc::new(access))));
         }
+    }
+    // The datasource tools read external historians via the registry. Added
+    // whenever a datasource manifest is loaded, scoped or not: datasource
+    // authorization is per-datasource at the registry level (a datasource opts
+    // in to AI access in its manifest), not the row-level `{org}/{site}` filter
+    // `query` uses, so there is no per-scope confinement to apply here
+    // (docs/design/datasources.md "Tenancy"). The agent may only invoke
+    // operator-registered named queries — never raw SQL — so this stays on the
+    // read band, parallel to `query`.
+    if let Some(registry) = &state.datasources {
+        let access = Arc::new(RegistryDatasourceAccess::new(registry.clone()));
+        tools.push(Arc::new(DatasourceQueryTool::new(access.clone())));
+        tools.push(Arc::new(DatasourceDescribeTool::new(access)));
     }
     tools
 }

@@ -53,6 +53,18 @@ async fn build_tools_exposes_point_tools_without_query_engine() {
     assert_eq!(out.result.data["value"], json!(true));
 }
 
+/// With no datasource manifest loaded (the harness default), the datasource AI
+/// tools are withheld entirely — the agent can't reach an external historian
+/// that isn't configured. Mirrors how `query` is withheld without a query engine.
+#[tokio::test]
+async fn datasource_tools_withheld_without_a_registry() {
+    let (_app, state) = TestApp::with_state();
+    let tools = build_tools(&state);
+    let ids: Vec<String> = tools.iter().map(|t| t.descriptor().id).collect();
+    assert!(!ids.contains(&"rubix_datasource_query".to_string()));
+    assert!(!ids.contains(&"rubix_datasource_describe".to_string()));
+}
+
 #[tokio::test]
 async fn run_board_tool_evaluates_a_board_over_the_store() {
     let (app, state) = TestApp::with_state();

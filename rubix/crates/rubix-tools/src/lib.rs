@@ -12,10 +12,11 @@ mod scope;
 mod scoped;
 mod tool;
 
-pub use port::{BoardAccess, PointAccess, QueryAccess, WidgetAccess};
+pub use port::{BoardAccess, DatasourceAccess, PointAccess, QueryAccess, WidgetAccess};
 pub use scope::TenantScope;
 pub use scoped::ScopedPointAccess;
 pub use tool::{
+    DatasourceDescribeArgs, DatasourceDescribeTool, DatasourceQueryArgs, DatasourceQueryTool,
     PinWidgetArgs, PinWidgetTool, QueryArgs, QueryTool, ReadPointArgs, ReadPointTool, RunBoardArgs,
     RunBoardTool, WritePointArgs, WritePointTool,
 };

@@ -34,6 +34,32 @@ pub trait WidgetAccess: Send + Sync + 'static {
     ) -> anyhow::Result<uuid::Uuid>;
 }
 
+/// Read-only access to external SQL datasources for the AI tier. The AI may
+/// only *invoke operator-registered named queries* (never author raw SQL — that
+/// would hand a prompt-injection surface raw SQL against a customer's production
+/// historian, contradicting the operator-authored trust model;
+/// docs/design/datasources.md "AI"). The host implements this over the
+/// datasource registry; rows come back in the `{ columns, rows, breached }`
+/// shape, schema as the registry's declared/introspected blob.
+#[async_trait]
+pub trait DatasourceAccess: Send + Sync + 'static {
+    /// Invoke a named query on a datasource with positional bound parameters
+    /// (`[{type,value}, …]`), returning `{ columns, rows, breached }`. The SQL is
+    /// operator-authored; the caller supplies only the datasource id, the query
+    /// name, and the parameters.
+    async fn invoke_named(
+        &self,
+        datasource: &str,
+        name: &str,
+        params: Vec<serde_json::Value>,
+    ) -> anyhow::Result<serde_json::Value>;
+
+    /// The tables and columns a datasource exposes, so the agent can pick a named
+    /// query knowingly: the operator-declared schema blob or an
+    /// `information_schema` introspection (`{ tables: [...] }`).
+    async fn describe(&self, datasource: &str) -> anyhow::Result<serde_json::Value>;
+}
+
 /// Run a reflow control/rule board to completion. The host loads the board JSON
 /// into a reflow `Network` over the store-backed `PointAccess` and returns each
 /// node's outputs. Board writes go through the priority array, so the same

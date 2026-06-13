@@ -8,6 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 /// One caller-supplied variable: a `name` and its selected value(s).
 ///
@@ -15,7 +16,7 @@ use serde_json::Value;
 /// array of scalars (a multi-select). A multi-value variable is what
 /// `${name:csv}`, `${name:singlequote}`, and `$__sqlIn(name)` expand; a single
 /// value is what `$name` / `${name}` substitute.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct QueryVariable {
     /// The variable name as referenced in SQL, without the leading `$`.
     pub name: String,
@@ -29,7 +30,7 @@ pub struct QueryVariable {
 /// [`VarValue::One`], `["Site-A", "Site-B"]` to [`VarValue::Many`]. Each scalar
 /// is a [`Scalar`]; nested arrays/objects are rejected at parse time because a
 /// bound parameter is a scalar, not a structure.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum VarValue {
     /// A single scalar value.
@@ -41,7 +42,7 @@ pub enum VarValue {
 /// A JSON scalar a variable can carry. Mirrors the bound-parameter kinds the
 /// backends accept; structured JSON (arrays/objects) is not a scalar and is
 /// refused so it can never reach SQL as anything but a literal value.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(untagged)]
 pub enum Scalar {
     /// SQL NULL.

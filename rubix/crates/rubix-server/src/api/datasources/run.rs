@@ -13,9 +13,12 @@
 use axum::extract::{Path, State};
 use axum::{Extension, Json};
 use rubix_core::SeriesField;
+use rubix_query::{lower, BoundParam, QueryVariable};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use utoipa::ToSchema;
+
+use rubix_datasource::Param;
 
 use super::registry_or_unavailable;
 use crate::api::UnitsCtx;
@@ -32,6 +35,12 @@ pub struct DatasourceQueryRequest {
     /// "value": ... }` or `{ "type": "null" }`. Omit for a parameterless query.
     #[serde(default)]
     pub params: Vec<Value>,
+    /// Variable bindings for `$name` / `${name}` / `${name:csv}` /
+    /// `${name:singlequote}` / `$__sqlIn(name)` tokens in `sql`. Lowered to bound
+    /// parameters appended after `params`, so a value never splices into the SQL
+    /// text (docs/design/variables-and-templating.md §2). Omit for no variables.
+    #[serde(default)]
+    pub variables: Vec<QueryVariable>,
     /// Optional per-column quantity declarations (WS-11). A column with a
     /// `quantity` is converted at the response edge into the caller's preferred
     /// unit (honouring the `Accept-Units` header); untagged columns pass through
@@ -70,15 +79,33 @@ pub(crate) async fn run_query(
     Json(req): Json<DatasourceQueryRequest>,
 ) -> Result<Json<DatasourceResultBody>, ApiError> {
     let registry = registry_or_unavailable(&state)?;
-    let params = super::parse_params(req.params)?;
+    let mut params = super::parse_params(req.params)?;
+    // Lower variable tokens into placeholders numbered after the caller's
+    // positional `params`, then append their bound values to the same list.
+    let lowered = lower(&req.sql, &req.variables, params.len())
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    params.extend(lowered.params.iter().map(bound_to_param));
     let executor = registry.executor(&id)?;
-    let result = executor.execute(&req.sql, &params).await?;
+    let result = executor.execute(&lowered.sql, &params).await?;
     let mut body = super::result_body(result);
     // Convert any declared quantity columns at the edge. Untagged → passthrough.
     if let Some(Extension(ctx)) = units {
         body.units = convert_columns(&mut body, &req.fields, &ctx)?;
     }
     Ok(Json(body))
+}
+
+/// Map an engine [`BoundParam`] onto a datasource [`Param`]. The engine's value
+/// set is a subset of the datasource's (it carries no timestamp variant — time
+/// macros are a separate concern), so this is total.
+fn bound_to_param(bound: &BoundParam) -> Param {
+    match bound {
+        BoundParam::Null => Param::Null,
+        BoundParam::Bool(b) => Param::Bool(*b),
+        BoundParam::Int(i) => Param::Int(*i),
+        BoundParam::Float(f) => Param::Float(*f),
+        BoundParam::Text(s) => Param::Text(s.clone()),
+    }
 }
 
 /// Convert each tagged column's cells in `body.rows` in place, returning the

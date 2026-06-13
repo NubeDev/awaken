@@ -27,6 +27,83 @@ async fn selects_rows_created_through_the_api() {
 }
 
 #[tokio::test]
+async fn variable_token_binds_and_filters() {
+    let app = TestApp::with_query().await;
+    let site = app.create_site().await;
+    let equip = app.create_equip(&site).await;
+    app.create_point(&equip, "sensor", "temp").await;
+
+    let (status, body) = app
+        .request(
+            "POST",
+            "/api/v1/query",
+            Some(json!({
+                "sql": "SELECT slug FROM points WHERE slug = $slug",
+                "variables": [{ "name": "slug", "value": "temp" }],
+            })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let rows = body["rows"].as_array().expect("rows array");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["slug"], "temp");
+}
+
+#[tokio::test]
+async fn injection_value_binds_as_literal_and_selects_nothing() {
+    let app = TestApp::with_query().await;
+    let site = app.create_site().await;
+    let equip = app.create_equip(&site).await;
+    app.create_point(&equip, "sensor", "temp").await;
+
+    // A SQL-injection payload arrives as a bound literal; it matches no slug, so
+    // the result is empty and no statement executes.
+    let (status, body) = app
+        .request(
+            "POST",
+            "/api/v1/query",
+            Some(json!({
+                "sql": "SELECT slug FROM points WHERE slug = $slug",
+                "variables": [{ "name": "slug", "value": "'); DROP TABLE points; --" }],
+            })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["rows"].as_array().expect("rows array").is_empty());
+
+    // The table still holds its row.
+    let (status, body) = app
+        .request(
+            "POST",
+            "/api/v1/query",
+            Some(json!({ "sql": "SELECT slug FROM points" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["rows"].as_array().expect("rows array").len(), 1);
+}
+
+#[tokio::test]
+async fn unknown_variable_is_bad_request() {
+    let app = TestApp::with_query().await;
+
+    let (status, _body) = app
+        .request(
+            "POST",
+            "/api/v1/query",
+            Some(json!({
+                "sql": "SELECT slug FROM points WHERE slug = $missing",
+                "variables": [],
+            })),
+        )
+        .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn invalid_sql_is_bad_request() {
     let app = TestApp::with_query().await;
 

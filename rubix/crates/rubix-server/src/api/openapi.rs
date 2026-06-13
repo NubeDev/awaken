@@ -148,6 +148,8 @@ impl Modify for BearerSecurity {
         rules::dto::CreateRule, rules::dto::UpdateRule, rules::dto::RuleView,
         datasources::run::DatasourceQueryRequest, datasources::run::DatasourceResultBody,
         datasources::named::NamedQueryRequest,
+        query::run::QueryRequest, query::run::QueryResponse,
+        rubix_query::QueryVariable, rubix_query::VarValue, rubix_query::Scalar,
         dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard,
         widgets::patch::PatchWidget,
         UserRecord, TeamRecord, GrantRecord,

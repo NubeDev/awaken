@@ -1,3 +1,4 @@
+import { UndoRedoControl } from '@/features/audit/undo-redo-control'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
@@ -14,6 +15,7 @@ export function PageHeader({ title, sub }: { title: string; sub?: string }) {
     <Header fixed>
       <PageTitle title={title} sub={sub} />
       <div className='ms-auto flex items-center gap-2'>
+        <UndoRedoControl />
         <Search />
         <ThemeSwitch />
         <ConfigDrawer />

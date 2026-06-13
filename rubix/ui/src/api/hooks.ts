@@ -884,6 +884,10 @@ export function useGrantDashboard(dashboardId: Uuid) {
  */
 export function useAudit(org: string | undefined, filter: Omit<AuditQuery, 'org'>) {
   const filterKey = JSON.stringify(filter)
+  // `filterKey` is the canonical serialization of `filter`, so it is the cache
+  // discriminator; listing the `filter` object too would be redundant (a fresh
+  // object identity each render).
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
   return useQuery({
     queryKey: qk.audit(org ?? 'none', filterKey),
     queryFn: ({ signal }) =>

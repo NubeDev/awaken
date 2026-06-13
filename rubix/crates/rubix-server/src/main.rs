@@ -251,7 +251,7 @@ async fn main() -> anyhow::Result<()> {
         // Always construct the scheduler (even with zero scheduled boards) so a
         // board created or enabled later registers its loop at runtime, without
         // a server restart. Its output cache also backs the live-values endpoint.
-        let boards = state.store.latest_boards()?;
+        let boards = state.store.latest_boards_all()?;
         let scheduled: Vec<_> = boards.into_iter().filter(|b| b.is_scheduled()).collect();
         let scheduler = Scheduler::launch(
             state.store.clone(),

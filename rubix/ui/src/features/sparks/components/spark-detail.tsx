@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useScope } from '@/context/scope-provider'
 import {
   Building2,
   Check,
@@ -50,6 +51,7 @@ export function SparkDetail({
   acking,
 }: SparkDetailProps) {
   const navigate = useNavigate()
+  const { org } = useScope()
   const chat = useAgentChat()
   const del = useDeleteSpark(site?.id)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -88,8 +90,13 @@ export function SparkDetail({
               description: res.response,
               action: {
                 label: 'Review & approve',
-                onClick: () =>
-                  navigate({ to: '/runs/$runId', params: { runId } }),
+                onClick: () => {
+                  if (org && site)
+                    navigate({
+                      to: '/o/$org/s/$siteSlug/runs/$runId',
+                      params: { org, siteSlug: site.slug, runId },
+                    })
+                },
               },
             })
             return
@@ -152,12 +159,14 @@ export function SparkDetail({
           <Button
             variant='outline'
             size='sm'
-            onClick={() =>
-              navigate({
-                to: '/points',
-                search: { equip: implicated[0]!.equip_id },
-              })
-            }
+            onClick={() => {
+              if (org && site)
+                navigate({
+                  to: '/o/$org/s/$siteSlug/points',
+                  params: { org, siteSlug: site.slug },
+                  search: { equip: implicated[0]!.equip_id },
+                })
+            }}
           >
             <Network className='size-3.5' /> View points
           </Button>

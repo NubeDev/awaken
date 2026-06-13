@@ -24,9 +24,13 @@ use super::{Result, Store, StoreError};
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleRecord {
     pub id: Uuid,
-    /// Tenant scope. `name` is unique within an org.
+    /// Tenant scope (the org namespace). Always set.
     pub org: String,
-    /// Composition name (`rule("temp-high", …)`), unique per org.
+    /// The single site this rule is for; `None` makes it an org-level rule that
+    /// applies across the org. A board run resolves a site-scoped rule first,
+    /// then falls back to the org-level one of the same name.
+    pub site_id: Option<Uuid>,
+    /// Composition name (`rule("temp-high", …)`), unique per scope `(org, site_id)`.
     pub name: String,
     pub script: String,
     pub params: ParamSchema,
@@ -46,31 +50,37 @@ impl RuleRecord {
     }
 }
 
-pub(crate) const RULE_COLS: &str = "id, org, name, script, params, created_at";
+pub(crate) const RULE_COLS: &str = "id, org, site_id, name, script, params, created_at";
 
 fn row_rule(row: &Row<'_>) -> rusqlite::Result<RuleRecord> {
     Ok(RuleRecord {
         id: row.get(0)?,
         org: row.get(1)?,
-        name: row.get(2)?,
-        script: row.get(3)?,
-        params: json_to(&row.get::<_, String>(4)?)?,
-        created_at: ts_to(&row.get::<_, String>(5)?)?,
+        site_id: row.get(2)?,
+        name: row.get(3)?,
+        script: row.get(4)?,
+        params: json_to(&row.get::<_, String>(5)?)?,
+        created_at: ts_to(&row.get::<_, String>(6)?)?,
     })
 }
 
 impl Store {
-    /// Insert a rule. The `(org, name)` UNIQUE constraint rejects a duplicate
-    /// name within the org as a [`StoreError::Conflict`].
+    /// Insert a rule. The per-scope unique index rejects a duplicate name within
+    /// `(org, site_id)` as a [`StoreError::Conflict`].
     pub fn create_rule(&self, rule: &RuleRecord) -> Result<()> {
         match &self.backend {
             Backend::Sqlite(_) => {
-                self.sqlite_conn()?.execute(
-                    "INSERT INTO rules (id, org, name, script, params, created_at) \
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                let conn = self.sqlite_conn()?;
+                if let Some(site_id) = rule.site_id {
+                    Self::require_site(&conn, site_id)?;
+                }
+                conn.execute(
+                    "INSERT INTO rules (id, org, site_id, name, script, params, created_at) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                     params![
                         rule.id,
                         rule.org,
+                        rule.site_id,
                         rule.name,
                         rule.script,
                         json_of(&rule.params),
@@ -84,46 +94,84 @@ impl Store {
         }
     }
 
-    /// Every rule in an org, newest first.
-    pub fn list_rules(&self, org: &str) -> Result<Vec<RuleRecord>> {
+    /// Rules in an org, newest first. With `site_id` `Some`, returns that site's
+    /// rules plus the org-level ones (the set that resolves on that site); with
+    /// `None`, returns every rule the org owns (org-level + all sites).
+    pub fn list_rules(
+        &self,
+        org: &str,
+        site_id: Option<Uuid>,
+    ) -> Result<Vec<RuleRecord>> {
         match &self.backend {
             Backend::Sqlite(_) => {
                 let conn = self.sqlite_conn()?;
                 let mut stmt = conn.prepare(&format!(
-                    "SELECT {RULE_COLS} FROM rules WHERE org = ?1 ORDER BY created_at DESC"
+                    "SELECT {RULE_COLS} FROM rules \
+                     WHERE org = ?1 AND (?2 IS NULL OR site_id IS NULL OR site_id = ?2) \
+                     ORDER BY created_at DESC"
                 ))?;
-                let rows = stmt.query_map(params![org], row_rule)?;
+                let rows = stmt.query_map(params![org, site_id], row_rule)?;
                 Ok(rows.collect::<rusqlite::Result<_>>()?)
             }
             #[cfg(feature = "cloud")]
-            Backend::Postgres(_) => super::postgres::rules::list_rules(self, org),
+            Backend::Postgres(_) => super::postgres::rules::list_rules(self, org, site_id),
         }
     }
 
-    /// Load one rule by org + name. The fail-closed resolution path: a missing
-    /// name is a [`StoreError::NotFound`], surfaced to the engine as a resolve
-    /// error.
-    pub fn load_rule(&self, org: &str, name: &str) -> Result<RuleRecord> {
+    /// Load one rule by name within a scope, applying the resolution precedence:
+    /// a **site-scoped** rule (`site_id = Some`) wins, else the **org-level**
+    /// (`site_id NULL`) rule of the same name. With `site_id` `None`, only the
+    /// org-level rule matches. Fail-closed: a missing name is a
+    /// [`StoreError::NotFound`] surfaced to the engine as a resolve error.
+    pub fn load_rule(
+        &self,
+        org: &str,
+        site_id: Option<Uuid>,
+        name: &str,
+    ) -> Result<RuleRecord> {
         match &self.backend {
-            Backend::Sqlite(_) => self
-                .sqlite_conn()?
-                .query_row(
-                    &format!("SELECT {RULE_COLS} FROM rules WHERE org = ?1 AND name = ?2"),
-                    params![org, name],
-                    row_rule,
-                )
-                .optional()?
-                .ok_or(StoreError::NotFound("rule")),
+            Backend::Sqlite(_) => {
+                if let Some(site_id) = site_id {
+                    if let Some(rule) = self
+                        .sqlite_conn()?
+                        .query_row(
+                            &format!(
+                                "SELECT {RULE_COLS} FROM rules \
+                                 WHERE org = ?1 AND site_id = ?2 AND name = ?3"
+                            ),
+                            params![org, site_id, name],
+                            row_rule,
+                        )
+                        .optional()?
+                    {
+                        return Ok(rule);
+                    }
+                }
+                // Fall back to the org-level rule.
+                self.sqlite_conn()?
+                    .query_row(
+                        &format!(
+                            "SELECT {RULE_COLS} FROM rules \
+                             WHERE org = ?1 AND site_id IS NULL AND name = ?2"
+                        ),
+                        params![org, name],
+                        row_rule,
+                    )
+                    .optional()?
+                    .ok_or(StoreError::NotFound("rule"))
+            }
             #[cfg(feature = "cloud")]
-            Backend::Postgres(_) => super::postgres::rules::load_rule(self, org, name),
+            Backend::Postgres(_) => super::postgres::rules::load_rule(self, org, site_id, name),
         }
     }
 
-    /// Replace a rule's script and params (identified by org + name). Returns the
-    /// updated record, or NotFound if the name does not exist in the org.
+    /// Replace a rule's script and params (identified by org + site + name).
+    /// Returns the updated record, or NotFound if the name does not exist in the
+    /// scope.
     pub fn update_rule(
         &self,
         org: &str,
+        site_id: Option<Uuid>,
         name: &str,
         script: &str,
         params: &ParamSchema,
@@ -131,28 +179,62 @@ impl Store {
         match &self.backend {
             Backend::Sqlite(_) => {
                 let n = self.sqlite_conn()?.execute(
-                    "UPDATE rules SET script = ?3, params = ?4 WHERE org = ?1 AND name = ?2",
-                    params![org, name, script, json_of(params)],
+                    "UPDATE rules SET script = ?4, params = ?5 \
+                     WHERE org = ?1 AND site_id IS ?2 AND name = ?3",
+                    params![org, site_id, name, script, json_of(params)],
                 )?;
                 if n == 0 {
                     return Err(StoreError::NotFound("rule"));
                 }
-                self.load_rule(org, name)
+                self.load_rule_exact(org, site_id, name)
             }
             #[cfg(feature = "cloud")]
             Backend::Postgres(_) => {
-                super::postgres::rules::update_rule(self, org, name, script, params)
+                super::postgres::rules::update_rule(self, org, site_id, name, script, params)
             }
         }
     }
 
-    /// Delete a rule by org + name. NotFound if it did not exist.
-    pub fn delete_rule(&self, org: &str, name: &str) -> Result<()> {
+    /// Load one rule at an EXACT scope (no org fallback) — used after a scoped
+    /// update/create to return the row that was written.
+    pub fn load_rule_exact(
+        &self,
+        org: &str,
+        site_id: Option<Uuid>,
+        name: &str,
+    ) -> Result<RuleRecord> {
+        match &self.backend {
+            Backend::Sqlite(_) => self
+                .sqlite_conn()?
+                .query_row(
+                    &format!(
+                        "SELECT {RULE_COLS} FROM rules \
+                         WHERE org = ?1 AND site_id IS ?2 AND name = ?3"
+                    ),
+                    params![org, site_id, name],
+                    row_rule,
+                )
+                .optional()?
+                .ok_or(StoreError::NotFound("rule")),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::rules::load_rule_exact(self, org, site_id, name)
+            }
+        }
+    }
+
+    /// Delete a rule at an exact scope. NotFound if it did not exist.
+    pub fn delete_rule(
+        &self,
+        org: &str,
+        site_id: Option<Uuid>,
+        name: &str,
+    ) -> Result<()> {
         match &self.backend {
             Backend::Sqlite(_) => {
                 let n = self.sqlite_conn()?.execute(
-                    "DELETE FROM rules WHERE org = ?1 AND name = ?2",
-                    params![org, name],
+                    "DELETE FROM rules WHERE org = ?1 AND site_id IS ?2 AND name = ?3",
+                    params![org, site_id, name],
                 )?;
                 if n == 0 {
                     return Err(StoreError::NotFound("rule"));
@@ -160,11 +242,11 @@ impl Store {
                 Ok(())
             }
             #[cfg(feature = "cloud")]
-            Backend::Postgres(_) => super::postgres::rules::delete_rule(self, org, name),
+            Backend::Postgres(_) => super::postgres::rules::delete_rule(self, org, site_id, name),
         }
     }
 
-    /// The rules in `org` whose scripts compose `name` — the design's
+    /// The rules in a scope whose scripts compose `name` — the design's
     /// change-impact listing. v1 resolves composition live by name, so editing a
     /// shared rule changes every rule built on it on the next tick; this listing
     /// makes that blast radius visible before an edit.
@@ -173,8 +255,13 @@ impl Store {
     /// rule's script (the composition primitive's only form). It can over-report
     /// a name that appears in a string literal but never under-reports a real
     /// call, which is the safe direction for a change-impact warning.
-    pub fn referencing_rules(&self, org: &str, name: &str) -> Result<Vec<RuleRecord>> {
-        let all = self.list_rules(org)?;
+    pub fn referencing_rules(
+        &self,
+        org: &str,
+        site_id: Option<Uuid>,
+        name: &str,
+    ) -> Result<Vec<RuleRecord>> {
+        let all = self.list_rules(org, site_id)?;
         Ok(all
             .into_iter()
             .filter(|r| r.name != name && references(&r.script, name))

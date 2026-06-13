@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { useScope } from '@/context/scope-provider'
 import { useRun } from '@/api/hooks'
 import { Main } from '@/components/layout/main'
 import { PageHeader } from '@/components/layout/page-header'
@@ -15,6 +16,7 @@ const ORIGIN_LABEL = { chat: 'Chat', dispatch: 'Dispatch', mcp: 'MCP' } as const
 /** One agent run: lifecycle, the assistant response, and — when suspended — the
  *  held write with its approve/reject controls. */
 export function RunDetail({ runId }: { runId: string }) {
+  const { org, site } = useScope()
   const { data: run, isLoading, isError } = useRun(runId)
 
   return (
@@ -22,7 +24,10 @@ export function RunDetail({ runId }: { runId: string }) {
       <PageHeader title='Agent Run' sub='awaken activity & approvals' />
       <Main fluid>
         <Button asChild variant='ghost' size='sm' className='mb-3 -ms-2'>
-          <Link to='/runs'>
+          <Link
+            to='/o/$org/s/$siteSlug/runs'
+            params={{ org: org!, siteSlug: site!.slug }}
+          >
             <ArrowLeft className='size-3.5' /> All runs
           </Link>
         </Button>

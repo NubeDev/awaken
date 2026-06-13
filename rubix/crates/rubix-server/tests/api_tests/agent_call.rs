@@ -107,6 +107,7 @@ async fn agent_call_board_activates_an_agent_run() {
 
     // Store an agent_call board and run it by slug (HTTP path wires the agent).
     let board = json!({
+        "org": "nube",
         "slug": "assess", "display_name": "Assess",
         "trigger": {"kind": "manual"},
         "board": {
@@ -117,9 +118,9 @@ async fn agent_call_board_activates_an_agent_run() {
             "connections": []
         }
     });
-    let (s, _) = req(&router, "POST", "/api/v1/boards", Some(board)).await;
+    let (s, _) = req(&router, "POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(s, StatusCode::CREATED);
-    let (s, _) = req(&router, "POST", "/api/v1/boards/assess/run", None).await;
+    let (s, _) = req(&router, "POST", "/api/v1/boards/assess/run?org=nube", None).await;
     assert_eq!(s, StatusCode::OK);
 
     // The agent run (detached) should command the fan shortly.
@@ -211,6 +212,7 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
     // An awaited agent_call: the board blocks on the run inside the single-shot
     // evaluation, so the write lands before `/run` returns.
     let board = json!({
+        "org": "nube",
         "slug": "assess-await", "display_name": "Assess",
         "trigger": {"kind": "manual"},
         "board": {
@@ -221,9 +223,9 @@ async fn awaited_agent_call_drives_a_gated_write_within_the_board_run() {
             "connections": []
         }
     });
-    let (s, _) = req(&router, "POST", "/api/v1/boards", Some(board)).await;
+    let (s, _) = req(&router, "POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(s, StatusCode::CREATED);
-    let (s, run) = req(&router, "POST", "/api/v1/boards/assess-await/run", None).await;
+    let (s, run) = req(&router, "POST", "/api/v1/boards/assess-await/run?org=nube", None).await;
     assert_eq!(s, StatusCode::OK);
 
     // The agent's decision is observable on the node's output (it awaited).

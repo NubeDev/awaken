@@ -96,6 +96,7 @@ impl Modify for BearerSecurity {
         widgets::create::create_widget,
         widgets::list::list_widgets,
         widgets::get::get_widget,
+        widgets::patch::patch_widget,
         widgets::delete::delete_widget,
         dashboards::create::create_dashboard,
         dashboards::list::list_dashboards,
@@ -119,7 +120,8 @@ impl Modify for BearerSecurity {
         rules::dto::CreateRule, rules::dto::UpdateRule, rules::dto::RuleView,
         datasources::run::DatasourceQueryRequest, datasources::run::DatasourceResultBody,
         datasources::named::NamedQueryRequest,
-        dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard))
+        dashboards::create::CreateDashboard, dashboards::patch::PatchDashboard,
+        widgets::patch::PatchWidget))
 )]
 pub struct ApiDoc;
 

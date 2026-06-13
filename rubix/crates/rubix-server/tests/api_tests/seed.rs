@@ -147,7 +147,7 @@ fn seeds_one_stored_board_with_a_valid_graph() {
     let report = seed_portfolio(&store).expect("seed");
     assert_eq!(report.boards, 1, "the demo board is seeded");
 
-    let boards = store.latest_boards().unwrap();
+    let boards = store.latest_boards_all().unwrap();
     let board = boards
         .iter()
         .find(|b| b.slug == "ahu-3-discharge-reset")
@@ -174,7 +174,7 @@ fn re_seeding_does_not_duplicate_the_board() {
     let (store, _dir) = fresh_store();
     assert_eq!(seed_portfolio(&store).unwrap().boards, 1);
     assert_eq!(seed_portfolio(&store).unwrap().boards, 0);
-    assert_eq!(store.latest_boards().unwrap().len(), 1);
+    assert_eq!(store.latest_boards_all().unwrap().len(), 1);
 }
 
 #[tokio::test]

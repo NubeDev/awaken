@@ -33,6 +33,9 @@ pub struct StorePointAccess {
     /// Tenant scope a `rule` node resolves stored rules through. `None` makes a
     /// stored-rule node fail closed (an inline-script node runs regardless).
     org: Option<String>,
+    /// Site slug within the org, when the board acts on one site. A site-scoped
+    /// rule resolves first, then the org-level one. `None` → org-level only.
+    site: Option<String>,
     /// External datasources a `datasource` node reads through. `None` makes a
     /// `datasource` node fail closed (no datasource manifest loaded, or a board
     /// access — the agent's own `run_board` — that deliberately withholds it).
@@ -46,6 +49,7 @@ impl StorePointAccess {
             bus: None,
             agent: None,
             org: None,
+            site: None,
             datasources: None,
         }
     }
@@ -57,6 +61,7 @@ impl StorePointAccess {
             bus,
             agent: None,
             org: None,
+            site: None,
             datasources: None,
         }
     }
@@ -73,6 +78,14 @@ impl StorePointAccess {
     /// stored-rule node fails closed.
     pub fn with_org(mut self, org: Option<String>) -> Self {
         self.org = org;
+        self
+    }
+
+    /// Bind the site a `rule` node resolves a site-scoped rule under (falling
+    /// back to the org-level rule). Set from the board's `tenant_site()`; absent,
+    /// only org-level rules resolve.
+    pub fn with_site(mut self, site: Option<String>) -> Self {
+        self.site = site;
         self
     }
 
@@ -173,8 +186,11 @@ impl PointAccess for StorePointAccess {
     /// stored-rule node fails closed (an inline-script node needs no store).
     fn rule_store(&self) -> Option<Arc<dyn rubix_rules::RuleStore>> {
         self.org.clone().map(|org| {
-            Arc::new(TableRuleStore::new(self.store.clone(), org))
-                as Arc<dyn rubix_rules::RuleStore>
+            Arc::new(TableRuleStore::new(
+                self.store.clone(),
+                org,
+                self.site.clone(),
+            )) as Arc<dyn rubix_rules::RuleStore>
         })
     }
 

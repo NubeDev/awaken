@@ -16,23 +16,33 @@ use uuid::Uuid;
 
 use super::dto::{BoardView, CreateBoard};
 use crate::api::blocking::blocking;
+use crate::api::scope_auth::authorize_scope_write;
+use crate::auth::RequestPrincipal;
 use crate::error::{ApiError, ErrorBody};
 use crate::scheduler::BoardRecord;
 use crate::AppState;
 
 #[utoipa::path(post, path = "/api/v1/boards", request_body = CreateBoard, tag = "boards",
-    responses((status = 201, body = BoardView), (status = 400, body = ErrorBody)))]
+    security(("bearer" = [])),
+    responses((status = 201, body = BoardView), (status = 400, body = ErrorBody),
+              (status = 401, body = ErrorBody), (status = 403, body = ErrorBody),
+              (status = 404, body = ErrorBody)))]
 pub(crate) async fn create_board(
     State(state): State<AppState>,
+    principal: RequestPrincipal,
     Json(req): Json<CreateBoard>,
 ) -> Result<(StatusCode, Json<BoardView>), ApiError> {
+    validate_slug(&req.org)?;
     validate_slug(&req.slug)?;
     req.trigger.validate().map_err(ApiError::BadRequest)?;
+    authorize_scope_write(&principal, &state.store, &req.org, req.site_id)?;
     let store = state.store.clone();
     let record = blocking(move || {
-        let version = store.next_board_version(&req.slug)?;
+        let version = store.next_board_version(&req.org, req.site_id, &req.slug)?;
         let record = BoardRecord {
             id: Uuid::new_v4(),
+            org: req.org,
+            site_id: req.site_id,
             slug: req.slug,
             version,
             display_name: req.display_name,

@@ -22,6 +22,7 @@ import {
   useRunInlineBoard,
   useSaveBoard,
 } from '@/api/hooks'
+import { useScope } from '@/context/scope-provider'
 import type {
   BoardGraph,
   BoardView,
@@ -61,7 +62,10 @@ export function Flows() {
 }
 
 function FlowsInner() {
-  const boardsQuery = useBoards()
+  // Flows live under a site route; they belong to this org+site (org-level flows
+  // also surface, since the list returns the org's flows at every scope).
+  const { org, site } = useScope()
+  const boardsQuery = useBoards(org, site?.id)
   const componentsQuery = useBoardComponents()
 
   const boards = useMemo(() => boardsQuery.data ?? [], [boardsQuery.data])
@@ -214,7 +218,11 @@ function BoardEditor({
   // its node values; poll them so the canvas shows live values without a manual
   // Test Run. A manual board has no background runs, so we don't poll it.
   const isLive = board.enabled && board.trigger.kind !== 'manual'
-  const outputsQuery = useBoardOutputs(board.slug, isLive)
+  const outputsQuery = useBoardOutputs(
+    board.slug,
+    { org: board.org, siteId: board.site_id ?? undefined },
+    isLive
+  )
 
   // Live values, keyed by node, derived from the poll. Suppressed while the
   // user has unsaved edits — then a manual Test Run owns the values (it writes
@@ -385,6 +393,8 @@ function BoardEditor({
     const graph: BoardGraph = graphFromFlow(nodes as Node<FlowNodeData>[], edges)
     saveBoard.mutate(
       {
+        org: board.org,
+        site_id: board.site_id ?? null,
         slug: board.slug,
         display_name: board.display_name,
         enabled: board.enabled,
@@ -417,10 +427,14 @@ function BoardEditor({
           />
         </div>
         <BoardStatusBar
+          board={board}
           slug={board.slug}
           name={board.display_name}
           version={board.version}
           enabled={board.enabled}
+          intervalSeconds={
+            board.trigger.kind === 'interval' ? board.trigger.seconds : undefined
+          }
           nodeCount={nodes.length}
           edgeCount={edges.length}
           running={runBoard.isPending}

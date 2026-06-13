@@ -15,6 +15,7 @@ mod points;
 mod query;
 mod rules;
 mod runs;
+mod scope_auth;
 mod sites;
 mod sparks;
 mod tag_query;

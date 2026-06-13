@@ -135,7 +135,11 @@ export function RuleEditor({
       return
     }
     update.mutate(
-      { name: rule!.name, body: { script, params: schema } },
+      {
+        name: rule!.name,
+        siteId: rule!.site_id ?? undefined,
+        body: { script, params: schema },
+      },
       {
         onSuccess: () => {
           toast.success(`Rule "${rule!.name}" saved`)
@@ -216,15 +220,18 @@ export function RuleEditor({
         isLoading={del.isPending}
         handleConfirm={() =>
           rule &&
-          del.mutate(rule.name, {
-            onSuccess: () => {
-              toast.success(`Rule "${rule.name}" deleted`)
-              setConfirmDelete(false)
-              onDeleted()
-            },
-            onError: (e) =>
-              toast.error(e instanceof ApiError ? e.message : 'Delete failed'),
-          })
+          del.mutate(
+            { name: rule.name, siteId: rule.site_id ?? undefined },
+            {
+              onSuccess: () => {
+                toast.success(`Rule "${rule.name}" deleted`)
+                setConfirmDelete(false)
+                onDeleted()
+              },
+              onError: (e) =>
+                toast.error(e instanceof ApiError ? e.message : 'Delete failed'),
+            }
+          )
         }
       />
     </Card>

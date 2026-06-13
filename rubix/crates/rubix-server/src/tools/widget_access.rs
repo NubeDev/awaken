@@ -69,6 +69,9 @@ impl WidgetAccess for StoreWidgetAccess {
             // The agent pins only point/board tiles (the `pin_widget` tool
             // rejects the `datasource` kind — the AI never authors raw SQL).
             query: None,
+            // The agent never lays out tiles; the canvas auto-flows an
+            // unpositioned pin until the operator drags it.
+            settings: None,
             created_at: Utc::now(),
         };
         self.store.create_widget(&widget)?;

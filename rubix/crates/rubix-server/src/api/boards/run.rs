@@ -44,6 +44,7 @@ pub(crate) async fn run_board(
         StorePointAccess::with_bus(state.store.clone(), state.bus.clone())
             .with_agent(state.agent.clone())
             .with_org(req.board.tenant_org())
+            .with_site(req.board.tenant_site())
             .with_datasources(state.datasources.clone()),
     );
     let outputs = req

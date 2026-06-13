@@ -62,6 +62,9 @@ pub(crate) async fn create_widget(
             title: req.title,
             target: req.target,
             query,
+            // A freshly pinned tile has no layout/chart config yet; the builder
+            // sets it later via the settings PATCH.
+            settings: None,
             created_at: Utc::now(),
         };
         store.create_widget(&widget)?;

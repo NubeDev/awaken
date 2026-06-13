@@ -139,6 +139,75 @@ async fn datasource_widget_round_trips_with_query() {
     assert_eq!(got["query"], created["query"]);
 }
 
+/// A tile's presentation `settings` (grid layout + chart config) round-trip
+/// through PATCH and surface on the next GET/list; an explicit `null` clears
+/// them.
+#[tokio::test]
+async fn patch_widget_settings_round_trips() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let (_, created) = app
+        .request(
+            "POST",
+            "/api/v1/widgets",
+            Some(json!({
+                "site_id": site, "kind": "point_history",
+                "title": "Demand", "target": "nube/hq/meter/kw"
+            })),
+        )
+        .await;
+    let id = created["id"].as_str().unwrap().to_string();
+    assert!(created["settings"].is_null(), "fresh tile has no settings");
+
+    // Set a grid cell + chart config.
+    let (status, patched) = app
+        .request(
+            "PATCH",
+            &format!("/api/v1/widgets/{id}"),
+            Some(json!({
+                "settings": {
+                    "layout": { "x": 2, "y": 0, "w": 4, "h": 3 },
+                    "config": { "type": "bar" }
+                }
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{patched}");
+    assert_eq!(patched["settings"]["layout"]["w"], 4);
+    assert_eq!(patched["settings"]["config"]["type"], "bar");
+
+    // Persisted: a fresh GET sees them.
+    let (_, got) = app
+        .request("GET", &format!("/api/v1/widgets/{id}"), None)
+        .await;
+    assert_eq!(got["settings"]["layout"]["x"], 2);
+
+    // An explicit null clears them back to the default rendering.
+    let (status, cleared) = app
+        .request(
+            "PATCH",
+            &format!("/api/v1/widgets/{id}"),
+            Some(json!({ "settings": null })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cleared["settings"].is_null());
+}
+
+/// PATCH against an unknown widget id is a 404.
+#[tokio::test]
+async fn patch_missing_widget_404() {
+    let app = TestApp::new();
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/api/v1/widgets/00000000-0000-0000-0000-000000000000",
+            Some(json!({ "settings": { "layout": { "x": 0, "y": 0, "w": 1, "h": 1 } } })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 /// A `datasource` widget without `query` is a 400 — the SQL is its binding.
 #[tokio::test]
 async fn datasource_widget_without_query_is_400() {

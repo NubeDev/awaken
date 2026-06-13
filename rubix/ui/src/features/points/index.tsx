@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getRouteApi } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import { useEquips, usePoints, useSparks } from '@/api/hooks'
 import type { Uuid } from '@/api/types'
 import { Main } from '@/components/layout/main'
@@ -10,11 +10,12 @@ import { EquipBrowser } from './components/equip-browser'
 import { PointDetail } from './components/point-detail'
 import { PointList } from './components/point-list'
 
-const route = getRouteApi('/_authenticated/points/')
-
 export function Points() {
   const { site } = useActiveSite()
-  const { equip: equipParam } = route.useSearch()
+  // Read `?equip=` route-agnostically (the page mounts under the scoped tree).
+  const { equip: equipParam } = useSearch({ strict: false }) as {
+    equip?: string
+  }
   const { data: equips = [] } = useEquips(site?.id)
   const { data: sitePoints = [] } = usePoints({ siteId: site?.id })
   const { data: sparks = [] } = useSparks(site?.id)

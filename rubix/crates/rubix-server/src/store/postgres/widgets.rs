@@ -1,6 +1,6 @@
 //! Widget rows, Postgres backend. Mirrors [`super::super::widgets`].
 
-use rubix_core::Widget;
+use rubix_core::{Widget, WidgetSettings};
 use uuid::Uuid;
 
 use super::super::codec::ts_of;
@@ -8,7 +8,8 @@ use super::super::widgets::kind_token;
 use super::super::{Result, Store, StoreError};
 use super::codec::{require, token_enum, ts_col, uuid_of};
 
-const WIDGET_COLS: &str = "id, dashboard_id, site_id, kind, title, target, query, created_at";
+const WIDGET_COLS: &str =
+    "id, dashboard_id, site_id, kind, title, target, query, settings, created_at";
 
 fn widget_of(row: &postgres::Row) -> Result<Widget> {
     Ok(Widget {
@@ -19,7 +20,14 @@ fn widget_of(row: &postgres::Row) -> Result<Widget> {
         title: row.get(4),
         target: row.get(5),
         query: row.get(6),
-        created_at: ts_col(row, 7)?,
+        settings: row
+            .get::<_, Option<String>>(7)
+            .map(|s| {
+                serde_json::from_str(&s)
+                    .map_err(|e| StoreError::Db(anyhow::anyhow!("bad widget settings json: {e}")))
+            })
+            .transpose()?,
+        created_at: ts_col(row, 8)?,
     })
 }
 
@@ -27,10 +35,14 @@ pub(crate) fn create_widget(store: &Store, widget: &Widget) -> Result<()> {
     let mut client = store.postgres_conn()?;
     require(&mut *client, "dashboards", "dashboard", widget.dashboard_id)?;
     require(&mut *client, "sites", "site", widget.site_id)?;
+    let settings = widget
+        .settings
+        .as_ref()
+        .map(super::super::codec::json_of);
     client.execute(
         "INSERT INTO widgets \
-             (id, dashboard_id, site_id, kind, title, target, query, created_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+             (id, dashboard_id, site_id, kind, title, target, query, settings, created_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         &[
             &widget.id.to_string(),
             &widget.dashboard_id.to_string(),
@@ -39,6 +51,7 @@ pub(crate) fn create_widget(store: &Store, widget: &Widget) -> Result<()> {
             &widget.title,
             &widget.target,
             &widget.query,
+            &settings,
             &ts_of(&widget.created_at),
         ],
     )?;
@@ -64,6 +77,23 @@ pub(crate) fn delete_widget(store: &Store, id: Uuid) -> Result<()> {
         return Err(StoreError::NotFound("widget"));
     }
     Ok(())
+}
+
+pub(crate) fn update_widget_settings(
+    store: &Store,
+    id: Uuid,
+    settings: Option<&WidgetSettings>,
+) -> Result<Widget> {
+    let mut client = store.postgres_conn()?;
+    let settings = settings.map(super::super::codec::json_of);
+    let n = client.execute(
+        "UPDATE widgets SET settings = $2 WHERE id = $1",
+        &[&id.to_string(), &settings],
+    )?;
+    if n == 0 {
+        return Err(StoreError::NotFound("widget"));
+    }
+    get_widget(store, id)
 }
 
 pub(crate) fn list_widgets(

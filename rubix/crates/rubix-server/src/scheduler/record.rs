@@ -14,7 +14,12 @@ use super::trigger::Trigger;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoardRecord {
     pub id: Uuid,
-    /// Stable name across versions; `(slug, version)` is unique.
+    /// Owning org namespace (the tenant key). Always set.
+    pub org: String,
+    /// The single site this flow is for; `None` makes it an org-level flow that
+    /// applies across the org. Mirrors [`rubix_core::Dashboard`] scoping.
+    pub site_id: Option<Uuid>,
+    /// Stable name across versions; unique per scope `(org, site_id, slug)`.
     pub slug: String,
     pub version: i64,
     pub display_name: String,

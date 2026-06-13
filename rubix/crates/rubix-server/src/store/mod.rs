@@ -15,6 +15,7 @@ mod error;
 mod his;
 mod his_flush;
 mod keyexpr;
+mod migrate;
 mod open;
 mod point_row;
 mod points;

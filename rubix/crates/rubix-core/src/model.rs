@@ -169,5 +169,37 @@ pub struct Widget {
     /// their whole binding in `target`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
+    /// Presentation state — grid placement and per-kind chart config. `None`
+    /// until the builder lays the tile out or picks a chart type; the canvas
+    /// falls back to auto-flow + the kind's default rendering when absent, so
+    /// a tile pinned by the agent `pin_widget` tool needs no settings to show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<WidgetSettings>,
     pub created_at: DateTime<Utc>,
+}
+
+/// A tile's presentation state, persisted as one JSON column. Both halves are
+/// optional and independent: `layout` is set when the operator drags/resizes
+/// the tile on the grid, `config` when they pick a chart type or its options.
+/// The server treats `config` as an opaque, UI-owned blob (it never reads into
+/// it), so the chart-config shape can evolve without a wire change.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, ToSchema)]
+pub struct WidgetSettings {
+    /// Grid placement on `react-grid-layout`. Absent → auto-flow order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout: Option<GridLayout>,
+    /// UI-owned chart config (chart type, axes, table columns…). Opaque to the
+    /// server; absent → the kind's default rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
+}
+
+/// A tile's cell on the dashboard grid, in `react-grid-layout` units
+/// (column-relative `x`/`w`, row-relative `y`/`h`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct GridLayout {
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
 }

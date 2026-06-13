@@ -136,8 +136,9 @@ pub(crate) async fn dry_run_rule(
     blocking(move || {
         let samples = resolve_samples(&store, point.as_deref(), limit)?;
         let frame = frame_from_his(&samples).map_err(ApiError::BadRequest)?;
+        // A dry-run previews against org-level composition (no site context).
         let rule_store: Arc<dyn RuleStore> =
-            Arc::new(TableRuleStore::new(store.clone(), org.clone()));
+            Arc::new(TableRuleStore::new(store.clone(), org.clone(), None));
         let limits = SandboxLimits::default();
         let result = match &source {
             Either::Inline(script) => {

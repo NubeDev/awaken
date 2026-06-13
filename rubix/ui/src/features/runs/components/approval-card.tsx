@@ -1,6 +1,7 @@
 import { Check, X } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { useScope } from '@/context/scope-provider'
 import { useCancelRun, useResumeRun } from '@/api/hooks'
 import type { PendingWrite } from '@/api/types'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ type ApprovalCardProps = {
  */
 export function ApprovalCard({ runId, write }: ApprovalCardProps) {
   const navigate = useNavigate()
+  const { org, site } = useScope()
   const resume = useResumeRun()
   const cancel = useCancelRun()
   const busy = resume.isPending || cancel.isPending
@@ -30,7 +32,11 @@ export function ApprovalCard({ runId, write }: ApprovalCardProps) {
         toast.success('Write approved', {
           description: `${res.point} → ${formatValue(res.effective ?? null)} at priority ${res.priority}`,
         })
-        navigate({ to: '/points' })
+        if (org && site)
+          navigate({
+            to: '/o/$org/s/$siteSlug/points',
+            params: { org, siteSlug: site.slug },
+          })
       },
       onError: (e) => toast.error('Approval failed', { description: (e as Error).message }),
     })

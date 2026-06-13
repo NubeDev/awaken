@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
+import { useScope } from '@/context/scope-provider'
 import type { RunRecord } from '@/api/types'
 import { relativeTime } from '@/lib/format'
 import { RunStatusBadge } from '../status-badge'
@@ -12,11 +13,12 @@ const ORIGIN_LABEL: Record<RunRecord['origin'], string> = {
 
 /** One row in the agent-runs list: links into the run detail by id. */
 export function RunRow({ run }: { run: RunRecord }) {
+  const { org, site } = useScope()
   return (
     <li>
       <Link
-        to='/runs/$runId'
-        params={{ runId: run.id }}
+        to='/o/$org/s/$siteSlug/runs/$runId'
+        params={{ org: org!, siteSlug: site!.slug, runId: run.id }}
         className='hover:bg-muted/40 flex items-center gap-3 rounded-md px-2.5 py-3 transition-colors'
       >
         <div className='min-w-0 flex-1'>

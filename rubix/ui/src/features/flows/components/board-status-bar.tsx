@@ -8,15 +8,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import type { BoardView } from '@/api/types'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { BoardEditDialog } from './board-edit-dialog'
 
 type BoardStatusBarProps = {
+  /** The stored board — identity, trigger, and graph for edit/delete. */
+  board: BoardView
   /** Board slug — identity for metadata patch and delete. */
   slug: string
   name: string
   version: number
   enabled: boolean
+  /** Trigger interval in seconds when the board runs continuously; else undefined. */
+  intervalSeconds?: number
   nodeCount: number
   edgeCount: number
   running: boolean
@@ -38,10 +43,12 @@ type BoardStatusBarProps = {
  * and Versions are honest disabled controls (publishing lands with the editor).
  */
 export function BoardStatusBar({
+  board,
   slug,
   name,
   version,
   enabled,
+  intervalSeconds,
   nodeCount,
   edgeCount,
   running,
@@ -62,10 +69,15 @@ export function BoardStatusBar({
           control board · v{version}
         </div>
       </div>
-      {enabled ? (
+      {enabled && intervalSeconds ? (
         <Badge variant='positive' className='gap-1.5'>
-          <span className='size-1.5 rounded-full bg-positive' />
-          enabled
+          <span className='size-1.5 animate-pulse rounded-full bg-positive' />
+          live · every {intervalSeconds}s
+        </Badge>
+      ) : enabled ? (
+        <Badge variant='muted' className='gap-1.5'>
+          <span className='size-1.5 rounded-full bg-muted-foreground' />
+          on demand
         </Badge>
       ) : (
         <Badge variant='muted' className='gap-1.5'>
@@ -122,13 +134,7 @@ export function BoardStatusBar({
         </Button>
       </div>
 
-      <BoardEditDialog
-        slug={slug}
-        displayName={name}
-        enabled={enabled}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      <BoardEditDialog board={board} open={editOpen} onOpenChange={setEditOpen} />
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -144,12 +150,15 @@ export function BoardStatusBar({
         confirmText='Delete board'
         isLoading={del.isPending}
         handleConfirm={() =>
-          del.mutate(slug, {
-            onSuccess: () => {
-              setConfirmOpen(false)
-              onDeleted?.()
-            },
-          })
+          del.mutate(
+            { slug, org: board.org, siteId: board.site_id ?? undefined },
+            {
+              onSuccess: () => {
+                setConfirmOpen(false)
+                onDeleted?.()
+              },
+            }
+          )
         }
       />
     </div>

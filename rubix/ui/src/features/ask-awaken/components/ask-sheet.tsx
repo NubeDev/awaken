@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
+import { useScope } from '@/context/scope-provider'
 import { useAgentChat } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -19,6 +20,7 @@ import { AskTurn, type Turn } from './ask-turn'
 export function AskSheet() {
   const { open, setOpen } = useAskAwaken()
   const navigate = useNavigate()
+  const { org, site } = useScope()
   const chat = useAgentChat()
   const threadId = useRef(askThreadId())
   const [draft, setDraft] = useState('')
@@ -65,7 +67,11 @@ export function AskSheet() {
                   turn={turn}
                   onReview={(runId) => {
                     setOpen(false)
-                    navigate({ to: '/runs/$runId', params: { runId } })
+                    if (org && site)
+                      navigate({
+                        to: '/o/$org/s/$siteSlug/runs/$runId',
+                        params: { org, siteSlug: site.slug, runId },
+                      })
                   }}
                 />
               ))}

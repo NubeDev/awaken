@@ -4,6 +4,7 @@ pub(crate) mod create;
 pub(crate) mod delete;
 pub(crate) mod get;
 pub(crate) mod list;
+pub(crate) mod patch;
 
 use axum::routing::{get, post};
 use axum::Router;
@@ -18,6 +19,8 @@ pub(super) fn router() -> Router<AppState> {
         )
         .route(
             "/api/v1/widgets/{id}",
-            get(get::get_widget).delete(delete::delete_widget),
+            get(get::get_widget)
+                .patch(patch::patch_widget)
+                .delete(delete::delete_widget),
         )
 }

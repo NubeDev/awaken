@@ -2,6 +2,7 @@
 #
 #   make build       build backend + UI
 #   make dev         run backend + UI together (Ctrl-C stops both)
+#   make dev SEED=1  ...and populate the demo portfolio (off by default)
 #   make dev-be      run just the backend
 #   make dev-ui      run just the UI
 #   make test        run backend + UI tests
@@ -34,6 +35,14 @@ export RUBIX_ADDR ?= 127.0.0.1:$(BE_PORT)
 FEATURES ?=
 CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 
+# Dev portfolio seed. Off by default: a fresh DB starts empty. Set SEED=1 to
+# populate the demo "acme" portfolio (4 sites + equips/points/history) and run
+# the live-value ticker — handy for UI work, but it repopulates on every boot,
+# so deleting the DB only clears it until the next seeded run. Example:
+#   make dev-be SEED=1
+SEED ?=
+SEED_FLAG := $(if $(SEED),-- --seed-dev,)
+
 .PHONY: build dev dev-be dev-ui test test-be test-ui lint fmt \
         build-be build-ui clean kill
 
@@ -50,12 +59,12 @@ build-ui:
 dev:
 	@echo "backend → http://$(RUBIX_ADDR)   ui → http://127.0.0.1:$(UI_PORT)"
 	@trap 'kill 0' EXIT INT TERM; \
-	( cargo run --bin rubix $(CARGO_FEATURES) ) & \
+	( cargo run --bin rubix $(CARGO_FEATURES) $(SEED_FLAG) ) & \
 	( cd $(UI_DIR) && pnpm dev ) & \
 	wait
 
 dev-be:
-	cargo run --bin rubix $(CARGO_FEATURES)
+	cargo run --bin rubix $(CARGO_FEATURES) $(SEED_FLAG)
 
 dev-ui:
 	cd $(UI_DIR) && pnpm dev

@@ -1,5 +1,5 @@
 import { useRuns, useSparks } from '@/api/hooks'
-import { useActiveSite } from '@/hooks/use-active-site'
+import { useScope } from '@/context/scope-provider'
 import { useLayout } from '@/context/layout-provider'
 import {
   Sidebar,
@@ -10,13 +10,17 @@ import {
 } from '@/components/ui/sidebar'
 import { AppTitle } from './app-title'
 import { sidebarData } from './data/sidebar-data'
+import { scopedNavGroups } from './data/scoped-nav'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
 import { SiteSwitcher } from './site-switcher'
 
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
-  const { site } = useActiveSite()
+  const { org, site, sites } = useScope()
+  // The org's first site backstops site-level nav while on an org-level page,
+  // so those links always resolve to a real site instead of a dead fallback.
+  const fallbackSiteSlug = sites.find((s) => s.org === org)?.slug
   const { data: sparks = [] } = useSparks(site?.id)
   const { data: runs = [] } = useRuns()
   const openSparks = sparks.filter((s) => !s.acknowledged).length
@@ -27,10 +31,14 @@ export function AppSidebar() {
     Sparks: openSparks,
     'Agent Runs': awaitingRuns,
   }
-  const navGroups = sidebarData.navGroups.map((group) => ({
+  // Nav URLs are scope-aware: built from the active org (and site when one is
+  // selected) so a click stays within the current tenant.
+  const navGroups = scopedNavGroups(org, site?.slug, fallbackSiteSlug).map((group) => ({
     ...group,
     items: group.items.map((item) =>
-      navBadges[item.title] ? { ...item, badge: String(navBadges[item.title]) } : item
+      navBadges[item.title]
+        ? { ...item, badge: String(navBadges[item.title]) }
+        : item
     ),
   }))
 

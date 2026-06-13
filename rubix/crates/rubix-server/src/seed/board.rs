@@ -28,12 +28,21 @@ const SITE: &str = "hq-tower";
 /// Ensure the demo board exists. Returns 1 if it was newly created, 0 if it
 /// already existed (idempotent dev seed).
 pub fn seed_board(store: &Store) -> Result<usize, SeedError> {
-    if store.latest_boards()?.iter().any(|b| b.slug == BOARD_SLUG) {
+    // The demo board is site-scoped to the seeded hq-tower site (its graph reads
+    // and commands that site's ahu-3 points).
+    let site_id = store.site_id_by_prefix(&format!("{ORG}/{SITE}"))?;
+    if store
+        .latest_boards(ORG, Some(site_id))?
+        .iter()
+        .any(|b| b.slug == BOARD_SLUG)
+    {
         return Ok(0);
     }
-    let version = store.next_board_version(BOARD_SLUG)?;
+    let version = store.next_board_version(ORG, Some(site_id), BOARD_SLUG)?;
     let board = BoardRecord {
         id: Uuid::new_v4(),
+        org: ORG.to_string(),
+        site_id: Some(site_id),
         slug: BOARD_SLUG.to_string(),
         version,
         display_name: "AHU-3 · Discharge Reset".to_string(),

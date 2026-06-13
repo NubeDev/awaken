@@ -1,5 +1,4 @@
-import { useSites } from '@/api/hooks'
-import { useSiteStore } from '@/stores/site-store'
+import { useScope } from '@/context/scope-provider'
 import type { Site } from '@/api/types'
 
 type ActiveSite = {
@@ -10,13 +9,12 @@ type ActiveSite = {
 }
 
 /**
- * Resolve the site pages should render: the operator's stored selection if it
- * still exists, otherwise the first site returned by the API. Centralised so
- * every page agrees on "the active site" without re-deriving the fallback.
+ * The site a page renders. Now a thin adapter over {@link useScope}: the active
+ * site is resolved from the URL (`/o/$org/s/$siteSlug`), not a localStorage
+ * selection, so every page is concrete and shareable. Kept as a named hook so
+ * existing callers keep working; new code can read `org` too via `useScope`.
  */
 export function useActiveSite(): ActiveSite {
-  const { data: sites = [], isLoading, isError } = useSites()
-  const siteId = useSiteStore((s) => s.siteId)
-  const site = sites.find((s) => s.id === siteId) ?? sites[0]
+  const { site, sites, isLoading, isError } = useScope()
   return { site, sites, isLoading, isError }
 }

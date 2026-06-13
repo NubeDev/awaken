@@ -8,8 +8,8 @@
 use chrono::Utc;
 use rubix_core::Equip;
 use rubix_core::{
-    HisSample, Point, PointKind, PointValue, PriorityArray, Site, Spark, SparkSeverity, TagSet,
-    Widget, WidgetKind,
+    GridLayout, HisSample, Point, PointKind, PointValue, PriorityArray, Site, Spark, SparkSeverity,
+    TagSet, Widget, WidgetKind, WidgetSettings,
 };
 use rubix_flow::BoardGraph;
 use rubix_server::agent::{PendingWrite, RunOrigin, RunRecord, RunStatus};
@@ -199,6 +199,7 @@ fn run_suite(store: &Store) {
         title: "AHU-3 SP".into(),
         target: keyexpr.clone(),
         query: None,
+        settings: None,
         created_at: Utc::now(),
     };
     store.create_widget(&widget).unwrap();
@@ -208,11 +209,37 @@ fn run_suite(store: &Store) {
         1
     );
 
-    // Boards: versioning, latest-per-slug, get, delete.
+    // Settings round-trip: a tile pins with no layout, then the builder sets a
+    // grid cell + chart config; clearing returns it to the default rendering.
+    assert!(store.get_widget(widget.id).unwrap().settings.is_none());
+    let settings = WidgetSettings {
+        layout: Some(GridLayout {
+            x: 2,
+            y: 0,
+            w: 4,
+            h: 3,
+        }),
+        config: Some(serde_json::json!({ "type": "bar" })),
+    };
+    let updated = store
+        .update_widget_settings(widget.id, Some(&settings))
+        .unwrap();
+    assert_eq!(updated.settings.as_ref(), Some(&settings));
+    assert_eq!(
+        store.get_widget(widget.id).unwrap().settings,
+        Some(settings)
+    );
+    let cleared = store.update_widget_settings(widget.id, None).unwrap();
+    assert!(cleared.settings.is_none());
+
+    // Boards: versioning, latest-per-scope, get, delete. An org-level flow and a
+    // site-scoped flow can share a slug; they are distinct boards.
     let board = BoardRecord {
         id: Uuid::new_v4(),
+        org: s.org.clone(),
+        site_id: None,
         slug: "reset".into(),
-        version: store.next_board_version("reset").unwrap(),
+        version: store.next_board_version(&s.org, None, "reset").unwrap(),
         display_name: "Reset".into(),
         enabled: true,
         trigger: Trigger::Interval { seconds: 60 },
@@ -223,15 +250,34 @@ fn run_suite(store: &Store) {
     store.create_board(&board).unwrap();
     let v2 = BoardRecord {
         id: Uuid::new_v4(),
-        version: store.next_board_version("reset").unwrap(),
+        version: store.next_board_version(&s.org, None, "reset").unwrap(),
         ..board.clone()
     };
     assert_eq!(v2.version, 2);
     store.create_board(&v2).unwrap();
-    assert_eq!(store.get_board("reset").unwrap().version, 2);
-    assert_eq!(store.latest_boards().unwrap().len(), 1);
-    store.delete_board("reset").unwrap();
-    assert!(store.get_board("reset").is_err());
+    // Re-fetch by id returns the exact version it names.
+    assert_eq!(store.get_board_by_id(board.id).unwrap().version, 1);
+    assert_eq!(store.get_board(&s.org, None, "reset").unwrap().version, 2);
+
+    // A site-scoped flow with the SAME slug is a separate board (scope wins).
+    let site_board = BoardRecord {
+        id: Uuid::new_v4(),
+        org: s.org.clone(),
+        site_id: Some(s.id),
+        slug: "reset".into(),
+        version: store.next_board_version(&s.org, Some(s.id), "reset").unwrap(),
+        ..board.clone()
+    };
+    assert_eq!(site_board.version, 1, "site scope versions independently");
+    store.create_board(&site_board).unwrap();
+    // The org-list (site_id None) sees both; the site filter sees only the site one.
+    assert_eq!(store.latest_boards(&s.org, None).unwrap().len(), 2);
+    assert_eq!(store.latest_boards(&s.org, Some(s.id)).unwrap().len(), 1);
+
+    store.delete_board(&s.org, None, "reset").unwrap();
+    assert!(store.get_board(&s.org, None, "reset").is_err());
+    // The site-scoped flow of the same slug is untouched by the org-level delete.
+    assert!(store.get_board(&s.org, Some(s.id), "reset").is_ok());
 
     // Runs: persist a suspended run with a held write, then settle it once.
     let run = RunRecord {

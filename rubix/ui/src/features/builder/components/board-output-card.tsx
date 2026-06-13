@@ -1,25 +1,30 @@
 import { useEffect } from 'react'
 import { useRunStoredBoard } from '@/api/hooks'
+import { useScope } from '@/context/scope-provider'
 import type { Widget } from '@/api/types'
 import { Card } from '@/components/ui/card'
 
 const RUN_INTERVAL = 5_000
 
 /**
- * Board-output tile: runs the stored board (`POST /boards/{slug}/run`) and shows
+ * Board-output tile: runs the stored flow (`POST /boards/{slug}/run`) and shows
  * its outport packets. There is no stored-output read endpoint, so the latest
- * output is produced by running the board on the app's live interval — the same
- * real engine output the flows page renders, never synthesized.
+ * output is produced by running the flow on the app's live interval. The flow is
+ * resolved in the active org; the tile's `site_id` scopes a site flow.
  */
 export function BoardOutputCard({ widget }: { widget: Widget }) {
+  const { org } = useScope()
   const run = useRunStoredBoard()
   const { mutate } = run
 
   useEffect(() => {
-    mutate(widget.target)
-    const id = setInterval(() => mutate(widget.target), RUN_INTERVAL)
+    if (!org) return
+    const fire = () =>
+      mutate({ slug: widget.target, org, siteId: widget.site_id })
+    fire()
+    const id = setInterval(fire, RUN_INTERVAL)
     return () => clearInterval(id)
-  }, [mutate, widget.target])
+  }, [mutate, widget.target, widget.site_id, org])
 
   const outputs = run.data?.outputs ?? []
 

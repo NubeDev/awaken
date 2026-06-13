@@ -41,6 +41,7 @@ pub(super) async fn evaluate(slug: &str, graph: &BoardGraph, deps: &BoardRunDeps
         StorePointAccess::with_bus(deps.store.clone(), deps.bus.clone())
             .with_agent(deps.agent.clone())
             .with_org(graph.tenant_org())
+            .with_site(graph.tenant_site())
             .with_datasources(deps.datasources.clone()),
     );
     match graph.run(access).await {

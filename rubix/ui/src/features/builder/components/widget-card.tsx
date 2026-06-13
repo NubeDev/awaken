@@ -1,20 +1,12 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { GripVertical, X } from 'lucide-react'
 import { useDeleteWidget, usePointHistory } from '@/api/hooks'
 import type { Point, Widget } from '@/api/types'
 import { ageShort, formatValue } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { HistoryChart, type ChartRow } from '../lib/charts'
 import { BoardOutputCard } from './board-output-card'
 
 type WidgetCardProps = {
@@ -24,18 +16,18 @@ type WidgetCardProps = {
 }
 
 /**
- * One dashboard tile. `point_*` kinds render live point data resolved from the
- * widget target keyexpr; `board_output` runs its stored board. Chrome matches
- * the point-detail stat cards so the look stays frozen. A hover Remove control
- * deletes the pin (`DELETE /widgets/{id}`).
+ * One dashboard tile, sized to fill its grid cell. `point_*` kinds render live
+ * point data resolved from the widget target keyexpr; `board_output` runs its
+ * stored board. A `.drag-handle` in the header drives `react-grid-layout`
+ * dragging; a hover Remove control deletes the pin (`DELETE /widgets/{id}`).
  */
 export function WidgetCard({ widget, point }: WidgetCardProps) {
   const inner =
     widget.kind === 'board_output' ? (
       <BoardOutputCard widget={widget} />
     ) : !point ? (
-      <Card className='gap-2 p-3.5'>
-        <Eyebrow widget={widget} />
+      <Card className='h-full gap-2 p-3.5'>
+        <TileHeader widget={widget} />
         <p className='text-[11.5px] text-muted-foreground'>
           Point not found for <span className='font-mono'>{widget.target}</span>
           .
@@ -48,7 +40,7 @@ export function WidgetCard({ widget, point }: WidgetCardProps) {
     )
 
   return (
-    <div className='group relative'>
+    <div className='group relative h-full'>
       {inner}
       <RemoveButton widget={widget} />
     </div>
@@ -85,14 +77,26 @@ function RemoveButton({ widget }: { widget: Widget }) {
   )
 }
 
-function Eyebrow({ widget }: { widget: Widget }) {
-  return <span className='eyebrow text-[10px]'>{widget.title}</span>
+/**
+ * Tile header: a drag handle (the `.drag-handle` class `react-grid-layout`'s
+ * `dragConfig` targets) plus the title. Dragging is confined to this strip so
+ * clicks inside the tile (tooltips, the Remove control) still work.
+ */
+function TileHeader({ widget }: { widget: Widget }) {
+  return (
+    <div className='flex items-center gap-1'>
+      <span className='drag-handle text-muted-foreground/50 hover:text-muted-foreground -ms-1 cursor-grab active:cursor-grabbing'>
+        <GripVertical className='size-3.5' />
+      </span>
+      <span className='eyebrow text-[10px]'>{widget.title}</span>
+    </div>
+  )
 }
 
 function PointValueCard({ widget, point }: { widget: Widget; point: Point }) {
   return (
-    <Card className='gap-2 p-3.5'>
-      <Eyebrow widget={widget} />
+    <Card className='h-full gap-2 p-3.5'>
+      <TileHeader widget={widget} />
       <div className='flex items-baseline gap-1'>
         <span className='tabular text-2xl leading-none font-semibold tracking-tight'>
           {formatValue(point.cur_value)}
@@ -111,7 +115,7 @@ function PointValueCard({ widget, point }: { widget: Widget; point: Point }) {
 
 function PointHistoryCard({ widget, point }: { widget: Widget; point: Point }) {
   const { data: history = [] } = usePointHistory(point.id)
-  const rows = history
+  const rows: ChartRow[] = history
     .filter((s) => typeof s.value === 'number')
     .slice(-48)
     .map((s) => ({
@@ -123,74 +127,22 @@ function PointHistoryCard({ widget, point }: { widget: Widget; point: Point }) {
     }))
 
   return (
-    <Card className='gap-2 p-3.5'>
-      <Eyebrow widget={widget} />
-      {rows.length < 2 ? (
-        <div className='grid h-[120px] place-items-center text-[12px] text-muted-foreground'>
-          No numeric history yet.
-        </div>
-      ) : (
-        <ResponsiveContainer width='100%' height={120}>
-          <AreaChart
-            data={rows}
-            margin={{ top: 6, right: 4, left: -18, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient
-                id={`wFill-${widget.id}`}
-                x1='0'
-                y1='0'
-                x2='0'
-                y2='1'
-              >
-                <stop
-                  offset='0%'
-                  stopColor='var(--chart-1)'
-                  stopOpacity={0.25}
-                />
-                <stop
-                  offset='100%'
-                  stopColor='var(--chart-1)'
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke='var(--grid-line)' vertical={false} />
-            <XAxis
-              dataKey='t'
-              tickLine={false}
-              axisLine={false}
-              fontSize={10}
-              minTickGap={42}
-              tick={{ fill: 'var(--muted-foreground)' }}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              fontSize={10}
-              width={46}
-              tick={{ fill: 'var(--muted-foreground)' }}
-              domain={['auto', 'auto']}
-            />
-            <Tooltip
-              contentStyle={{
-                background: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-            />
-            <Area
-              type='monotone'
-              dataKey='value'
-              stroke='var(--chart-1)'
-              strokeWidth={2}
-              fill={`url(#wFill-${widget.id})`}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      )}
+    <Card className='h-full gap-2 overflow-hidden p-3.5'>
+      <TileHeader widget={widget} />
+      <div className='min-h-0 flex-1'>
+        {rows.length < 2 ? (
+          <div className='grid h-full place-items-center text-[12px] text-muted-foreground'>
+            No numeric history yet.
+          </div>
+        ) : (
+          <HistoryChart
+            rows={rows}
+            type={widget.settings?.config?.type ?? 'area'}
+            gradientId={`wFill-${widget.id}`}
+            height='100%'
+          />
+        )}
+      </div>
     </Card>
   )
 }

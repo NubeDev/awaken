@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useDashboards, useEquips, usePoints, useWidgets } from '@/api/hooks'
 import { keyexprIndex, keyexprIndexMulti } from '@/api/keyexpr'
+import { useScope } from '@/context/scope-provider'
 import type { Dashboard, Site, Widget } from '@/api/types'
-import { useActiveSite } from '@/hooks/use-active-site'
 import { Card } from '@/components/ui/card'
 import { Main } from '@/components/layout/main'
 import { PageHeader } from '@/components/layout/page-header'
@@ -22,13 +22,30 @@ type Bindable = Extract<PaletteEntry, { available: true }>
  * server rows under the board, so they survive reload.
  */
 export function Builder() {
-  const { site, sites } = useActiveSite()
-  const org = site?.org
+  // Org comes from the URL scope (`/o/$org/...`), so the page works on the
+  // org-level dashboards route where no single site is selected. `site` is the
+  // active site when on a site route; `sites` scopes the create-dialog picker.
+  const { org, site, sites } = useScope()
 
   const { data: dashboards = [] } = useDashboards(org)
   const [pickedId, setPickedId] = useState<string | undefined>()
   const selectedId = pickedId ?? dashboards[0]?.id
   const selected = dashboards.find((d) => d.id === selectedId)
+
+  const orgSites = sites.filter((s) => s.org === org)
+  // The site the widget binder resolves its point cascade against. A site
+  // dashboard binds to its own site; an org overview (no site_id) has no single
+  // site, so default to the active site, else the org's first — the operator can
+  // switch sites in the binder to pin tiles from any site onto the overview.
+  const [bindSiteId, setBindSiteId] = useState<string | undefined>()
+  const dashboardSite = selected?.site_id
+    ? orgSites.find((s) => s.id === selected.site_id)
+    : undefined
+  const bindSite =
+    dashboardSite ??
+    site ??
+    orgSites.find((s) => s.id === bindSiteId) ??
+    orgSites[0]
 
   const [picked, setPicked] = useState<Bindable | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -53,13 +70,15 @@ export function Builder() {
 
         <div className='grid min-h-0 w-full flex-1 gap-3 lg:grid-cols-[230px_1fr]'>
           <Card className='scroll overflow-y-auto p-2.5'>
-            {selected && site ? (
+            {selected && bindSite ? (
               <WidgetPalette onPick={setPicked} />
             ) : (
               <p className='text-[12px] text-muted-foreground'>
                 {dashboards.length === 0
                   ? 'Create a dashboard to begin.'
-                  : 'Select a dashboard.'}
+                  : !bindSite
+                    ? 'Add a site to this org to pin widgets.'
+                    : 'Select a dashboard.'}
               </p>
             )}
           </Card>
@@ -84,14 +103,19 @@ export function Builder() {
         </div>
       </Main>
 
-      {/* Pin tiles onto the selected dashboard; the active site resolves the
-          point cascade (switch sites to pin from another site on an overview). */}
-      {selected && site ? (
+      {/* Pin tiles onto the selected dashboard. `bindSite` resolves the point
+          cascade — the dashboard's own site, or (for an overview) the active /
+          first site, switchable in the binder so an overview can mix sites. */}
+      {selected && bindSite ? (
         <WidgetBinder
-          site={site}
+          site={bindSite}
           dashboardId={selected.id}
           entry={picked}
           onClose={() => setPicked(null)}
+          // An overview (no dashboard site) lets the operator pick which site to
+          // pin from; a site dashboard is fixed to its site.
+          sites={selected.site_id ? undefined : orgSites}
+          onSiteChange={setBindSiteId}
         />
       ) : null}
 

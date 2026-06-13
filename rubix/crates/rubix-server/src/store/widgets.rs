@@ -1,12 +1,12 @@
 //! Pinned dashboard widget rows: create and list. Backend dispatch; SQLite body
 //! inline, Postgres body in [`super::postgres::widgets`].
 
-use rubix_core::{Widget, WidgetKind};
+use rubix_core::{Widget, WidgetKind, WidgetSettings};
 use rusqlite::params;
 use uuid::Uuid;
 
 use super::backend::Backend;
-use super::codec::{json_to, ts_of, ts_to};
+use super::codec::{json_of, json_to, ts_of, ts_to};
 use super::{Result, Store, StoreError};
 
 fn row_widget(row: &rusqlite::Row<'_>) -> rusqlite::Result<Widget> {
@@ -18,12 +18,16 @@ fn row_widget(row: &rusqlite::Row<'_>) -> rusqlite::Result<Widget> {
         title: row.get(4)?,
         target: row.get(5)?,
         query: row.get(6)?,
-        created_at: ts_to(&row.get::<_, String>(7)?)?,
+        settings: row
+            .get::<_, Option<String>>(7)?
+            .map(|s| json_to(&s))
+            .transpose()?,
+        created_at: ts_to(&row.get::<_, String>(8)?)?,
     })
 }
 
 pub(crate) const WIDGET_COLS: &str =
-    "id, dashboard_id, site_id, kind, title, target, query, created_at";
+    "id, dashboard_id, site_id, kind, title, target, query, settings, created_at";
 
 impl Store {
     pub fn create_widget(&self, widget: &Widget) -> Result<()> {
@@ -40,8 +44,8 @@ impl Store {
         Self::require_site(&conn, widget.site_id)?;
         conn.execute(
             "INSERT INTO widgets \
-                 (id, dashboard_id, site_id, kind, title, target, query, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 (id, dashboard_id, site_id, kind, title, target, query, settings, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 widget.id,
                 widget.dashboard_id,
@@ -50,6 +54,7 @@ impl Store {
                 widget.title,
                 widget.target,
                 widget.query,
+                widget.settings.as_ref().map(json_of),
                 ts_of(&widget.created_at),
             ],
         )?;
@@ -123,6 +128,39 @@ impl Store {
             return Err(StoreError::NotFound("widget"));
         }
         Ok(())
+    }
+
+    /// Replace a widget's presentation `settings` (grid layout + chart config),
+    /// returning the updated row. `None` clears them back to the default
+    /// rendering. Only `settings` is mutable — identity, target, and query are
+    /// fixed at create time (a rebind is delete-and-recreate).
+    pub fn update_widget_settings(
+        &self,
+        id: Uuid,
+        settings: Option<&WidgetSettings>,
+    ) -> Result<Widget> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.update_widget_settings_sqlite(id, settings),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::widgets::update_widget_settings(self, id, settings)
+            }
+        }
+    }
+
+    fn update_widget_settings_sqlite(
+        &self,
+        id: Uuid,
+        settings: Option<&WidgetSettings>,
+    ) -> Result<Widget> {
+        let n = self.sqlite_conn()?.execute(
+            "UPDATE widgets SET settings = ?2 WHERE id = ?1",
+            params![id, settings.map(json_of)],
+        )?;
+        if n == 0 {
+            return Err(StoreError::NotFound("widget"));
+        }
+        self.get_widget_sqlite(id)
     }
 }
 

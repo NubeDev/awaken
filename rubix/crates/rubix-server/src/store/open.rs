@@ -21,7 +21,13 @@ impl Store {
             )
         });
         let pool = r2d2::Pool::builder().build(manager)?;
-        pool.get()?.execute_batch(SCHEMA_SQLITE)?;
+        let mut conn = pool.get()?;
+        // The base schema establishes a fresh database (idempotent CREATEs);
+        // the migration ladder evolves an existing one (column adds, backfills)
+        // so a schema change never requires deleting the file. See `migrate`.
+        conn.execute_batch(SCHEMA_SQLITE)?;
+        super::migrate::run(&mut conn)?;
+        drop(conn);
         Ok(Self {
             backend: Backend::Sqlite(pool),
         })

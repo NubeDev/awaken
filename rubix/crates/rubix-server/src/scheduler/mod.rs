@@ -28,6 +28,7 @@ use awaken_runtime::AgentRuntime;
 use rubix_datasource::DatasourceRegistry;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 use self::evaluate::BoardRunDeps;
 use crate::bus::ZenohBus;
@@ -57,7 +58,10 @@ struct SchedulerInner {
     /// closed at run time.
     datasources: Option<Arc<DatasourceRegistry>>,
     outputs: BoardOutputs,
-    tasks: Mutex<HashMap<String, BoardTask>>,
+    /// Live loops keyed by board row id. The id is globally unique across all
+    /// org/site scopes (a slug is not), so the loop can re-fetch its board by id
+    /// without carrying scope context.
+    tasks: Mutex<HashMap<Uuid, BoardTask>>,
 }
 
 impl SchedulerInner {
@@ -115,30 +119,33 @@ impl Scheduler {
         self.inner.tasks.lock().map(|t| t.len()).unwrap_or(0)
     }
 
-    /// Register (or re-register) a board's loop. Any existing loop for the slug
-    /// is cancelled first, so a republished or re-enabled board picks up its
+    /// Register (or re-register) a board's loop. Any existing loop for this board
+    /// id is cancelled first, so a republished or re-enabled board picks up its
     /// new cadence/graph immediately rather than at the next restart. A
     /// non-scheduled (manual, or disabled) board is unregistered instead — its
-    /// presence here is what "enabled" means at runtime.
+    /// presence here is what "enabled" means at runtime. The loop re-fetches the
+    /// board by id, so it needs no org/site scope.
     pub fn register(&self, board: &BoardRecord) {
         if !board.is_scheduled() {
-            self.unregister(&board.slug);
+            self.unregister(board.id, &board.slug);
             return;
         }
-        // Cancel any prior loop for this slug before spawning the new one.
-        self.unregister(&board.slug);
+        // Cancel any prior loop for this board before spawning the new one.
+        self.unregister(board.id, &board.slug);
 
         let (shutdown, rx) = watch::channel(false);
         let inner = self.inner.clone();
+        let id = board.id;
         let slug = board.slug.clone();
         let deps = inner.board_run_deps();
         let handle = match board.trigger.clone() {
             Trigger::Manual => return, // filtered out by is_scheduled
             Trigger::Interval { seconds } => {
-                tokio::spawn(interval::run_interval(slug.clone(), seconds, deps, rx))
+                tokio::spawn(interval::run_interval(id, slug.clone(), seconds, deps, rx))
             }
             Trigger::Subscription { key } => match &inner.bus {
                 Some(bus) => tokio::spawn(subscribe::run_subscription(
+                    id,
                     slug.clone(),
                     key,
                     bus.clone(),
@@ -155,15 +162,16 @@ impl Scheduler {
             },
         };
         if let Ok(mut tasks) = self.inner.tasks.lock() {
-            tasks.insert(slug.clone(), BoardTask { shutdown, handle });
+            tasks.insert(id, BoardTask { shutdown, handle });
         }
         tracing::info!(board = %slug, "board loop registered");
     }
 
     /// Stop and drop a board's loop, if any. Idempotent. Also clears the board's
-    /// cached outputs so a disabled/deleted board does not show stale values.
-    pub fn unregister(&self, slug: &str) {
-        let task = self.inner.tasks.lock().ok().and_then(|mut t| t.remove(slug));
+    /// cached outputs (keyed by slug) so a disabled/deleted board does not show
+    /// stale values.
+    pub fn unregister(&self, id: Uuid, slug: &str) {
+        let task = self.inner.tasks.lock().ok().and_then(|mut t| t.remove(&id));
         if let Some(task) = task {
             let _ = task.shutdown.send(true);
             task.handle.abort();

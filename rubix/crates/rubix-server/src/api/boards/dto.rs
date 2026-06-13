@@ -10,10 +10,16 @@ use uuid::Uuid;
 
 use crate::scheduler::{BoardRecord, Trigger};
 
-/// Create (or republish) a board. A slug that already exists creates a new
-/// version; the scheduler runs the latest version of each slug.
+/// Create (or republish) a flow. A slug that already exists *within the same
+/// scope* creates a new version; the scheduler runs the latest version per
+/// scope. A flow is owned by an `org` and optionally a `site` (null = org-level,
+/// applying across the org) — the uniform scope dashboards/rules share.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateBoard {
+    pub org: String,
+    /// The single site this flow is for; omit for an org-level flow.
+    #[serde(default)]
+    pub site_id: Option<Uuid>,
     pub slug: String,
     pub display_name: String,
     /// Defaults to true; a disabled board is stored but never fired.
@@ -27,6 +33,16 @@ pub struct CreateBoard {
 
 fn default_enabled() -> bool {
     true
+}
+
+/// Scope query for the slug-addressed board verbs (`get`/`patch`/`delete`/
+/// `run`/`outputs`): `?org=` is required, `?site_id=` optional (omit = the
+/// org-level flow of that slug).
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+pub struct BoardScope {
+    pub org: String,
+    #[serde(default)]
+    pub site_id: Option<Uuid>,
 }
 
 /// Patch mutable metadata on the latest version of a board slug. `slug`,
@@ -44,6 +60,9 @@ pub struct PatchBoard {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BoardView {
     pub id: Uuid,
+    pub org: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub site_id: Option<Uuid>,
     pub slug: String,
     pub version: i64,
     pub display_name: String,
@@ -59,6 +78,8 @@ impl From<BoardRecord> for BoardView {
     fn from(r: BoardRecord) -> Self {
         BoardView {
             id: r.id,
+            org: r.org,
+            site_id: r.site_id,
             slug: r.slug,
             version: r.version,
             display_name: r.display_name,

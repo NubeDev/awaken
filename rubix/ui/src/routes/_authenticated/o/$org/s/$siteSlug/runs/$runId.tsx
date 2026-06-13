@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { RunDetail } from '@/features/runs/detail'
 
-export const Route = createFileRoute('/_authenticated/runs/$runId')({
+export const Route = createFileRoute('/_authenticated/o/$org/s/$siteSlug/runs/$runId')({
   component: RunDetailRoute,
 })
 

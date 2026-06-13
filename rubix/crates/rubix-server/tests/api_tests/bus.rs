@@ -223,6 +223,7 @@ async fn board_emit_spark_publishes_on_zenoh() {
 
     // Store a board whose single node emits a finding, then run it by slug.
     let board = json!({
+        "org": "nube",
         "slug": "conflict-rule", "display_name": "Conflict rule",
         "trigger": {"kind": "manual"},
         "board": {
@@ -236,10 +237,10 @@ async fn board_emit_spark_publishes_on_zenoh() {
             "connections": []
         }
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(status, StatusCode::CREATED);
     let (status, _) = app
-        .request("POST", "/api/v1/boards/conflict-rule/run", None)
+        .request("POST", "/api/v1/boards/conflict-rule/run?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK);
 

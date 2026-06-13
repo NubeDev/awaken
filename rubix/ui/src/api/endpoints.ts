@@ -32,6 +32,7 @@ import type {
   QueryResult,
   CreateDashboard,
   CreateWidget,
+  PatchWidget,
   Dashboard,
   PatchDashboard,
   ResumeResponse,
@@ -145,27 +146,51 @@ export const agent = {
     request<ChatResponse>('/api/v1/agent/chat', { method: 'POST', body }),
 }
 
+// Flows (boards) are scoped to an org + optional site, like dashboards. The
+// slug-addressed verbs take `?org=` (required) + `?site_id=` (optional, omit =
+// the org-level flow of that slug).
+type BoardScope = { org: string; siteId?: Uuid }
+
 export const boards = {
-  list: (signal?: AbortSignal) =>
-    request<BoardView[]>('/api/v1/boards', { signal }),
-  get: (slug: string, signal?: AbortSignal) =>
-    request<BoardView>(`/api/v1/boards/${slug}`, { signal }),
+  list: (params: BoardScope, signal?: AbortSignal) =>
+    request<BoardView[]>('/api/v1/boards', {
+      query: { org: params.org, site_id: params.siteId },
+      signal,
+    }),
+  get: (slug: string, scope: BoardScope, signal?: AbortSignal) =>
+    request<BoardView>(`/api/v1/boards/${slug}`, {
+      query: { org: scope.org, site_id: scope.siteId },
+      signal,
+    }),
   /** Component catalogue: ports + config schema driving the flow editor. */
   components: (signal?: AbortSignal) =>
     request<ComponentView[]>('/api/v1/boards/components', { signal }),
-  /** Create or republish a board; an edit saves as a new version of the slug. */
+  /** Create or republish a flow; an edit saves as a new version of the slug. */
   save: (body: CreateBoard) =>
     request<BoardView>('/api/v1/boards', { method: 'POST', body }),
-  /** Patch latest-version metadata (`display_name`, `enabled`) of a board slug. */
-  patch: (slug: string, body: PatchBoard) =>
-    request<BoardView>(`/api/v1/boards/${slug}`, { method: 'PATCH', body }),
-  remove: (slug: string) =>
-    request<void>(`/api/v1/boards/${slug}`, { method: 'DELETE' }),
-  runStored: (slug: string) =>
-    request<RunBoardResponse>(`/api/v1/boards/${slug}/run`, { method: 'POST' }),
-  /** Latest per-node values a running (or last-run) board produced. */
-  outputs: (slug: string, signal?: AbortSignal) =>
-    request<PortOutput[]>(`/api/v1/boards/${slug}/outputs`, { signal }),
+  /** Patch latest-version metadata (`display_name`, `enabled`) of a flow. */
+  patch: (slug: string, scope: BoardScope, body: PatchBoard) =>
+    request<BoardView>(`/api/v1/boards/${slug}`, {
+      method: 'PATCH',
+      query: { org: scope.org, site_id: scope.siteId },
+      body,
+    }),
+  remove: (slug: string, scope: BoardScope) =>
+    request<void>(`/api/v1/boards/${slug}`, {
+      method: 'DELETE',
+      query: { org: scope.org, site_id: scope.siteId },
+    }),
+  runStored: (slug: string, scope: BoardScope) =>
+    request<RunBoardResponse>(`/api/v1/boards/${slug}/run`, {
+      method: 'POST',
+      query: { org: scope.org, site_id: scope.siteId },
+    }),
+  /** Latest per-node values a running (or last-run) flow produced. */
+  outputs: (slug: string, scope: BoardScope, signal?: AbortSignal) =>
+    request<PortOutput[]>(`/api/v1/boards/${slug}/outputs`, {
+      query: { org: scope.org, site_id: scope.siteId },
+      signal,
+    }),
   /** Evaluate an inline graph once — runs the live canvas, unsaved edits included. */
   runInline: (board: BoardGraph) =>
     request<RunBoardResponse>('/api/v1/boards/run', {
@@ -184,6 +209,8 @@ export const widgets = {
     request<Widget>(`/api/v1/widgets/${id}`, { signal }),
   create: (body: CreateWidget) =>
     request<Widget>('/api/v1/widgets', { method: 'POST', body }),
+  patch: (id: Uuid, body: PatchWidget) =>
+    request<Widget>(`/api/v1/widgets/${id}`, { method: 'PATCH', body }),
   remove: (id: Uuid) =>
     request<void>(`/api/v1/widgets/${id}`, { method: 'DELETE' }),
 }
@@ -209,23 +236,37 @@ export const query = {
     request<QueryResult>('/api/v1/query', { method: 'POST', body: { sql } }),
 }
 
+// Rules are org-owned with an optional site (`?site_id=`); a site rule overrides
+// the org-level one of the same name. `list` with a siteId returns that site's
+// rules + the org-level ones; without, every rule the org owns.
 export const rules = {
-  list: (org: string, signal?: AbortSignal) =>
-    request<RuleView[]>(`/api/v1/orgs/${org}/rules`, { signal }),
-  get: (org: string, name: string, signal?: AbortSignal) =>
-    request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, { signal }),
+  list: (org: string, siteId?: Uuid, signal?: AbortSignal) =>
+    request<RuleView[]>(`/api/v1/orgs/${org}/rules`, {
+      query: { site_id: siteId },
+      signal,
+    }),
+  get: (org: string, name: string, siteId?: Uuid, signal?: AbortSignal) =>
+    request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, {
+      query: { site_id: siteId },
+      signal,
+    }),
   create: (org: string, body: CreateRule) =>
     request<RuleView>(`/api/v1/orgs/${org}/rules`, { method: 'POST', body }),
-  update: (org: string, name: string, body: UpdateRule) =>
+  update: (org: string, name: string, siteId: Uuid | undefined, body: UpdateRule) =>
     request<RuleView>(`/api/v1/orgs/${org}/rules/${name}`, {
       method: 'PUT',
+      query: { site_id: siteId },
       body,
     }),
-  remove: (org: string, name: string) =>
-    request<void>(`/api/v1/orgs/${org}/rules/${name}`, { method: 'DELETE' }),
+  remove: (org: string, name: string, siteId?: Uuid) =>
+    request<void>(`/api/v1/orgs/${org}/rules/${name}`, {
+      method: 'DELETE',
+      query: { site_id: siteId },
+    }),
   /** Rules that compose this one — the change-impact / blast-radius list. */
-  referencing: (org: string, name: string, signal?: AbortSignal) =>
+  referencing: (org: string, name: string, siteId?: Uuid, signal?: AbortSignal) =>
     request<RuleView[]>(`/api/v1/orgs/${org}/rules/${name}/referencing`, {
+      query: { site_id: siteId },
       signal,
     }),
   /** Run a rule once against a point's history without emitting a spark. */

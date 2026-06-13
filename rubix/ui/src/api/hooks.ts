@@ -20,9 +20,11 @@ import type {
   PatchEquip,
   PatchPoint,
   PatchSite,
+  PatchWidget,
   ProvisionOrg,
   UpdateRule,
   Uuid,
+  Widget,
   WriteRequest,
 } from './types'
 
@@ -275,17 +277,32 @@ export function useAgentChat() {
   return useMutation({ mutationFn: api.agent.chat })
 }
 
-export function useBoards() {
+/**
+ * Flows in a scope. `org` required; `siteId` optional — with it, the site's
+ * flows + the org-level ones; without, every flow the org owns. Disabled until
+ * an org resolves (so an org-level page with no site still lists).
+ */
+export function useBoards(org: string | undefined, siteId?: Uuid) {
   return useQuery({
-    queryKey: qk.boards,
-    queryFn: ({ signal }) => api.boards.list(signal),
+    queryKey: org ? [...qk.boards, org, siteId ?? 'org'] : qk.boards,
+    queryFn: ({ signal }) =>
+      api.boards.list({ org: org as string, siteId }, signal),
+    enabled: Boolean(org),
   })
 }
 
-/** Run a stored board on demand; resolves the run's outport packets. */
+/** Run a stored flow on demand within its scope; resolves the outport packets. */
 export function useRunStoredBoard() {
   return useMutation({
-    mutationFn: (slug: string) => api.boards.runStored(slug),
+    mutationFn: ({
+      slug,
+      org,
+      siteId,
+    }: {
+      slug: string
+      org: string
+      siteId?: Uuid
+    }) => api.boards.runStored(slug, { org, siteId }),
   })
 }
 
@@ -302,11 +319,20 @@ export function useRunInlineBoard() {
  * `live` so an enabled board's autonomous runs surface on the canvas without a
  * manual Test Run; pass `live=false` (e.g. a manual board) to fetch once.
  */
-export function useBoardOutputs(slug: string | undefined, live: boolean) {
+export function useBoardOutputs(
+  slug: string | undefined,
+  scope: { org: string | undefined; siteId?: Uuid },
+  live: boolean
+) {
   return useQuery({
-    queryKey: qk.boardOutputs(slug ?? 'none'),
-    queryFn: ({ signal }) => api.boards.outputs(slug as string, signal),
-    enabled: Boolean(slug),
+    queryKey: [...qk.boardOutputs(slug ?? 'none'), scope.org, scope.siteId ?? 'org'],
+    queryFn: ({ signal }) =>
+      api.boards.outputs(
+        slug as string,
+        { org: scope.org as string, siteId: scope.siteId },
+        signal
+      ),
+    enabled: Boolean(slug && scope.org),
     refetchInterval: live ? LIVE_INTERVAL : false,
   })
 }
@@ -336,12 +362,21 @@ export function useSaveBoard() {
   })
 }
 
-/** Patch a board's latest-version metadata (`display_name`/`enabled`). */
+/** Patch a flow's latest-version metadata (`display_name`/`enabled`) in scope. */
 export function usePatchBoard() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ slug, body }: { slug: string; body: PatchBoard }) =>
-      api.boards.patch(slug, body),
+    mutationFn: ({
+      slug,
+      org,
+      siteId,
+      body,
+    }: {
+      slug: string
+      org: string
+      siteId?: Uuid
+      body: PatchBoard
+    }) => api.boards.patch(slug, { org, siteId }, body),
     onSuccess: (board) => {
       qc.invalidateQueries({ queryKey: qk.boards })
       qc.invalidateQueries({ queryKey: qk.board(board.slug) })
@@ -349,11 +384,19 @@ export function usePatchBoard() {
   })
 }
 
-/** Delete every version of a board slug; refresh the board list. */
+/** Delete every version of a flow slug within its scope; refresh the list. */
 export function useDeleteBoard() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (slug: string) => api.boards.remove(slug),
+    mutationFn: ({
+      slug,
+      org,
+      siteId,
+    }: {
+      slug: string
+      org: string
+      siteId?: Uuid
+    }) => api.boards.remove(slug, { org, siteId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.boards }),
   })
 }
@@ -376,6 +419,39 @@ export function useCreateWidget() {
   return useMutation({
     mutationFn: (body: CreateWidget) => api.widgets.create(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['widgets'] }),
+  })
+}
+
+/**
+ * Update a tile's presentation `settings` (grid layout + chart config). Used by
+ * the canvas on drag/resize and by the binder on a chart-type change. The
+ * mutation is optimistic so the tile snaps to its new cell without a round-trip
+ * flicker; on settle the widget lists refresh to the server truth.
+ */
+export function usePatchWidget() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: Uuid; body: PatchWidget }) =>
+      api.widgets.patch(id, body),
+    onMutate: async ({ id, body }) => {
+      await qc.cancelQueries({ queryKey: ['widgets'] })
+      const prev = qc.getQueriesData<Widget[]>({ queryKey: ['widgets'] })
+      for (const [key, list] of prev) {
+        if (!list) continue
+        qc.setQueryData<Widget[]>(
+          key,
+          list.map((w) =>
+            w.id === id ? { ...w, settings: body.settings ?? undefined } : w
+          )
+        )
+      }
+      return { prev }
+    },
+    onError: (_e, _vars, ctx) => {
+      // Roll back to the pre-mutation snapshots on failure.
+      ctx?.prev.forEach(([key, list]) => qc.setQueryData(key, list))
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['widgets'] }),
   })
 }
 
@@ -431,20 +507,28 @@ export function useDeleteDashboard() {
 
 // --- Rules engine (Rules Studio) ----------------------------------------------
 
-/** An org's stored rules. `org` comes from the active tenant (site.org). */
-export function useRules(org: string | undefined) {
+/**
+ * Stored rules in a scope. `org` required; `siteId` optional — with it, the
+ * site's rules + the org-level ones; without, every rule the org owns.
+ */
+export function useRules(org: string | undefined, siteId?: Uuid) {
   return useQuery({
-    queryKey: qk.rules(org),
-    queryFn: ({ signal }) => api.rules.list(org as string, signal),
+    queryKey: [...qk.rules(org), siteId ?? 'org'],
+    queryFn: ({ signal }) => api.rules.list(org as string, siteId, signal),
     enabled: Boolean(org),
   })
 }
 
-/** One stored rule by name within an org. */
-export function useRule(org: string | undefined, name: string | undefined) {
+/** One stored rule by name at an exact scope. */
+export function useRule(
+  org: string | undefined,
+  name: string | undefined,
+  siteId?: Uuid
+) {
   return useQuery({
-    queryKey: org && name ? qk.rule(org, name) : ['rules', 'none'],
-    queryFn: ({ signal }) => api.rules.get(org as string, name as string, signal),
+    queryKey: org && name ? [...qk.rule(org, name), siteId ?? 'org'] : ['rules', 'none'],
+    queryFn: ({ signal }) =>
+      api.rules.get(org as string, name as string, siteId, signal),
     enabled: Boolean(org && name),
   })
 }
@@ -455,17 +539,21 @@ export function useRule(org: string | undefined, name: string | undefined) {
  */
 export function useReferencingRules(
   org: string | undefined,
-  name: string | undefined
+  name: string | undefined,
+  siteId?: Uuid
 ) {
   return useQuery({
-    queryKey: org && name ? qk.ruleReferencing(org, name) : ['rules', 'none', 'ref'],
+    queryKey:
+      org && name
+        ? [...qk.ruleReferencing(org, name), siteId ?? 'org']
+        : ['rules', 'none', 'ref'],
     queryFn: ({ signal }) =>
-      api.rules.referencing(org as string, name as string, signal),
+      api.rules.referencing(org as string, name as string, siteId, signal),
     enabled: Boolean(org && name),
   })
 }
 
-/** Create a rule under an org; refresh the org's rule list. */
+/** Create a rule under an org (optionally a site, via body.site_id); refresh. */
 export function useCreateRule(org: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
@@ -474,12 +562,19 @@ export function useCreateRule(org: string | undefined) {
   })
 }
 
-/** Update a rule's script/params; refresh the list and the rule itself. */
+/** Update a rule's script/params at its scope; refresh the list and the rule. */
 export function useUpdateRule(org: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ name, body }: { name: string; body: UpdateRule }) =>
-      api.rules.update(org as string, name, body),
+    mutationFn: ({
+      name,
+      siteId,
+      body,
+    }: {
+      name: string
+      siteId?: Uuid
+      body: UpdateRule
+    }) => api.rules.update(org as string, name, siteId, body),
     onSuccess: (rule) => {
       qc.invalidateQueries({ queryKey: qk.rules(org) })
       if (org) qc.invalidateQueries({ queryKey: qk.rule(org, rule.name) })
@@ -487,11 +582,12 @@ export function useUpdateRule(org: string | undefined) {
   })
 }
 
-/** Delete a rule by name; refresh the org's rule list. */
+/** Delete a rule by name at its scope; refresh the org's rule list. */
 export function useDeleteRule(org: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) => api.rules.remove(org as string, name),
+    mutationFn: ({ name, siteId }: { name: string; siteId?: Uuid }) =>
+      api.rules.remove(org as string, name, siteId),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.rules(org) }),
   })
 }

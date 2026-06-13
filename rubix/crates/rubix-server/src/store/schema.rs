@@ -49,15 +49,19 @@ CREATE TABLE IF NOT EXISTS sparks (
 );
 CREATE TABLE IF NOT EXISTS boards (
     id          TEXT PRIMARY KEY,
+    org         TEXT NOT NULL,
+    site_id     TEXT REFERENCES sites(id) ON DELETE CASCADE,
     slug        TEXT NOT NULL,
     version     INTEGER NOT NULL,
     display_name TEXT NOT NULL,
     enabled     INTEGER NOT NULL DEFAULT 1,
     trigger     TEXT NOT NULL,
     graph       TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    UNIQUE (slug, version)
+    created_at  TEXT NOT NULL
 );
+-- The board scope partial indexes (idx_boards_org_slug_ver / _site_slug_ver)
+-- are created by migration v3: they reference the org/site_id columns a legacy
+-- file only gains during that migration.
 CREATE TABLE IF NOT EXISTS dashboards (
     id         TEXT PRIMARY KEY,
     org        TEXT NOT NULL,
@@ -80,17 +84,20 @@ CREATE TABLE IF NOT EXISTS widgets (
     title        TEXT NOT NULL,
     target       TEXT NOT NULL,
     query        TEXT,
+    settings     TEXT,
     created_at   TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS rules (
     id          TEXT PRIMARY KEY,
     org         TEXT NOT NULL,
+    site_id     TEXT REFERENCES sites(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
     script      TEXT NOT NULL,
     params      TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    UNIQUE (org, name)
+    created_at  TEXT NOT NULL
 );
+-- The rule scope partial indexes (idx_rules_org_name / _site_name) are created
+-- by migration v3 (they reference the site_id column legacy files gain there).
 CREATE TABLE IF NOT EXISTS runs (
     id            TEXT PRIMARY KEY,
     thread_id     TEXT NOT NULL,
@@ -117,9 +124,9 @@ CREATE TABLE IF NOT EXISTS tokens (
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
-CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
+-- idx_boards_org is created by migration v3 (references the org column).
 CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_widgets_dashboard ON widgets (dashboard_id, created_at DESC);
+-- idx_widgets_dashboard is created by migration v1 (column added there for legacy files).
 CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rules_org ON rules (org, name);
 ";
@@ -180,15 +187,20 @@ CREATE TABLE IF NOT EXISTS sparks (
 );
 CREATE TABLE IF NOT EXISTS boards (
     id           TEXT PRIMARY KEY,
+    org          TEXT NOT NULL,
+    site_id      TEXT REFERENCES sites(id) ON DELETE CASCADE,
     slug         TEXT NOT NULL,
     version      BIGINT NOT NULL,
     display_name TEXT NOT NULL,
     enabled      BOOLEAN NOT NULL DEFAULT TRUE,
     trigger      TEXT NOT NULL,
     graph        TEXT NOT NULL,
-    created_at   TEXT NOT NULL,
-    UNIQUE (slug, version)
+    created_at   TEXT NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_boards_org_slug_ver
+    ON boards (org, slug, version) WHERE site_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_boards_site_slug_ver
+    ON boards (org, site_id, slug, version) WHERE site_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS dashboards (
     id         TEXT PRIMARY KEY,
     org        TEXT NOT NULL,
@@ -211,17 +223,24 @@ CREATE TABLE IF NOT EXISTS widgets (
     title        TEXT NOT NULL,
     target       TEXT NOT NULL,
     query        TEXT,
+    settings     TEXT,
     created_at   TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS rules (
     id          TEXT PRIMARY KEY,
     org         TEXT NOT NULL,
+    site_id     TEXT REFERENCES sites(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
     script      TEXT NOT NULL,
     params      TEXT NOT NULL,
-    created_at  TEXT NOT NULL,
-    UNIQUE (org, name)
+    created_at  TEXT NOT NULL
 );
+-- A rule name is unique per scope: org-level (NULL site) per org, site rules per
+-- (org, site). A board run resolves the site rule first, else the org-level one.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rules_org_name
+    ON rules (org, name) WHERE site_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rules_site_name
+    ON rules (org, site_id, name) WHERE site_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS runs (
     id            TEXT PRIMARY KEY,
     thread_id     TEXT NOT NULL,
@@ -248,7 +267,7 @@ CREATE TABLE IF NOT EXISTS tokens (
 CREATE INDEX IF NOT EXISTS idx_his_point_ts ON his (point_id, ts);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sparks_site ON sparks (site_id, ts);
-CREATE INDEX IF NOT EXISTS idx_boards_slug ON boards (slug, version DESC);
+CREATE INDEX IF NOT EXISTS idx_boards_org ON boards (org, slug, version DESC);
 CREATE INDEX IF NOT EXISTS idx_widgets_site ON widgets (site_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_widgets_dashboard ON widgets (dashboard_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dashboards_org ON dashboards (org, created_at DESC);

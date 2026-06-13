@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useSaveBoard } from '@/api/hooks'
+import { useScope } from '@/context/scope-provider'
 import type { BoardView, Trigger } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -73,8 +74,12 @@ function NewBoardBody({
   onCreated,
 }: Omit<NewBoardDialogProps, 'open'>) {
   const save = useSaveBoard()
+  const { org, site } = useScope()
   const [name, setName] = useState('')
-  const [trigger, setTrigger] = useState<Trigger['kind']>('manual')
+  // Default to a continuously-running board (interval): a flow that runs 24/7
+  // and streams live values, the behaviour an operator expects. "On demand"
+  // (manual) is the opt-out for boards you only ever run by hand.
+  const [trigger, setTrigger] = useState<Trigger['kind']>('interval')
   const [intervalSecs, setIntervalSecs] = useState(60)
   const [error, setError] = useState<string | null>(null)
 
@@ -98,8 +103,15 @@ function NewBoardBody({
         ? { kind: 'interval', seconds: Math.max(1, intervalSecs) }
         : { kind: 'manual' }
 
+    if (!org) {
+      setError('No org in scope.')
+      return
+    }
     save.mutate(
       {
+        org,
+        // A flow created on a site page is scoped to that site.
+        site_id: site?.id ?? null,
         slug,
         display_name: name.trim(),
         enabled: true,
@@ -122,8 +134,8 @@ function NewBoardBody({
       <DialogHeader>
         <DialogTitle>New flow</DialogTitle>
         <DialogDescription>
-          Creates an empty board you can drag nodes onto. Slug and trigger are
-          set now; the graph is built and saved in the editor.
+          Creates an empty board you can drag nodes onto. A continuous board runs
+          on its own and shows live values — no Test Run needed.
         </DialogDescription>
       </DialogHeader>
 
@@ -144,21 +156,26 @@ function NewBoardBody({
         </div>
 
         <div className='space-y-1.5'>
-          <Label className='text-[12px]'>Trigger</Label>
+          <Label className='text-[12px]'>Run mode</Label>
           <Select value={trigger} onValueChange={(v) => setTrigger(v as Trigger['kind'])}>
             <SelectTrigger size='sm'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value='manual'>Manual (run on demand)</SelectItem>
-              <SelectItem value='interval'>Interval</SelectItem>
+              <SelectItem value='interval'>Continuous — runs on a fixed interval</SelectItem>
+              <SelectItem value='manual'>On demand — only when you run it</SelectItem>
             </SelectContent>
           </Select>
+          <p className='text-muted-foreground text-[10.5px]'>
+            {trigger === 'interval'
+              ? 'The whole board re-evaluates every N seconds, 24/7, and streams live values.'
+              : 'The board never runs on its own; use Test Run to evaluate it once.'}
+          </p>
         </div>
 
         {trigger === 'interval' ? (
           <div className='space-y-1.5'>
-            <Label className='text-[12px]'>Every (seconds)</Label>
+            <Label className='text-[12px]'>Run every (seconds)</Label>
             <Input
               type='number'
               min={1}

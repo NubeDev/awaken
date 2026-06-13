@@ -25,35 +25,36 @@ async fn create_get_list_delete_roundtrip() {
     let app = TestApp::new();
 
     let body = json!({
+        "org": "nube",
         "slug": "night-setback",
         "display_name": "Night setback",
         "trigger": {"kind": "interval", "seconds": 60},
         "board": read_graph("nube/hq/ahu-3/temp")
     });
-    let (status, created) = app.request("POST", "/api/v1/boards", Some(body)).await;
+    let (status, created) = app.request("POST", "/api/v1/boards?org=nube", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     assert_eq!(created["version"], json!(1));
     assert_eq!(created["enabled"], json!(true));
 
     // Get by slug returns the latest version.
     let (status, got) = app
-        .request("GET", "/api/v1/boards/night-setback", None)
+        .request("GET", "/api/v1/boards/night-setback?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK, "{got}");
     assert_eq!(got["slug"], json!("night-setback"));
 
     // List shows it once.
-    let (status, list) = app.request("GET", "/api/v1/boards", None).await;
+    let (status, list) = app.request("GET", "/api/v1/boards?org=nube", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(list.as_array().unwrap().len(), 1);
 
     // Delete, then it's gone.
     let (status, _) = app
-        .request("DELETE", "/api/v1/boards/night-setback", None)
+        .request("DELETE", "/api/v1/boards/night-setback?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = app
-        .request("GET", "/api/v1/boards/night-setback", None)
+        .request("GET", "/api/v1/boards/night-setback?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
@@ -63,23 +64,24 @@ async fn republish_increments_version_and_get_returns_latest() {
     let app = TestApp::new();
     let make = |seconds: u64| {
         json!({
-            "slug": "loop", "display_name": "Loop",
+            "org": "nube",
+        "slug": "loop", "display_name": "Loop",
             "trigger": {"kind": "interval", "seconds": seconds},
             "board": read_graph("nube/hq/ahu-3/temp")
         })
     };
-    let (s1, v1) = app.request("POST", "/api/v1/boards", Some(make(30))).await;
+    let (s1, v1) = app.request("POST", "/api/v1/boards?org=nube", Some(make(30))).await;
     assert_eq!(s1, StatusCode::CREATED);
     assert_eq!(v1["version"], json!(1));
-    let (s2, v2) = app.request("POST", "/api/v1/boards", Some(make(45))).await;
+    let (s2, v2) = app.request("POST", "/api/v1/boards?org=nube", Some(make(45))).await;
     assert_eq!(s2, StatusCode::CREATED);
     assert_eq!(v2["version"], json!(2));
 
     // GET resolves to v2; list still shows the slug once (latest only).
-    let (_, got) = app.request("GET", "/api/v1/boards/loop", None).await;
+    let (_, got) = app.request("GET", "/api/v1/boards/loop?org=nube", None).await;
     assert_eq!(got["version"], json!(2));
     assert_eq!(got["trigger"]["seconds"], json!(45));
-    let (_, list) = app.request("GET", "/api/v1/boards", None).await;
+    let (_, list) = app.request("GET", "/api/v1/boards?org=nube", None).await;
     assert_eq!(list.as_array().unwrap().len(), 1);
 }
 
@@ -87,17 +89,18 @@ async fn republish_increments_version_and_get_returns_latest() {
 async fn patch_board_edits_metadata_on_latest_version() {
     let app = TestApp::new();
     let create = json!({
+        "org": "nube",
         "slug": "setback", "display_name": "Setback",
         "trigger": {"kind": "interval", "seconds": 60},
         "board": read_graph("nube/hq/ahu-3/temp")
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(create)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(create)).await;
     assert_eq!(status, StatusCode::CREATED);
 
     let (status, body) = app
         .request(
             "PATCH",
-            "/api/v1/boards/setback",
+            "/api/v1/boards/setback?org=nube",
             Some(json!({"display_name": "Night setback", "enabled": false})),
         )
         .await;
@@ -107,7 +110,7 @@ async fn patch_board_edits_metadata_on_latest_version() {
     assert_eq!(body["version"], json!(1));
 
     // Persisted: a fresh GET reflects the patch.
-    let (_, got) = app.request("GET", "/api/v1/boards/setback", None).await;
+    let (_, got) = app.request("GET", "/api/v1/boards/setback?org=nube", None).await;
     assert_eq!(got["display_name"], "Night setback");
     assert_eq!(got["enabled"], json!(false));
 }
@@ -118,7 +121,7 @@ async fn patch_missing_board_404() {
     let (status, _) = app
         .request(
             "PATCH",
-            "/api/v1/boards/nope",
+            "/api/v1/boards/nope?org=nube",
             Some(json!({"enabled": false})),
         )
         .await;
@@ -129,11 +132,12 @@ async fn patch_missing_board_404() {
 async fn zero_interval_rejected() {
     let app = TestApp::new();
     let body = json!({
+        "org": "nube",
         "slug": "bad", "display_name": "Bad",
         "trigger": {"kind": "interval", "seconds": 0},
         "board": read_graph("nube/hq/ahu-3/temp")
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(body)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(body)).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -157,6 +161,7 @@ async fn run_stored_board_commands_a_point() {
 
     // Store a manual board that reads temp → commands fan at prio 8.
     let board = json!({
+        "org": "nube",
         "slug": "copy-temp", "display_name": "Copy temp to fan",
         "trigger": {"kind": "manual"},
         "board": {
@@ -172,12 +177,12 @@ async fn run_stored_board_commands_a_point() {
             ]
         }
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Run it by slug; the write reaches the store.
     let (status, body) = app
-        .request("POST", "/api/v1/boards/copy-temp/run", None)
+        .request("POST", "/api/v1/boards/copy-temp/run?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, fan) = app
@@ -212,6 +217,8 @@ async fn scheduler_interval_fires_a_board() {
     // Persist a 1s interval board copying temp → fan.
     let record = BoardRecord {
         id: Uuid::new_v4(),
+        org: "nube".into(),
+        site_id: None,
         slug: "tick".into(),
         version: 1,
         display_name: "Tick".into(),
@@ -261,6 +268,7 @@ async fn emit_spark_board_records_a_finding() {
     let site = app.create_site().await;
 
     let board = json!({
+        "org": "nube",
         "slug": "ahu-conflict", "display_name": "AHU heat/cool conflict",
         "trigger": {"kind": "manual"},
         "board": {
@@ -275,11 +283,11 @@ async fn emit_spark_board_records_a_finding() {
             "connections": []
         }
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(status, StatusCode::CREATED);
 
     let (status, _) = app
-        .request("POST", "/api/v1/boards/ahu-conflict/run", None)
+        .request("POST", "/api/v1/boards/ahu-conflict/run?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK);
 
@@ -303,7 +311,7 @@ async fn emit_spark_board_records_a_finding() {
 #[tokio::test]
 async fn components_catalogue_exposes_schema() {
     let app = TestApp::new();
-    let (status, components) = app.request("GET", "/api/v1/boards/components", None).await;
+    let (status, components) = app.request("GET", "/api/v1/boards/components?org=nube", None).await;
     assert_eq!(status, StatusCode::OK, "{components}");
 
     let arr = components.as_array().expect("components array");
@@ -379,12 +387,13 @@ async fn components_catalogue_exposes_schema() {
 async fn create_empty_manual_board() {
     let app = TestApp::new();
     let body = json!({
+        "org": "nube",
         "slug": "blank-flow",
         "display_name": "Blank flow",
         "trigger": {"kind": "manual"},
         "board": {"nodes": [], "connections": []}
     });
-    let (status, created) = app.request("POST", "/api/v1/boards", Some(body)).await;
+    let (status, created) = app.request("POST", "/api/v1/boards?org=nube", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{created}");
     assert_eq!(created["version"], json!(1));
     assert_eq!(created["graph"]["nodes"], json!([]));
@@ -409,6 +418,7 @@ async fn board_outputs_endpoint_exposes_last_run_values() {
     assert_eq!(status, StatusCode::OK);
 
     let board = json!({
+        "org": "nube",
         "slug": "read-temp", "display_name": "Read temp",
         "trigger": {"kind": "manual"},
         "board": {
@@ -417,26 +427,26 @@ async fn board_outputs_endpoint_exposes_last_run_values() {
             "connections": []
         }
     });
-    let (status, _) = app.request("POST", "/api/v1/boards", Some(board)).await;
+    let (status, _) = app.request("POST", "/api/v1/boards?org=nube", Some(board)).await;
     assert_eq!(status, StatusCode::CREATED);
 
     // Before any run, outputs are empty (board has not produced anything).
     let (status, before) = app
-        .request("GET", "/api/v1/boards/read-temp/outputs", None)
+        .request("GET", "/api/v1/boards/read-temp/outputs?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK, "{before}");
     assert_eq!(before.as_array().unwrap().len(), 0);
 
     // Run it; read_point emits the point's value on `output`.
     let (status, run) = app
-        .request("POST", "/api/v1/boards/read-temp/run", None)
+        .request("POST", "/api/v1/boards/read-temp/run?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK, "{run}");
 
     // The run's output is now readable on the outputs endpoint, keyed by node
     // and port, with the value and a capture timestamp.
     let (status, after) = app
-        .request("GET", "/api/v1/boards/read-temp/outputs", None)
+        .request("GET", "/api/v1/boards/read-temp/outputs?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK, "{after}");
     let arr = after.as_array().unwrap();
@@ -454,6 +464,7 @@ async fn board_outputs_endpoint_exposes_last_run_values() {
 async fn deleting_a_board_clears_its_outputs() {
     let app = TestApp::new();
     let board = json!({
+        "org": "nube",
         "slug": "ephemeral", "display_name": "Ephemeral",
         "trigger": {"kind": "manual"},
         "board": {
@@ -461,20 +472,20 @@ async fn deleting_a_board_clears_its_outputs() {
             "connections": []
         }
     });
-    app.request("POST", "/api/v1/boards", Some(board)).await;
-    app.request("POST", "/api/v1/boards/ephemeral/run", None).await;
+    app.request("POST", "/api/v1/boards?org=nube", Some(board)).await;
+    app.request("POST", "/api/v1/boards/ephemeral/run?org=nube", None).await;
     let (_, after) = app
-        .request("GET", "/api/v1/boards/ephemeral/outputs", None)
+        .request("GET", "/api/v1/boards/ephemeral/outputs?org=nube", None)
         .await;
     assert!(!after.as_array().unwrap().is_empty());
 
     let (status, _) = app
-        .request("DELETE", "/api/v1/boards/ephemeral", None)
+        .request("DELETE", "/api/v1/boards/ephemeral?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     let (status, cleared) = app
-        .request("GET", "/api/v1/boards/ephemeral/outputs", None)
+        .request("GET", "/api/v1/boards/ephemeral/outputs?org=nube", None)
         .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(cleared.as_array().unwrap().len(), 0, "outputs cleared on delete");

@@ -19,14 +19,28 @@ impl BoardGraph {
     ///
     /// All keyexpr configs in one board address the same `{org}`; the first wins.
     pub fn tenant_org(&self) -> Option<String> {
+        self.first_keyexpr_segment(0)
+    }
+
+    /// The board's tenant **site** — the second segment (`{site}`) of the first
+    /// keyexpr-bearing node config, or `None`. Used to resolve a site-scoped
+    /// stored rule: a board acting on one site's points resolves that site's
+    /// rule first, then the org-level one.
+    pub fn tenant_site(&self) -> Option<String> {
+        self.first_keyexpr_segment(1)
+    }
+
+    /// The `n`-th `/`-separated segment (`0` = org, `1` = site) of the first
+    /// keyexpr-bearing node config, non-empty, or `None`.
+    fn first_keyexpr_segment(&self, n: usize) -> Option<String> {
         self.nodes.iter().find_map(|node| {
             KEYEXPR_CONFIG_KEYS.iter().find_map(|key| {
                 node.config
                     .get(*key)
                     .and_then(|v| v.as_str())
-                    .and_then(|s| s.split('/').next())
-                    .filter(|org| !org.is_empty())
-                    .map(|org| org.to_string())
+                    .and_then(|s| s.split('/').nth(n))
+                    .filter(|seg| !seg.is_empty())
+                    .map(|seg| seg.to_string())
             })
         })
     }

@@ -15,6 +15,7 @@ use crate::bus::ZenohBus;
 /// rather than crashing the scheduler. The bus backs both the subscriber (passed
 /// concretely) and, via `deps.bus`, the board's `emit_spark` publishing.
 pub(super) async fn run_subscription(
+    board_id: uuid::Uuid,
     slug: String,
     key: String,
     bus: ZenohBus,
@@ -36,8 +37,7 @@ pub(super) async fn run_subscription(
                     Some(_) => {
                         let lookup = {
                             let store = deps.store.clone();
-                            let slug = slug.clone();
-                            tokio::task::spawn_blocking(move || store.get_board(&slug)).await
+                            tokio::task::spawn_blocking(move || store.get_board_by_id(board_id)).await
                         };
                         match lookup {
                             Ok(Ok(board)) if board.is_scheduled() => {

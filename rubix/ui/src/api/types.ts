@@ -190,9 +190,15 @@ export interface BoardGraph {
   connections: BoardConnection[]
 }
 
-/** `rubix-server::BoardView` — a stored board as returned by `/api/v1/boards`. */
+/**
+ * `rubix-server::BoardView` — a stored flow. Scoped to an `org` and optionally a
+ * `site_id` (null = org-level, applying across the org) — the same model as
+ * dashboards/rules.
+ */
 export interface BoardView {
   id: Uuid
+  org: string
+  site_id?: Uuid | null
   slug: string
   version: number
   display_name: string
@@ -255,6 +261,9 @@ export interface ConfigFieldView {
  * exists creates a new version (the editor saves graph edits this way).
  */
 export interface CreateBoard {
+  org: string
+  /** Omit for an org-level flow; set to scope to one site. */
+  site_id?: Uuid | null
   slug: string
   display_name: string
   enabled?: boolean
@@ -289,9 +298,41 @@ export interface PortOutput {
 /**
  * `rubix_core::WidgetKind` — what a pinned dashboard tile renders. serde
  * snake_case. `point_*` kinds carry a point keyexpr in `target`; `board_output`
- * carries a board slug.
+ * carries a board slug; `datasource` carries a datasource id in `target` and
+ * native SQL in `query`.
  */
-export type WidgetKind = 'point_value' | 'point_history' | 'board_output'
+export type WidgetKind =
+  | 'point_value'
+  | 'point_history'
+  | 'board_output'
+  | 'datasource'
+
+/** `react-grid-layout` cell for a tile (`rubix_core::GridLayout`). */
+export interface GridLayout {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/**
+ * Chart-type config for a `point_history`/`datasource` tile — a discriminated
+ * union mirroring the recharts wrappers the canvas renders. The server treats
+ * this as opaque JSON (`WidgetSettings.config`), so the shape lives here.
+ */
+export type ChartType = 'area' | 'line' | 'bar' | 'table'
+export interface ChartConfig {
+  type: ChartType
+}
+
+/**
+ * `rubix_core::WidgetSettings` — a tile's presentation state: grid placement
+ * and chart config. Both halves optional; absent → auto-flow + default render.
+ */
+export interface WidgetSettings {
+  layout?: GridLayout
+  config?: ChartConfig
+}
 
 /** `rubix_core::Widget` — a pinned dashboard tile row (`GET /api/v1/widgets`). */
 export interface Widget {
@@ -301,6 +342,10 @@ export interface Widget {
   kind: WidgetKind
   title: string
   target: string
+  /** Native SQL for a `datasource` tile; absent for every other kind. */
+  query?: string
+  /** Grid layout + chart config; absent until the builder sets it. */
+  settings?: WidgetSettings
   created_at: IsoTimestamp
 }
 
@@ -312,6 +357,17 @@ export interface CreateWidget {
   kind: WidgetKind
   title: string
   target: string
+  /** Native SQL — required for `datasource`, rejected for every other kind. */
+  query?: string
+}
+
+/**
+ * `rubix-server::PatchWidget` — body for `PATCH /api/v1/widgets/{id}`. Only
+ * `settings` is mutable: an object sets it, `null` clears it, omitting it is a
+ * no-op.
+ */
+export interface PatchWidget {
+  settings?: WidgetSettings | null
 }
 
 /**
@@ -444,10 +500,15 @@ export interface ParamSchema {
   params: Record<string, ParamSpec>
 }
 
-/** `rubix-server::RuleView` — a stored rule as returned by the rules routes. */
+/**
+ * `rubix-server::RuleView` — a stored rule. Owned by an `org` and optionally a
+ * `site_id` (null = org-level, applying across the org); a site rule overrides
+ * the org-level one of the same name during a board run.
+ */
 export interface RuleView {
   id: Uuid
   org: string
+  site_id?: Uuid | null
   name: string
   script: string
   params: ParamSchema
@@ -456,6 +517,8 @@ export interface RuleView {
 
 /** Body for `POST /api/v1/orgs/{org}/rules`. */
 export interface CreateRule {
+  /** Omit for an org-level rule; set to scope to one site. */
+  site_id?: Uuid | null
   name: string
   script: string
   params?: ParamSchema

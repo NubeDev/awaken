@@ -18,19 +18,24 @@ import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
-import { Route as AuthenticatedTenantsIndexRouteImport } from './routes/_authenticated/tenants/index'
-import { Route as AuthenticatedSparksIndexRouteImport } from './routes/_authenticated/sparks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
-import { Route as AuthenticatedRunsIndexRouteImport } from './routes/_authenticated/runs/index'
-import { Route as AuthenticatedRulesIndexRouteImport } from './routes/_authenticated/rules/index'
-import { Route as AuthenticatedPointsIndexRouteImport } from './routes/_authenticated/points/index'
-import { Route as AuthenticatedHistoryIndexRouteImport } from './routes/_authenticated/history/index'
-import { Route as AuthenticatedFlowsIndexRouteImport } from './routes/_authenticated/flows/index'
-import { Route as AuthenticatedBuilderIndexRouteImport } from './routes/_authenticated/builder/index'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
-import { Route as AuthenticatedRunsRunIdRouteImport } from './routes/_authenticated/runs/$runId'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedOOrgRouteRouteImport } from './routes/_authenticated/o/$org/route'
+import { Route as AuthenticatedOOrgIndexRouteImport } from './routes/_authenticated/o/$org/index'
+import { Route as AuthenticatedOOrgDashboardsIndexRouteImport } from './routes/_authenticated/o/$org/dashboards/index'
+import { Route as AuthenticatedOOrgSettingsOrgsRouteImport } from './routes/_authenticated/o/$org/settings/orgs'
+import { Route as AuthenticatedOOrgSSiteSlugRouteRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/route'
+import { Route as AuthenticatedOOrgDashboardsDashSlugIndexRouteImport } from './routes/_authenticated/o/$org/dashboards/$dashSlug/index'
+import { Route as AuthenticatedOOrgDashboardsDashSlugEditRouteImport } from './routes/_authenticated/o/$org/dashboards/$dashSlug/edit'
+import { Route as AuthenticatedOOrgSSiteSlugSparksIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/sparks/index'
+import { Route as AuthenticatedOOrgSSiteSlugRunsIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/runs/index'
+import { Route as AuthenticatedOOrgSSiteSlugRulesIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/rules/index'
+import { Route as AuthenticatedOOrgSSiteSlugPointsIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/points/index'
+import { Route as AuthenticatedOOrgSSiteSlugHistoryIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/history/index'
+import { Route as AuthenticatedOOrgSSiteSlugFlowsIndexRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/flows/index'
+import { Route as AuthenticatedOOrgSSiteSlugRunsRunIdRouteImport } from './routes/_authenticated/o/$org/s/$siteSlug/runs/$runId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -77,56 +82,11 @@ const AuthenticatedSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedTenantsIndexRoute =
-  AuthenticatedTenantsIndexRouteImport.update({
-    id: '/tenants/',
-    path: '/tenants/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedSparksIndexRoute =
-  AuthenticatedSparksIndexRouteImport.update({
-    id: '/sparks/',
-    path: '/sparks/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedRunsIndexRoute = AuthenticatedRunsIndexRouteImport.update({
-  id: '/runs/',
-  path: '/runs/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedRulesIndexRoute = AuthenticatedRulesIndexRouteImport.update({
-  id: '/rules/',
-  path: '/rules/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPointsIndexRoute =
-  AuthenticatedPointsIndexRouteImport.update({
-    id: '/points/',
-    path: '/points/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedHistoryIndexRoute =
-  AuthenticatedHistoryIndexRouteImport.update({
-    id: '/history/',
-    path: '/history/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedFlowsIndexRoute = AuthenticatedFlowsIndexRouteImport.update({
-  id: '/flows/',
-  path: '/flows/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedBuilderIndexRoute =
-  AuthenticatedBuilderIndexRouteImport.update({
-    id: '/builder/',
-    path: '/builder/',
-    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSettingsDisplayRoute =
   AuthenticatedSettingsDisplayRouteImport.update({
@@ -140,16 +100,93 @@ const AuthenticatedSettingsAppearanceRoute =
     path: '/appearance',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedRunsRunIdRoute = AuthenticatedRunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOOrgRouteRoute = AuthenticatedOOrgRouteRouteImport.update({
+  id: '/o/$org',
+  path: '/o/$org',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOOrgIndexRoute = AuthenticatedOOrgIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedOOrgRouteRoute,
+} as any)
+const AuthenticatedOOrgDashboardsIndexRoute =
+  AuthenticatedOOrgDashboardsIndexRouteImport.update({
+    id: '/dashboards/',
+    path: '/dashboards/',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgSettingsOrgsRoute =
+  AuthenticatedOOrgSettingsOrgsRouteImport.update({
+    id: '/settings/orgs',
+    path: '/settings/orgs',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugRouteRoute =
+  AuthenticatedOOrgSSiteSlugRouteRouteImport.update({
+    id: '/s/$siteSlug',
+    path: '/s/$siteSlug',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgDashboardsDashSlugIndexRoute =
+  AuthenticatedOOrgDashboardsDashSlugIndexRouteImport.update({
+    id: '/dashboards/$dashSlug/',
+    path: '/dashboards/$dashSlug/',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgDashboardsDashSlugEditRoute =
+  AuthenticatedOOrgDashboardsDashSlugEditRouteImport.update({
+    id: '/dashboards/$dashSlug/edit',
+    path: '/dashboards/$dashSlug/edit',
+    getParentRoute: () => AuthenticatedOOrgRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugSparksIndexRoute =
+  AuthenticatedOOrgSSiteSlugSparksIndexRouteImport.update({
+    id: '/sparks/',
+    path: '/sparks/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugRunsIndexRoute =
+  AuthenticatedOOrgSSiteSlugRunsIndexRouteImport.update({
+    id: '/runs/',
+    path: '/runs/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugRulesIndexRoute =
+  AuthenticatedOOrgSSiteSlugRulesIndexRouteImport.update({
+    id: '/rules/',
+    path: '/rules/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugPointsIndexRoute =
+  AuthenticatedOOrgSSiteSlugPointsIndexRouteImport.update({
+    id: '/points/',
+    path: '/points/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugHistoryIndexRoute =
+  AuthenticatedOOrgSSiteSlugHistoryIndexRouteImport.update({
+    id: '/history/',
+    path: '/history/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugFlowsIndexRoute =
+  AuthenticatedOOrgSSiteSlugFlowsIndexRouteImport.update({
+    id: '/flows/',
+    path: '/flows/',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
+  } as any)
+const AuthenticatedOOrgSSiteSlugRunsRunIdRoute =
+  AuthenticatedOOrgSSiteSlugRunsRunIdRouteImport.update({
+    id: '/runs/$runId',
+    path: '/runs/$runId',
+    getParentRoute: () => AuthenticatedOOrgSSiteSlugRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -161,19 +198,24 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/o/$org': typeof AuthenticatedOOrgRouteRouteWithChildren
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
-  '/runs/$runId': typeof AuthenticatedRunsRunIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
-  '/builder/': typeof AuthenticatedBuilderIndexRoute
-  '/flows/': typeof AuthenticatedFlowsIndexRoute
-  '/history/': typeof AuthenticatedHistoryIndexRoute
-  '/points/': typeof AuthenticatedPointsIndexRoute
-  '/rules/': typeof AuthenticatedRulesIndexRoute
-  '/runs/': typeof AuthenticatedRunsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/sparks/': typeof AuthenticatedSparksIndexRoute
-  '/tenants/': typeof AuthenticatedTenantsIndexRoute
+  '/o/$org/': typeof AuthenticatedOOrgIndexRoute
+  '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/o/$org/dashboards/': typeof AuthenticatedOOrgDashboardsIndexRoute
+  '/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
+  '/o/$org/dashboards/$dashSlug/': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
+  '/o/$org/s/$siteSlug/runs/$runId': typeof AuthenticatedOOrgSSiteSlugRunsRunIdRoute
+  '/o/$org/s/$siteSlug/flows/': typeof AuthenticatedOOrgSSiteSlugFlowsIndexRoute
+  '/o/$org/s/$siteSlug/history/': typeof AuthenticatedOOrgSSiteSlugHistoryIndexRoute
+  '/o/$org/s/$siteSlug/points/': typeof AuthenticatedOOrgSSiteSlugPointsIndexRoute
+  '/o/$org/s/$siteSlug/rules/': typeof AuthenticatedOOrgSSiteSlugRulesIndexRoute
+  '/o/$org/s/$siteSlug/runs/': typeof AuthenticatedOOrgSSiteSlugRunsIndexRoute
+  '/o/$org/s/$siteSlug/sparks/': typeof AuthenticatedOOrgSSiteSlugSparksIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof authSignInRoute
@@ -184,18 +226,22 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
-  '/runs/$runId': typeof AuthenticatedRunsRunIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
-  '/builder': typeof AuthenticatedBuilderIndexRoute
-  '/flows': typeof AuthenticatedFlowsIndexRoute
-  '/history': typeof AuthenticatedHistoryIndexRoute
-  '/points': typeof AuthenticatedPointsIndexRoute
-  '/rules': typeof AuthenticatedRulesIndexRoute
-  '/runs': typeof AuthenticatedRunsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
-  '/sparks': typeof AuthenticatedSparksIndexRoute
-  '/tenants': typeof AuthenticatedTenantsIndexRoute
+  '/o/$org': typeof AuthenticatedOOrgIndexRoute
+  '/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/o/$org/dashboards': typeof AuthenticatedOOrgDashboardsIndexRoute
+  '/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
+  '/o/$org/dashboards/$dashSlug': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
+  '/o/$org/s/$siteSlug/runs/$runId': typeof AuthenticatedOOrgSSiteSlugRunsRunIdRoute
+  '/o/$org/s/$siteSlug/flows': typeof AuthenticatedOOrgSSiteSlugFlowsIndexRoute
+  '/o/$org/s/$siteSlug/history': typeof AuthenticatedOOrgSSiteSlugHistoryIndexRoute
+  '/o/$org/s/$siteSlug/points': typeof AuthenticatedOOrgSSiteSlugPointsIndexRoute
+  '/o/$org/s/$siteSlug/rules': typeof AuthenticatedOOrgSSiteSlugRulesIndexRoute
+  '/o/$org/s/$siteSlug/runs': typeof AuthenticatedOOrgSSiteSlugRunsIndexRoute
+  '/o/$org/s/$siteSlug/sparks': typeof AuthenticatedOOrgSSiteSlugSparksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -208,19 +254,24 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/o/$org': typeof AuthenticatedOOrgRouteRouteWithChildren
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
-  '/_authenticated/runs/$runId': typeof AuthenticatedRunsRunIdRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
-  '/_authenticated/builder/': typeof AuthenticatedBuilderIndexRoute
-  '/_authenticated/flows/': typeof AuthenticatedFlowsIndexRoute
-  '/_authenticated/history/': typeof AuthenticatedHistoryIndexRoute
-  '/_authenticated/points/': typeof AuthenticatedPointsIndexRoute
-  '/_authenticated/rules/': typeof AuthenticatedRulesIndexRoute
-  '/_authenticated/runs/': typeof AuthenticatedRunsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/_authenticated/sparks/': typeof AuthenticatedSparksIndexRoute
-  '/_authenticated/tenants/': typeof AuthenticatedTenantsIndexRoute
+  '/_authenticated/o/$org/': typeof AuthenticatedOOrgIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug': typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  '/_authenticated/o/$org/settings/orgs': typeof AuthenticatedOOrgSettingsOrgsRoute
+  '/_authenticated/o/$org/dashboards/': typeof AuthenticatedOOrgDashboardsIndexRoute
+  '/_authenticated/o/$org/dashboards/$dashSlug/edit': typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
+  '/_authenticated/o/$org/dashboards/$dashSlug/': typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/runs/$runId': typeof AuthenticatedOOrgSSiteSlugRunsRunIdRoute
+  '/_authenticated/o/$org/s/$siteSlug/flows/': typeof AuthenticatedOOrgSSiteSlugFlowsIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/history/': typeof AuthenticatedOOrgSSiteSlugHistoryIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/points/': typeof AuthenticatedOOrgSSiteSlugPointsIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/rules/': typeof AuthenticatedOOrgSSiteSlugRulesIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/runs/': typeof AuthenticatedOOrgSSiteSlugRunsIndexRoute
+  '/_authenticated/o/$org/s/$siteSlug/sparks/': typeof AuthenticatedOOrgSSiteSlugSparksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -233,19 +284,24 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/o/$org'
     | '/errors/$error'
-    | '/runs/$runId'
     | '/settings/appearance'
     | '/settings/display'
-    | '/builder/'
-    | '/flows/'
-    | '/history/'
-    | '/points/'
-    | '/rules/'
-    | '/runs/'
     | '/settings/'
-    | '/sparks/'
-    | '/tenants/'
+    | '/o/$org/'
+    | '/o/$org/s/$siteSlug'
+    | '/o/$org/settings/orgs'
+    | '/o/$org/dashboards/'
+    | '/o/$org/dashboards/$dashSlug/edit'
+    | '/o/$org/dashboards/$dashSlug/'
+    | '/o/$org/s/$siteSlug/runs/$runId'
+    | '/o/$org/s/$siteSlug/flows/'
+    | '/o/$org/s/$siteSlug/history/'
+    | '/o/$org/s/$siteSlug/points/'
+    | '/o/$org/s/$siteSlug/rules/'
+    | '/o/$org/s/$siteSlug/runs/'
+    | '/o/$org/s/$siteSlug/sparks/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sign-in'
@@ -256,18 +312,22 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/errors/$error'
-    | '/runs/$runId'
     | '/settings/appearance'
     | '/settings/display'
-    | '/builder'
-    | '/flows'
-    | '/history'
-    | '/points'
-    | '/rules'
-    | '/runs'
     | '/settings'
-    | '/sparks'
-    | '/tenants'
+    | '/o/$org'
+    | '/o/$org/s/$siteSlug'
+    | '/o/$org/settings/orgs'
+    | '/o/$org/dashboards'
+    | '/o/$org/dashboards/$dashSlug/edit'
+    | '/o/$org/dashboards/$dashSlug'
+    | '/o/$org/s/$siteSlug/runs/$runId'
+    | '/o/$org/s/$siteSlug/flows'
+    | '/o/$org/s/$siteSlug/history'
+    | '/o/$org/s/$siteSlug/points'
+    | '/o/$org/s/$siteSlug/rules'
+    | '/o/$org/s/$siteSlug/runs'
+    | '/o/$org/s/$siteSlug/sparks'
   id:
     | '__root__'
     | '/_authenticated'
@@ -279,19 +339,24 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/'
+    | '/_authenticated/o/$org'
     | '/_authenticated/errors/$error'
-    | '/_authenticated/runs/$runId'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
-    | '/_authenticated/builder/'
-    | '/_authenticated/flows/'
-    | '/_authenticated/history/'
-    | '/_authenticated/points/'
-    | '/_authenticated/rules/'
-    | '/_authenticated/runs/'
     | '/_authenticated/settings/'
-    | '/_authenticated/sparks/'
-    | '/_authenticated/tenants/'
+    | '/_authenticated/o/$org/'
+    | '/_authenticated/o/$org/s/$siteSlug'
+    | '/_authenticated/o/$org/settings/orgs'
+    | '/_authenticated/o/$org/dashboards/'
+    | '/_authenticated/o/$org/dashboards/$dashSlug/edit'
+    | '/_authenticated/o/$org/dashboards/$dashSlug/'
+    | '/_authenticated/o/$org/s/$siteSlug/runs/$runId'
+    | '/_authenticated/o/$org/s/$siteSlug/flows/'
+    | '/_authenticated/o/$org/s/$siteSlug/history/'
+    | '/_authenticated/o/$org/s/$siteSlug/points/'
+    | '/_authenticated/o/$org/s/$siteSlug/rules/'
+    | '/_authenticated/o/$org/s/$siteSlug/runs/'
+    | '/_authenticated/o/$org/s/$siteSlug/sparks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -369,68 +434,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/tenants/': {
-      id: '/_authenticated/tenants/'
-      path: '/tenants'
-      fullPath: '/tenants/'
-      preLoaderRoute: typeof AuthenticatedTenantsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/sparks/': {
-      id: '/_authenticated/sparks/'
-      path: '/sparks'
-      fullPath: '/sparks/'
-      preLoaderRoute: typeof AuthenticatedSparksIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/runs/': {
-      id: '/_authenticated/runs/'
-      path: '/runs'
-      fullPath: '/runs/'
-      preLoaderRoute: typeof AuthenticatedRunsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/rules/': {
-      id: '/_authenticated/rules/'
-      path: '/rules'
-      fullPath: '/rules/'
-      preLoaderRoute: typeof AuthenticatedRulesIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/points/': {
-      id: '/_authenticated/points/'
-      path: '/points'
-      fullPath: '/points/'
-      preLoaderRoute: typeof AuthenticatedPointsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/history/': {
-      id: '/_authenticated/history/'
-      path: '/history'
-      fullPath: '/history/'
-      preLoaderRoute: typeof AuthenticatedHistoryIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/flows/': {
-      id: '/_authenticated/flows/'
-      path: '/flows'
-      fullPath: '/flows/'
-      preLoaderRoute: typeof AuthenticatedFlowsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/builder/': {
-      id: '/_authenticated/builder/'
-      path: '/builder'
-      fullPath: '/builder/'
-      preLoaderRoute: typeof AuthenticatedBuilderIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings/display': {
       id: '/_authenticated/settings/display'
@@ -446,19 +455,110 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAppearanceRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/runs/$runId': {
-      id: '/_authenticated/runs/$runId'
-      path: '/runs/$runId'
-      fullPath: '/runs/$runId'
-      preLoaderRoute: typeof AuthenticatedRunsRunIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/errors/$error': {
       id: '/_authenticated/errors/$error'
       path: '/errors/$error'
       fullPath: '/errors/$error'
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/o/$org': {
+      id: '/_authenticated/o/$org'
+      path: '/o/$org'
+      fullPath: '/o/$org'
+      preLoaderRoute: typeof AuthenticatedOOrgRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/o/$org/': {
+      id: '/_authenticated/o/$org/'
+      path: '/'
+      fullPath: '/o/$org/'
+      preLoaderRoute: typeof AuthenticatedOOrgIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/dashboards/': {
+      id: '/_authenticated/o/$org/dashboards/'
+      path: '/dashboards'
+      fullPath: '/o/$org/dashboards/'
+      preLoaderRoute: typeof AuthenticatedOOrgDashboardsIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/settings/orgs': {
+      id: '/_authenticated/o/$org/settings/orgs'
+      path: '/settings/orgs'
+      fullPath: '/o/$org/settings/orgs'
+      preLoaderRoute: typeof AuthenticatedOOrgSettingsOrgsRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug': {
+      id: '/_authenticated/o/$org/s/$siteSlug'
+      path: '/s/$siteSlug'
+      fullPath: '/o/$org/s/$siteSlug'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugRouteRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/dashboards/$dashSlug/': {
+      id: '/_authenticated/o/$org/dashboards/$dashSlug/'
+      path: '/dashboards/$dashSlug'
+      fullPath: '/o/$org/dashboards/$dashSlug/'
+      preLoaderRoute: typeof AuthenticatedOOrgDashboardsDashSlugIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/dashboards/$dashSlug/edit': {
+      id: '/_authenticated/o/$org/dashboards/$dashSlug/edit'
+      path: '/dashboards/$dashSlug/edit'
+      fullPath: '/o/$org/dashboards/$dashSlug/edit'
+      preLoaderRoute: typeof AuthenticatedOOrgDashboardsDashSlugEditRouteImport
+      parentRoute: typeof AuthenticatedOOrgRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/sparks/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/sparks/'
+      path: '/sparks'
+      fullPath: '/o/$org/s/$siteSlug/sparks/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugSparksIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/runs/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/runs/'
+      path: '/runs'
+      fullPath: '/o/$org/s/$siteSlug/runs/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugRunsIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/rules/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/rules/'
+      path: '/rules'
+      fullPath: '/o/$org/s/$siteSlug/rules/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugRulesIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/points/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/points/'
+      path: '/points'
+      fullPath: '/o/$org/s/$siteSlug/points/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugPointsIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/history/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/history/'
+      path: '/history'
+      fullPath: '/o/$org/s/$siteSlug/history/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugHistoryIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/flows/': {
+      id: '/_authenticated/o/$org/s/$siteSlug/flows/'
+      path: '/flows'
+      fullPath: '/o/$org/s/$siteSlug/flows/'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugFlowsIndexRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
+    }
+    '/_authenticated/o/$org/s/$siteSlug/runs/$runId': {
+      id: '/_authenticated/o/$org/s/$siteSlug/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/o/$org/s/$siteSlug/runs/$runId'
+      preLoaderRoute: typeof AuthenticatedOOrgSSiteSlugRunsRunIdRouteImport
+      parentRoute: typeof AuthenticatedOOrgSSiteSlugRouteRoute
     }
   }
 }
@@ -481,34 +581,79 @@ const AuthenticatedSettingsRouteRouteWithChildren =
     AuthenticatedSettingsRouteRouteChildren,
   )
 
+interface AuthenticatedOOrgSSiteSlugRouteRouteChildren {
+  AuthenticatedOOrgSSiteSlugRunsRunIdRoute: typeof AuthenticatedOOrgSSiteSlugRunsRunIdRoute
+  AuthenticatedOOrgSSiteSlugFlowsIndexRoute: typeof AuthenticatedOOrgSSiteSlugFlowsIndexRoute
+  AuthenticatedOOrgSSiteSlugHistoryIndexRoute: typeof AuthenticatedOOrgSSiteSlugHistoryIndexRoute
+  AuthenticatedOOrgSSiteSlugPointsIndexRoute: typeof AuthenticatedOOrgSSiteSlugPointsIndexRoute
+  AuthenticatedOOrgSSiteSlugRulesIndexRoute: typeof AuthenticatedOOrgSSiteSlugRulesIndexRoute
+  AuthenticatedOOrgSSiteSlugRunsIndexRoute: typeof AuthenticatedOOrgSSiteSlugRunsIndexRoute
+  AuthenticatedOOrgSSiteSlugSparksIndexRoute: typeof AuthenticatedOOrgSSiteSlugSparksIndexRoute
+}
+
+const AuthenticatedOOrgSSiteSlugRouteRouteChildren: AuthenticatedOOrgSSiteSlugRouteRouteChildren =
+  {
+    AuthenticatedOOrgSSiteSlugRunsRunIdRoute:
+      AuthenticatedOOrgSSiteSlugRunsRunIdRoute,
+    AuthenticatedOOrgSSiteSlugFlowsIndexRoute:
+      AuthenticatedOOrgSSiteSlugFlowsIndexRoute,
+    AuthenticatedOOrgSSiteSlugHistoryIndexRoute:
+      AuthenticatedOOrgSSiteSlugHistoryIndexRoute,
+    AuthenticatedOOrgSSiteSlugPointsIndexRoute:
+      AuthenticatedOOrgSSiteSlugPointsIndexRoute,
+    AuthenticatedOOrgSSiteSlugRulesIndexRoute:
+      AuthenticatedOOrgSSiteSlugRulesIndexRoute,
+    AuthenticatedOOrgSSiteSlugRunsIndexRoute:
+      AuthenticatedOOrgSSiteSlugRunsIndexRoute,
+    AuthenticatedOOrgSSiteSlugSparksIndexRoute:
+      AuthenticatedOOrgSSiteSlugSparksIndexRoute,
+  }
+
+const AuthenticatedOOrgSSiteSlugRouteRouteWithChildren =
+  AuthenticatedOOrgSSiteSlugRouteRoute._addFileChildren(
+    AuthenticatedOOrgSSiteSlugRouteRouteChildren,
+  )
+
+interface AuthenticatedOOrgRouteRouteChildren {
+  AuthenticatedOOrgIndexRoute: typeof AuthenticatedOOrgIndexRoute
+  AuthenticatedOOrgSSiteSlugRouteRoute: typeof AuthenticatedOOrgSSiteSlugRouteRouteWithChildren
+  AuthenticatedOOrgSettingsOrgsRoute: typeof AuthenticatedOOrgSettingsOrgsRoute
+  AuthenticatedOOrgDashboardsIndexRoute: typeof AuthenticatedOOrgDashboardsIndexRoute
+  AuthenticatedOOrgDashboardsDashSlugEditRoute: typeof AuthenticatedOOrgDashboardsDashSlugEditRoute
+  AuthenticatedOOrgDashboardsDashSlugIndexRoute: typeof AuthenticatedOOrgDashboardsDashSlugIndexRoute
+}
+
+const AuthenticatedOOrgRouteRouteChildren: AuthenticatedOOrgRouteRouteChildren =
+  {
+    AuthenticatedOOrgIndexRoute: AuthenticatedOOrgIndexRoute,
+    AuthenticatedOOrgSSiteSlugRouteRoute:
+      AuthenticatedOOrgSSiteSlugRouteRouteWithChildren,
+    AuthenticatedOOrgSettingsOrgsRoute: AuthenticatedOOrgSettingsOrgsRoute,
+    AuthenticatedOOrgDashboardsIndexRoute:
+      AuthenticatedOOrgDashboardsIndexRoute,
+    AuthenticatedOOrgDashboardsDashSlugEditRoute:
+      AuthenticatedOOrgDashboardsDashSlugEditRoute,
+    AuthenticatedOOrgDashboardsDashSlugIndexRoute:
+      AuthenticatedOOrgDashboardsDashSlugIndexRoute,
+  }
+
+const AuthenticatedOOrgRouteRouteWithChildren =
+  AuthenticatedOOrgRouteRoute._addFileChildren(
+    AuthenticatedOOrgRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedOOrgRouteRoute: typeof AuthenticatedOOrgRouteRouteWithChildren
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
-  AuthenticatedRunsRunIdRoute: typeof AuthenticatedRunsRunIdRoute
-  AuthenticatedBuilderIndexRoute: typeof AuthenticatedBuilderIndexRoute
-  AuthenticatedFlowsIndexRoute: typeof AuthenticatedFlowsIndexRoute
-  AuthenticatedHistoryIndexRoute: typeof AuthenticatedHistoryIndexRoute
-  AuthenticatedPointsIndexRoute: typeof AuthenticatedPointsIndexRoute
-  AuthenticatedRulesIndexRoute: typeof AuthenticatedRulesIndexRoute
-  AuthenticatedRunsIndexRoute: typeof AuthenticatedRunsIndexRoute
-  AuthenticatedSparksIndexRoute: typeof AuthenticatedSparksIndexRoute
-  AuthenticatedTenantsIndexRoute: typeof AuthenticatedTenantsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedOOrgRouteRoute: AuthenticatedOOrgRouteRouteWithChildren,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
-  AuthenticatedRunsRunIdRoute: AuthenticatedRunsRunIdRoute,
-  AuthenticatedBuilderIndexRoute: AuthenticatedBuilderIndexRoute,
-  AuthenticatedFlowsIndexRoute: AuthenticatedFlowsIndexRoute,
-  AuthenticatedHistoryIndexRoute: AuthenticatedHistoryIndexRoute,
-  AuthenticatedPointsIndexRoute: AuthenticatedPointsIndexRoute,
-  AuthenticatedRulesIndexRoute: AuthenticatedRulesIndexRoute,
-  AuthenticatedRunsIndexRoute: AuthenticatedRunsIndexRoute,
-  AuthenticatedSparksIndexRoute: AuthenticatedSparksIndexRoute,
-  AuthenticatedTenantsIndexRoute: AuthenticatedTenantsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

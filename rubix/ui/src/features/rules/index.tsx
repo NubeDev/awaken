@@ -27,7 +27,7 @@ export function Rules() {
   const { site } = useActiveSite()
   const org = site?.org
   const { data: rules = [], isLoading } = useRules(org)
-  const search = useSearch({ from: '/_authenticated/rules/' })
+  const search = useSearch({ strict: false }) as { tab?: 'rules' | 'query' }
   const [tab, setTab] = useState<StudioTab>(search.tab === 'query' ? 'query' : 'rules')
   const [filter, setFilter] = useState('')
   // `null` selection with `creating` true = the "new rule" draft.

@@ -10,9 +10,11 @@ use tokio::sync::watch;
 use super::evaluate::{evaluate, BoardRunDeps};
 
 /// Drive one interval board until shutdown. Owns no graph: it looks the board
-/// up by slug each tick, so disabling or deleting the board makes the next
-/// tick a no-op rather than running a stale graph.
+/// up by its globally-unique id each tick (so it needs no org/site scope), and
+/// disabling or deleting the board makes the next tick a no-op rather than
+/// running a stale graph. `slug` is carried for logging only.
 pub(super) async fn run_interval(
+    board_id: uuid::Uuid,
     slug: String,
     seconds: u64,
     deps: BoardRunDeps,
@@ -29,8 +31,7 @@ pub(super) async fn run_interval(
             _ = ticker.tick() => {
                 let lookup = {
                     let store = deps.store.clone();
-                    let slug = slug.clone();
-                    tokio::task::spawn_blocking(move || store.get_board(&slug)).await
+                    tokio::task::spawn_blocking(move || store.get_board_by_id(board_id)).await
                 };
                 match lookup {
                     Ok(Ok(board)) if board.is_scheduled() => {

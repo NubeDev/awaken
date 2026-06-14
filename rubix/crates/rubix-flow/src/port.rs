@@ -9,10 +9,23 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 use rubix_core::{HisSample, PointValue, SparkSeverity};
 use rubix_rules::RuleStore;
 
 use crate::error::FlowAccessError;
+
+/// A pushed point update from [`PointAccess::watch`]: the point's keyexpr and its
+/// new value (`None` when cleared). The event-driven counterpart to the pull-only
+/// [`PointAccess::read_point`], so the engine and the live bus can react to a
+/// change instead of polling every referenced point each scan.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WatchSample {
+    /// The point's keyexpr (`{org}/{site}/{equip-path}/{point}`).
+    pub keyexpr: String,
+    /// The new value, or `None` if the point was cleared.
+    pub value: Option<PointValue>,
+}
 
 /// A finding a rule board wants to record. The board names the owning site by
 /// its `{org}/{site}` keyexpr prefix (the same way it addresses points); the
@@ -93,6 +106,21 @@ pub trait PointAccess: Send + Sync + 'static {
     /// History samples for a point, most recent first, capped at `limit`.
     async fn query_his(&self, keyexpr: &str, limit: usize)
         -> Result<Vec<HisSample>, FlowAccessError>;
+
+    /// Subscribe to live updates for every point under `prefix` (which may be a
+    /// keyexpr wildcard), as a stream of [`WatchSample`]. The push-capable
+    /// counterpart to [`Self::read_point`] — the one event substrate the engine
+    /// and the live bus build on, so neither has to poll. The default fails
+    /// closed (no event source), so a fake or bus-less access yields no stream.
+    /// Dropping the returned stream tears down the underlying subscription.
+    async fn watch(
+        &self,
+        _prefix: &str,
+    ) -> Result<BoxStream<'static, WatchSample>, FlowAccessError> {
+        Err(FlowAccessError::Unsupported(
+            "watch: this point access has no event source".into(),
+        ))
+    }
 
     /// Record a rule-board finding. The default implementation rejects it, so
     /// a `PointAccess` that does not back a store (test fakes) need not handle

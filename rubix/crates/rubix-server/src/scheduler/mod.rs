@@ -144,14 +144,11 @@ impl Scheduler {
                 tokio::spawn(interval::run_interval(id, slug.clone(), seconds, deps, rx))
             }
             Trigger::Subscription { key } => match &inner.bus {
-                Some(bus) => tokio::spawn(subscribe::run_subscription(
-                    id,
-                    slug.clone(),
-                    key,
-                    bus.clone(),
-                    deps,
-                    rx,
-                )),
+                // The bus is required for the `watch` subscription; `deps` carries
+                // it, so the loop declares the watch through the seam itself.
+                Some(_) => {
+                    tokio::spawn(subscribe::run_subscription(id, slug.clone(), key, deps, rx))
+                }
                 None => {
                     tracing::warn!(
                         board = %slug,

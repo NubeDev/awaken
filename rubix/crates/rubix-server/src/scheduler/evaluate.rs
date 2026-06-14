@@ -47,6 +47,16 @@ impl BoardRunDeps {
                 .with_datasources(self.datasources.clone()),
         )
     }
+
+    /// A bus-backed access for declaring a `watch` subscription (the only
+    /// capability the subscription loop needs from the seam). Carries no tenant
+    /// scope — the subscription key is operator-authored, like the board itself.
+    pub(super) fn watch_access(&self) -> Arc<StorePointAccess> {
+        Arc::new(StorePointAccess::with_bus(
+            self.store.clone(),
+            self.bus.clone(),
+        ))
+    }
 }
 
 /// Run `graph` once over the store. Logs at debug on success and warn on

@@ -11,10 +11,14 @@ use awaken_runtime::run::RunActivation;
 use awaken_runtime::AgentRuntime;
 use awaken_runtime_contract::contract::message::Message;
 use chrono::Utc;
+use futures::channel::mpsc;
+use futures::stream::{BoxStream, StreamExt};
+use futures::SinkExt;
 use rubix_core::{HisSample, PointValue, Spark};
 use rubix_datasource::{DatasourceRegistry, Param, Params};
 use rubix_flow::{
     AgentOutcome, AgentRequest, DatasourceQuery, FlowAccessError, PointAccess, SparkDraft,
+    WatchSample,
 };
 use uuid::Uuid;
 
@@ -147,6 +151,40 @@ impl PointAccess for StorePointAccess {
             Ok(store.his_query(id, None, None, limit)?)
         })
         .await
+    }
+
+    /// Subscribe to live `cur` updates under `prefix` over the zenoh bus. A
+    /// forwarder task owns the subscriber (keeping the declaration alive) and
+    /// pushes decoded samples onto the returned stream; dropping the stream
+    /// closes the channel, ends the forwarder, and undeclares the subscriber.
+    /// Fails closed when no bus is wired.
+    async fn watch(
+        &self,
+        prefix: &str,
+    ) -> Result<BoxStream<'static, WatchSample>, FlowAccessError> {
+        let bus = self.bus.as_ref().ok_or_else(|| {
+            FlowAccessError::Unsupported("watch: no bus on this board access".into())
+        })?;
+        let subscriber = bus
+            .session_clone()
+            .declare_subscriber(prefix.to_string())
+            .await
+            .map_err(|e| FlowAccessError::Store(format!("watch declare: {e}")))?;
+        let (mut tx, rx) = mpsc::channel::<WatchSample>(64);
+        tokio::spawn(async move {
+            let mut stream = subscriber.stream();
+            while let Some(sample) = stream.next().await {
+                let keyexpr = sample.key_expr().as_str().to_string();
+                // cur is JSON-encoded `PointValue`; a non-decodable payload
+                // (e.g. a cleared null) yields `None`.
+                let value = serde_json::from_slice::<PointValue>(&sample.payload().to_bytes()).ok();
+                if tx.send(WatchSample { keyexpr, value }).await.is_err() {
+                    break; // consumer dropped the stream
+                }
+            }
+            // `subscriber` drops here → the zenoh subscription is undeclared.
+        });
+        Ok(rx.boxed())
     }
 
     /// Persist a rule-board finding and, when a bus is present, publish it on

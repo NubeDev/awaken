@@ -8,8 +8,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::stream::BoxStream;
 use rubix_core::{HisSample, PointValue};
-use rubix_flow::{AgentOutcome, AgentRequest, FlowAccessError, PointAccess, SparkDraft};
+use rubix_flow::{
+    AgentOutcome, AgentRequest, FlowAccessError, PointAccess, SparkDraft, WatchSample,
+};
 
 use crate::scope::TenantScope;
 
@@ -80,6 +83,13 @@ impl PointAccess for ScopedPointAccess {
         request: AgentRequest,
     ) -> Result<AgentOutcome, FlowAccessError> {
         self.inner.request_agent_awaited(request).await
+    }
+
+    async fn watch(
+        &self,
+        prefix: &str,
+    ) -> Result<BoxStream<'static, WatchSample>, FlowAccessError> {
+        self.inner.watch(prefix).await
     }
 }
 

@@ -1,41 +1,31 @@
-//! Process-global state for self-paced `trigger` nodes. Each interval scheduler
-//! tick rebuilds the board's network and actor instances fresh, so a trigger's
-//! period clock, toggle level, fire count, and boot flag cannot live in the
-//! actor — they reset every tick. This registry holds that state outside the
-//! per-tick actor, keyed by node id, surviving across ticks for the life of the
-//! server process. A server restart clears it: that is what makes `boot` true
-//! again on the first fire after start.
+//! Retained state for a self-paced `trigger` node. On the persistent scan engine
+//! the trigger actor lives across scans, so its clock/count/level now live in the
+//! actor's own state ([`reflow_actor::MemoryState`]) rather than a process-global
+//! map. A one-shot `run()` rebuilds the network, so each such run starts from a
+//! fresh slot — its first fire is the boot fire.
+//!
+//! The slot is JSON (it round-trips through `MemoryState`), so timing uses a
+//! wall-clock millis stamp instead of a monotonic `Instant`; acceptable for the
+//! supervisory sec/min/hour cadences a `trigger` paces.
 
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
 
 /// One trigger node's retained state between fires.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct TriggerSlot {
-    /// When the node last fired. `None` until the first fire — the first
-    /// invocation always fires (and is the `boot` fire).
-    pub last_fire: Option<Instant>,
-    /// Total fires since this slot was created (server start).
+    /// Wall-clock millis of the last fire. `None` until the first fire — the
+    /// first invocation always fires (and is the `boot` fire).
+    pub last_fire_ms: Option<i64>,
+    /// Total fires since this slot was created.
     pub count: i64,
     /// The toggle level, flipped on every fire. Starts `false`, so the first
     /// fire emits `true`.
     pub level: bool,
 }
 
-impl TriggerSlot {
-    const fn new() -> Self {
-        Self {
-            last_fire: None,
-            count: 0,
-            level: false,
-        }
-    }
-}
-
 /// The outcome of advancing a trigger slot for one invocation.
 pub struct TriggerFire {
-    /// `true` only on the first fire after server start (the boot fire).
+    /// `true` only on the first fire of this slot (the boot fire).
     pub boot: bool,
     /// Fire count after this fire.
     pub count: i64,
@@ -43,32 +33,21 @@ pub struct TriggerFire {
     pub level: bool,
 }
 
-fn registry() -> &'static Mutex<HashMap<String, TriggerSlot>> {
-    static REGISTRY: OnceLock<Mutex<HashMap<String, TriggerSlot>>> = OnceLock::new();
-    REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-/// Advance the slot for `node_id` given the elapsed-time `period`, using `now`
-/// as the clock reading. Returns `Some(TriggerFire)` when `period` has elapsed
-/// since the last fire (or on the very first invocation), else `None` — the
-/// node stays quiet until its own period elapses, independent of how fast the
-/// scheduler ticks it. The clock is injected so the logic is unit-testable.
-pub fn advance(node_id: &str, period: Duration, now: Instant) -> Option<TriggerFire> {
-    let mut reg = registry().lock().expect("trigger registry poisoned");
-    let slot = reg
-        .entry(node_id.to_string())
-        .or_insert_with(TriggerSlot::new);
-
-    let due = match slot.last_fire {
+/// Advance `slot` for one invocation at wall-clock `now_ms`, given the elapsed
+/// `period_ms`. Returns `Some(TriggerFire)` when `period_ms` has elapsed since
+/// the last fire (or on the very first invocation), else `None` — the node stays
+/// quiet until its own period elapses, independent of how fast it is ticked. Pure
+/// (clock injected), so it is unit-testable.
+pub fn advance(slot: &mut TriggerSlot, period_ms: i64, now_ms: i64) -> Option<TriggerFire> {
+    let due = match slot.last_fire_ms {
         None => true,
-        Some(last) => now.duration_since(last) >= period,
+        Some(last) => now_ms.saturating_sub(last) >= period_ms,
     };
     if !due {
         return None;
     }
-
-    let boot = slot.last_fire.is_none();
-    slot.last_fire = Some(now);
+    let boot = slot.last_fire_ms.is_none();
+    slot.last_fire_ms = Some(now_ms);
     slot.count += 1;
     slot.level = !slot.level;
     Some(TriggerFire {
@@ -82,17 +61,10 @@ pub fn advance(node_id: &str, period: Duration, now: Instant) -> Option<TriggerF
 mod tests {
     use super::*;
 
-    fn unique_id(tag: &str) -> String {
-        // Test ids must not collide with the process-global registry across
-        // tests; tag each by call site.
-        format!("test-{tag}")
-    }
-
     #[test]
     fn first_invocation_is_the_boot_fire() {
-        let id = unique_id("boot");
-        let now = Instant::now();
-        let fire = advance(&id, Duration::from_secs(10), now).expect("first fire");
+        let mut slot = TriggerSlot::default();
+        let fire = advance(&mut slot, 10_000, 0).expect("first fire");
         assert!(fire.boot, "first fire is the boot fire");
         assert_eq!(fire.count, 1);
         assert!(fire.level, "level toggles to true on first fire");
@@ -100,16 +72,15 @@ mod tests {
 
     #[test]
     fn quiet_until_period_elapses_then_fires_without_boot() {
-        let id = unique_id("period");
-        let start = Instant::now();
-        let period = Duration::from_secs(10);
+        let mut slot = TriggerSlot::default();
+        let period = 10_000;
 
-        assert!(advance(&id, period, start).is_some(), "boot fire");
+        assert!(advance(&mut slot, period, 0).is_some(), "boot fire");
         // Before the period elapses: no fire.
-        assert!(advance(&id, period, start + Duration::from_secs(3)).is_none());
-        assert!(advance(&id, period, start + Duration::from_secs(9)).is_none());
+        assert!(advance(&mut slot, period, 3_000).is_none());
+        assert!(advance(&mut slot, period, 9_000).is_none());
         // At/after the period: fires, not a boot fire, count advances, toggles.
-        let fire = advance(&id, period, start + Duration::from_secs(10)).expect("second fire");
+        let fire = advance(&mut slot, period, 10_000).expect("second fire");
         assert!(!fire.boot);
         assert_eq!(fire.count, 2);
         assert!(!fire.level, "level toggles back to false on second fire");

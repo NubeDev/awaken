@@ -286,3 +286,46 @@ async fn board_engine_coalesces_unchanged_writes() {
         "an unchanged value commands the priority array once, then coalesces"
     );
 }
+
+/// A lone `trigger` node (source and terminal) with a tiny period, so it fires
+/// every scan.
+fn trigger_board() -> BoardGraph {
+    serde_json::from_value(json!({
+        "nodes": [
+            {"id": "t1", "component": "trigger", "config": {"every": 0.001, "unit": "sec"}}
+        ],
+        "connections": []
+    }))
+    .expect("parse board")
+}
+
+/// Stage D: the trigger's fire count lives in actor state, which now survives
+/// across scans on the persistent engine — so `count` advances rather than
+/// resetting (it no longer needs the process-global registry).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn trigger_state_persists_across_scans() {
+    let mut engine = trigger_board()
+        .spawn_engine(std::sync::Arc::new(FakeAccess))
+        .expect("spawn engine");
+
+    engine.scan().await;
+    let count_after_first = trigger_count(&engine);
+
+    engine.scan().await;
+    let count_after_second = trigger_count(&engine);
+
+    assert_eq!(count_after_first, Some(json!(1)), "first scan is the boot fire");
+    assert_eq!(
+        count_after_second,
+        Some(json!(2)),
+        "the fire count advances across scans — actor state survived"
+    );
+}
+
+fn trigger_count(engine: &rubix_flow::BoardEngine) -> Option<serde_json::Value> {
+    engine
+        .current_values()
+        .into_iter()
+        .find(|o| o.node == "t1" && o.port == "count")
+        .map(|o| o.value)
+}

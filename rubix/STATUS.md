@@ -13,17 +13,24 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 
 ## Done
 
-Nothing yet. The first workstream (WS-01) stands up the workspace.
+- **WS-01 — Workspace foundation + SurrealDB embedded core store.** Standalone
+  `rubix/` Cargo workspace (`rubix-core`, `rubix-store`, `rubix-server`);
+  `rubix-core` ids + project error enum with `.context()` chaining +
+  `CorrelationId` + `RuntimeConfig`; `rubix-store` embedded SurrealDB boundary
+  (kv-mem / kv-surrealkv, namespace+database bootstrap, schema-init seam, health
+  probe, durable read/write handle, scoped-session issuance seam);
+  `rubix-server` axum binary with `AppState` + `GET /health`;
+  `scripts/check-file-size.sh` 400-line guard.
 
 ---
 
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
-- [ ] Cargo workspace + file-size guard + project error enum (`rubix-core`).
-- [ ] SurrealDB embedded store: connection/namespace bootstrap, schema init,
+- [x] Cargo workspace + file-size guard + project error enum (`rubix-core`).
+- [x] SurrealDB embedded store: connection/namespace bootstrap, schema init,
       health, scoped-session issuance seam (`rubix-store`).
-- [ ] Minimal `rubix-server` binary + `AppState` (health route) to host later wiring.
+- [x] Minimal `rubix-server` binary + `AppState` (health route) to host later wiring.
 
 ### Domain model
 - [ ] Generic record model — schemaless document records, no fixed ontology.
@@ -65,6 +72,17 @@ Nothing yet. The first workstream (WS-01) stands up the workspace.
 - [ ] Edge↔cloud sync shipper over Zenoh (append-only partition + config LWW).
 - [ ] Preferences (units + datetime).
 - [ ] Transport: axum HTTP + JSON-RPC control + WS live-query bridge + OpenAPI.
+
+---
+
+## Environment variables
+
+| Var | Default | Used by | Meaning |
+| --- | --- | --- | --- |
+| `RUBIX_NAMESPACE` | `rubix` | `rubix-server` | SurrealDB namespace to bootstrap/use. |
+| `RUBIX_DATABASE` | `main` | `rubix-server` | SurrealDB database to bootstrap/use. |
+| `RUBIX_DATA_DIR` | `rubix-data` | `rubix-server` | SurrealKV file-backed data directory. |
+| `RUBIX_BIND` | `127.0.0.1:8080` | `rubix-server` | HTTP listen address. |
 
 ---
 

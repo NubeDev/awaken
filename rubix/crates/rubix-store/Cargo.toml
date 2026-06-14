@@ -1,0 +1,18 @@
+[package]
+name = "rubix-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+tokio = { workspace = true }

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rubix-core",
+    "crates/rubix-store",
+    "crates/rubix-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.93"
+
+[workspace.dependencies]
+rubix-core = { version = "0.1.0", path = "crates/rubix-core" }
+rubix-store = { version = "0.1.0", path = "crates/rubix-store" }
+
+anyhow = "1"
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+surrealdb = { version = "3", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

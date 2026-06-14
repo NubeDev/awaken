@@ -1,0 +1,25 @@
+[package]
+name = "rubix-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "rubix-server"
+path = "src/main.rs"
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-store = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

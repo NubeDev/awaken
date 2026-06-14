@@ -7,7 +7,9 @@ pub(crate) mod delete;
 pub(crate) mod dto;
 pub(crate) mod get;
 pub(crate) mod list;
+pub(crate) mod options;
 pub(crate) mod outputs;
+pub(crate) mod outputs_stream;
 pub(crate) mod patch;
 pub(crate) mod run;
 pub(crate) mod run_stored;
@@ -23,6 +25,10 @@ pub(super) fn router() -> Router<AppState> {
         .route(
             "/api/v1/boards/components",
             axum::routing::get(components::list_components),
+        )
+        .route(
+            "/api/v1/boards/options/{source}",
+            axum::routing::get(options::list_options),
         )
         .route(
             "/api/v1/boards",
@@ -41,5 +47,9 @@ pub(super) fn router() -> Router<AppState> {
         .route(
             "/api/v1/boards/{slug}/outputs",
             axum::routing::get(outputs::board_outputs),
+        )
+        .route(
+            "/api/v1/boards/{slug}/outputs/stream",
+            axum::routing::get(outputs_stream::board_outputs_stream),
         )
 }

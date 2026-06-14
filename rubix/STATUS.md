@@ -119,6 +119,37 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   over a record's vector column on the scoped session (SurrealQL first), with the
   table/field-path validated as identifiers to close the one injection surface.
 
+- **WS-10 — Datasource connector framework + Postgres connector.** New
+  `rubix-datasource` crate, the pluggable-connector layer above WS-09's unified
+  surface (SCOPE "Datasources": a datasource is a declared, pluggable connection
+  each registering as a DataFusion `TableProvider`; adding a connector, not
+  changing the core). `connector` module: a `Connector` trait (declared
+  `DatasourceConfig` in → async `TableProvider` out) and the config identity the
+  registry keys on. `registry` module: a `Registry` keyed by datasource id, seeded
+  with the native SurrealDB default (`with_native_default`); `register` runs the
+  pipeline `authorize` (WS-04 `datasource-register` capability, fail closed) →
+  duplicate/reserved-native-id guard → materialise each connector table's provider
+  once → insert; `resolve` looks a datasource id up (unknown id fails closed, not
+  silently empty); `list` returns the declared identities for dashboards; `span`
+  is how the unified surface reads the registry — it gates the query action on the
+  WS-04 `external-query` capability, builds the scoped SurrealDB context through
+  `rubix_query::build_context` (so contract #1 still bounds the SurrealDB rows),
+  registers each external connector's providers under a per-id catalog schema
+  (addressed `"<id>"."<table>"`, no collision with the native canonical names),
+  then runs one read-only `SELECT`/`WITH` across both. `surreal` module: the
+  native engine exposed through the same `Connector` contract (`SurrealConnector`),
+  reusing the WS-09 scoped scan rather than re-reading rows. `postgres` module
+  (`#[cfg(feature = "postgres")]`): a `PostgresConnector` over
+  `datafusion-table-providers` (DataFusion 53), connecting a pooled client from a
+  libpq string and materialising declared tables as providers — absent the feature
+  it never compiles in, so the connector fails closed on the default edge build.
+  Verified on kv-mem: a granted principal registers a second (SurrealDB-backed)
+  connector and a single query spans the native and registered sources; an
+  ungranted register and an ungranted query are both denied; a query naming an
+  unregistered datasource fails to plan; the Postgres round-trip skips cleanly when
+  `RUBIX_TEST_PG` is unset. Minimal additive change to WS-09: `build_context`
+  widened to `pub` so the scoped scan is reused, not duplicated.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -148,7 +179,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] DataFusion `TableProvider` over SurrealDB + unified `/query` surface.
 - [x] Vectorized time-window aggregation feeding rule decisions.
 - [x] Vector / semantic search surface.
-- [ ] Datasource connector framework + Postgres connector.
+- [x] Datasource connector framework + Postgres connector.
 - [ ] MQTT / REST connectors (follow-up behind the framework).
 
 ### Rules / insights
@@ -179,6 +210,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 | `RUBIX_DATA_DIR` | `rubix-data` | `rubix-server` | SurrealKV file-backed data directory. |
 | `RUBIX_BIND` | `127.0.0.1:8080` | `rubix-server` | HTTP listen address. |
 | `RUBIX_TRACE_SAMPLE` | `0.0` | `rubix-trace` | Span drop fraction `[0.0, 1.0]`; `0.0` keeps all, `1.0` drops all. |
+| `RUBIX_TEST_PG` | _(unset)_ | `rubix-datasource` tests | Postgres URL enabling the feature-gated connector round-trip test; unset skips it cleanly. |
 
 ---
 

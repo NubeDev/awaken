@@ -22,7 +22,7 @@ finds its dependencies already committed.
 | WS-07 | Event bus: in-process + live-query data-change | ✅ | 2026-06-14T16:55:12Z | 2026-06-14T17:04:33Z | e5f53b47 |
 | WS-08 | Tracing spans on the bus | ✅ | 2026-06-14T17:15:12Z | 2026-06-14T17:32:00Z | d24b0dd4 |
 | WS-09 | DataFusion query surface over SurrealDB + vector search | ✅ | 2026-06-14T17:40:15Z | 2026-06-15T01:10:00Z | 93b8abef |
-| WS-10 | Datasource connector framework + Postgres connector | ⬜ | | | |
+| WS-10 | Datasource connector framework + Postgres connector | ✅ | 2026-06-14T22:29:24Z | 2026-06-15T02:30:00Z | _pending_ |
 | WS-11 | Rhai rules / insights runtime | ⬜ | | | |
 | WS-12 | Zenoh ingestion + pre-processing | ⬜ | | | |
 | WS-13 | Extensions as scoped principals | ⬜ | | | |
@@ -68,3 +68,4 @@ finds its dependencies already committed.
 - 2026-06-14T17:30:13Z gated WS-08 ✅ (tests green, clippy clean, commit d24b0dd4)
 - 2026-06-14T17:40:15Z spawned WS-09
 - 2026-06-14T18:05:11Z gated WS-09 ✅ (tests green, clippy clean, commit 93b8abef)
+- 2026-06-14T22:29:24Z spawned WS-10

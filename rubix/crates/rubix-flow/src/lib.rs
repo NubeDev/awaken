@@ -14,8 +14,8 @@ mod node;
 mod port;
 
 pub use board::{
-    component_schemas, BoardConnection, BoardGraph, BoardNode, ComponentKind, ComponentSchema,
-    ConfigField, FieldType, NodeOutput, PortSchema, PortType, COMPONENTS,
+    component_schemas, BoardConnection, BoardEngine, BoardGraph, BoardNode, ComponentKind,
+    ComponentSchema, ConfigField, FieldType, NodeOutput, PortSchema, PortType, COMPONENTS,
 };
 pub use error::{FlowAccessError, FlowError};
 pub use node::{

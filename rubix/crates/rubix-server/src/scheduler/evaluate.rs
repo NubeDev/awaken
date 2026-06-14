@@ -33,17 +33,27 @@ pub(super) struct BoardRunDeps {
     pub outputs: BoardOutputs,
 }
 
+impl BoardRunDeps {
+    /// The [`StorePointAccess`] a run of `graph` binds to: store, bus, agent,
+    /// tenant org/site, and datasource registry. Shared by the one-shot
+    /// `evaluate` path and the persistent interval engine so both bind a board to
+    /// the backend identically.
+    pub(super) fn access_for(&self, graph: &BoardGraph) -> Arc<StorePointAccess> {
+        Arc::new(
+            StorePointAccess::with_bus(self.store.clone(), self.bus.clone())
+                .with_agent(self.agent.clone())
+                .with_org(graph.tenant_org())
+                .with_site(graph.tenant_site())
+                .with_datasources(self.datasources.clone()),
+        )
+    }
+}
+
 /// Run `graph` once over the store. Logs at debug on success and warn on
 /// failure; never panics, so a single bad board cannot take down the loop. On
 /// success the run's outputs replace this board's latest entry in the cache.
 pub(super) async fn evaluate(slug: &str, graph: &BoardGraph, deps: &BoardRunDeps) {
-    let access = Arc::new(
-        StorePointAccess::with_bus(deps.store.clone(), deps.bus.clone())
-            .with_agent(deps.agent.clone())
-            .with_org(graph.tenant_org())
-            .with_site(graph.tenant_site())
-            .with_datasources(deps.datasources.clone()),
-    );
+    let access = deps.access_for(graph);
     match graph.run(access).await {
         Ok(outputs) => {
             deps.outputs

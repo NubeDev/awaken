@@ -17,6 +17,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use async_trait::async_trait;
 use reflow_actor::message::Message;
 use reflow_network::network::NetworkEvent;
@@ -153,4 +155,78 @@ async fn message_sent_events_tap_intermediate_link_values() {
     );
 
     net.shutdown();
+}
+
+/// Reads a monotonically increasing value each call, so retained-value updates
+/// across scans are observable.
+#[derive(Default)]
+struct CountingAccess {
+    n: AtomicU64,
+}
+
+#[async_trait]
+impl PointAccess for CountingAccess {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
+        let n = self.n.fetch_add(1, Ordering::SeqCst) + 1;
+        Ok(Some(PointValue::Number(n as f64)))
+    }
+    async fn write_point(
+        &self,
+        _keyexpr: &str,
+        _priority: u8,
+        value: PointValue,
+    ) -> Result<Option<PointValue>, FlowAccessError> {
+        Ok(Some(value))
+    }
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
+        Ok(vec![])
+    }
+}
+
+/// The `BoardEngine` realizes the keystone: one started network scanned
+/// repeatedly, retaining the latest value of each link — interior (r1, from the
+/// event tap) and terminal (w1) — and updating it every scan.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn board_engine_retains_and_updates_link_values_across_scans() {
+    let access = std::sync::Arc::new(CountingAccess::default());
+    let mut engine = read_to_write()
+        .spawn_engine(access)
+        .expect("spawn engine");
+
+    // First scan reads 1 and commands it downstream.
+    engine.scan().await;
+    let after_first = engine.current_values();
+    let r1_first = after_first
+        .iter()
+        .find(|o| o.node == "r1" && o.port == "output")
+        .expect("r1 interior link captured via the event tap");
+    let w1_first = after_first
+        .iter()
+        .find(|o| o.node == "w1" && o.port == "output")
+        .expect("w1 terminal output captured directly");
+    assert_eq!(r1_first.value, json!(1.0));
+    assert_eq!(w1_first.value, json!(1.0));
+
+    // A second scan updates the retained values in place — no rebuild, no blank.
+    engine.scan().await;
+    let after_second = engine.current_values();
+    let w1_second = after_second
+        .iter()
+        .find(|o| o.node == "w1" && o.port == "output")
+        .expect("w1 still present after the second scan");
+    assert_eq!(
+        w1_second.value,
+        json!(2.0),
+        "the retained value advances each scan on the same live network"
+    );
+    // Exactly one value per (node, port) is retained — not an accumulating log.
+    assert_eq!(
+        after_second.iter().filter(|o| o.node == "w1").count(),
+        1,
+        "retained snapshot keeps one value per link"
+    );
 }

@@ -82,7 +82,7 @@ impl BoardGraph {
     }
 
     /// Ids of nodes with no inbound connection — the board's entry points.
-    fn source_nodes(&self) -> Vec<String> {
+    pub(crate) fn source_nodes(&self) -> Vec<String> {
         let sinks: HashSet<&str> = self
             .connections
             .iter()

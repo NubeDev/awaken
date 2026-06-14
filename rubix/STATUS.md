@@ -22,6 +22,13 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   `rubix-server` axum binary with `AppState` + `GET /health`;
   `scripts/check-file-size.sh` 400-line guard.
 
+- **WS-02 — Generic record model + tag graph.** `rubix-core` `record` module
+  (schemaless `Record` with free-form JSON content + create/update timestamps;
+  `create`/`read`/`update`/`delete` over SurrealQL) and `tag` module (`Tag` CRUD;
+  `attach`/`detach` the `record→tagged→tag` edge; `find_records_by_tags`
+  Haystack-style multi-tag set-intersection traversal). `rubix-store::init_schema`
+  now declares the `record`/`tag`/`tagged` (relation) tables `SCHEMALESS`.
+
 ---
 
 ## Not started / remaining (per STACK-DEISGN.md)
@@ -33,8 +40,8 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Minimal `rubix-server` binary + `AppState` (health route) to host later wiring.
 
 ### Domain model
-- [ ] Generic record model — schemaless document records, no fixed ontology.
-- [ ] Tag graph — `record→tagged→tag` graph edges + tag CRUD + tag-filter queries.
+- [x] Generic record model — schemaless document records, no fixed ontology.
+- [x] Tag graph — `record→tagged→tag` graph edges + tag CRUD + tag-filter queries.
 
 ### Access & policy gate
 - [ ] Identity model — users and extensions as scoped principals (one model).

@@ -98,22 +98,27 @@ at the engine boundary, and a cancellation token the scan loop and `watch` strea
 engine shutdown — so one stuck call cannot wedge a scan or leak a task. The single-shot `run()` has a
 120s settle budget today; the persistent engine has no equivalent yet.
 
-### G2 — Pull-only value model, no subscribe/watch (open)
-The seam can only `read_point(one_keyexpr)`. The only event-driven path (the zenoh
-`Subscription` trigger) lives in the scheduler, *outside* the seam. A persistent engine would
-therefore poll every referenced point every scan — pushing the polling problem one layer down —
-and the live-value bus would have nothing push-based to build on. The seam needs a
-`watch(prefix) -> Stream` primitive so both the engine and the bus are event-driven.
+### G2 — Pull-only value model, no subscribe/watch — **closed**
+The seam now has `watch(prefix) -> BoxStream<WatchSample>`
+([`port.rs`](../../../crates/rubix-flow/src/port.rs)), the push-capable counterpart to
+`read_point`, fail-closed by default and implemented on `StorePointAccess` over the zenoh bus (a
+forwarder task owns the subscriber; dropping the stream undeclares it). The scheduler's
+`Subscription` trigger ([`scheduler/subscribe.rs`](../../../crates/rubix-server/src/scheduler/subscribe.rs))
+now consumes `watch` instead of declaring its own subscriber, so there is **one** subscription
+substrate — a future `watch`-consuming node and the trigger can share a key without double-firing.
 
-> **Reconcile with the existing Subscription trigger.** `watch(prefix)` and the scheduler's
-> `Subscription { key }` loop ([`scheduler/subscribe.rs`](../../../crates/rubix-server/src/scheduler/subscribe.rs))
-> both declare a zenoh subscriber on a keyexpr. If a board both has a `Subscription` trigger and a
-> node that `watch`es the same prefix, that is **two** subscribers and double-fires. `watch` must be
-> the single subscription substrate: the `Subscription` trigger becomes a `watch` consumer, not a
-> parallel path. And `watch(prefix)` must be **tenant-scoped** (org/site), or a board could subscribe
-> to another tenant's points — the same authz boundary `ScopedPointAccess` already enforces on reads.
+> **Still to do:** tenant-scope `watch(prefix)` in `ScopedPointAccess` (it currently delegates;
+> subscription keys are operator-authored, like the board, so this is hardening not a hole), and have
+> the `BoardEngine` consume `watch` so a scan is driven by a change rather than the fixed cadence.
 
-### G3 — Link values carry no quality/status/units
+### G3 — Link values carry no quality/status/units — **closed (quality)**
+Every retained link value now carries a `Quality` (`ok`/`fault`/`null`) derived at capture — an
+`error`-port value is `fault`, a JSON null is `null`, else `ok`
+([`board/run.rs`](../../../crates/rubix-flow/src/board/run.rs)). `NodeOutput` and the server
+`PortOutput` (REST + SSE) carry it, so a stored value is self-describing. Units negotiation on link
+values is still future (the `rubix-prefs` unit layer is a separate seam).
+
+### G3 (original note) — Link values carry no quality/status/units
 Outputs are a lossy `serde_json::Value::from(msg)`
 ([`board/run.rs`](../../../crates/rubix-flow/src/board/run.rs)). Niagara/Sedona links carry a
 status flag (`ok / stale / fault / null / overridden`) on every value; here the only status
@@ -218,13 +223,14 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
 - **Done — interval wiring:** `scheduler/interval.rs` builds the engine once and *scans* it every
   `seconds` (the scan rate), rebuilding on a `version` bump (republish) and dropping it on disable.
   The one-shot `run()` stays for subscription, on-demand, and Test Run.
-- **Next — `watch(prefix) -> Stream` (G2):** add it to the seam as a `BoxStream` of
-  `{keyexpr, value, quality, ts}`, tenant-scoped, with a fail-closed default; fold the scheduler's
-  `Subscription` trigger onto it so there is one subscription substrate (§2b / G2).
-- **Next — robustness on the scan loop:** bound each scan with a timeout, keep at most one in-flight
-  scan (Finding 4, G1a); coalesce unchanged `write_point` commands so a 1 Hz board does not re-push
-  the priority array every scan (Finding 5); move SQLite point/history reads to `spawn_blocking`,
-  now that the loop reads on a cadence (G1).
+- **Done — `watch(prefix)` (G2):** added to the seam as a `BoxStream<WatchSample>`, fail-closed by
+  default, implemented over zenoh; the `Subscription` trigger now consumes it (one substrate).
+- **Done — scan-loop robustness:** unchanged `write_point` commands coalesce via actor state
+  (Finding 5); SQLite reads run on `spawn_blocking` and the agent/datasource calls are timeout-bounded
+  (Finding 4, G1, G1a). At-most-one-in-flight scan holds structurally (the interval loop awaits each
+  scan; `MissedTickBehavior::Skip` drops pile-ups).
+- **Still to do:** drive a scan from a `watch` change (event-driven scan) rather than only the fixed
+  cadence; tenant-scope `watch` in `ScopedPointAccess`.
 
 ### Stage B — Live value bus + SSE
 - **Done — server:** `BoardOutputs` holds a per-board `tokio::sync::broadcast`; every `record`
@@ -244,19 +250,30 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
   Intra-graph rate stays on the `trigger` node. `Manual` stays server-side for the Test Run button.
 
 ### Stage D — Persistent component state (true scan model)
-- Migrate `trigger` (and any stateful node) off the process-global `static HashMap` to
-  actor-held state, now that actors live across scans. Removes the registry hack and the
-  restart-coupling of `boot`.
-- Retained link values become the source of truth — each link holds a current value
-  continuously, making the live bus complete by construction.
+- **Done:** `trigger` state (clock/count/level) now lives in the actor's own `MemoryState`, which
+  survives across scans on the persistent engine — the process-global `static HashMap` and its
+  restart-coupling of `boot` are gone ([`node/trigger`](../../../crates/rubix-flow/src/node/trigger)).
+  `write_point` likewise keeps its last-committed command in actor state (the coalescing above).
+- **Still to do:** any further stateful node follows the same pattern; retained link values as the
+  single source of truth (the engine already retains the latest per link — extend to a continuous
+  hold once `watch`-driven).
 
 ### Stage E — Unify the live bus across the app
 - Points page and Dashboards subscribe to the same SSE/zenoh-backed stream instead of 5s
   polling — one real-time substrate for points, board links, and widgets.
 
 ### Deferred
-- G5 (write provenance/lease) — revisit when wiring the persistent writer.
+- G5 — write coalescing landed (no re-command of an unchanged value); writer *provenance* (board/run
+  id) and slot *lease/expiry* still to do when the persistent writer is hardened.
 - G6 (split the god-trait) — opportunistic.
+
+### Remaining (mostly UI / product)
+- Stage C — strip the "Continuous / On demand" run-mode dropdown down to Enabled + an optional
+  advanced scan rate (a UX decision; the server already models it as enable + trigger).
+- Editor polish — wire the SSE hook into the flow editor (done in the working tree), stop blanking on
+  `dirty`/Test-Run/missing-node, and show the `quality` flag and freshness age.
+- Stage E — point the Points page and Dashboards at the same SSE/zenoh substrate instead of the 5s
+  poll.
 
 ---
 

@@ -21,4 +21,9 @@ then resets that WS's row to ⬜ and re-picks it in queue order.
 
 ---
 
-(no blockers yet)
+## 2026-06-15T06:15:00Z — WS-13/14/15 — Deferred (edge/extensions/sync infrastructure)
+
+- **What:** WS-13 (extensions), WS-14 (edge/cloud profiles), WS-15 (sync shipper) marked blocked.
+- **Why:** User focus is on core backend transport (WS-16) first; edge/extension/sync infrastructure deferred.
+- **Needs:** User decision when to implement. For now, WS-12 → WS-16 directly (skip 13/14/15).
+- **Resolution:** Unblock when user is ready to ship edge/extensions features.

@@ -238,12 +238,14 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
   REST snapshot share one feed. `clear` pushes an empty frame so a disabled/deleted board blanks
   subscribers. `GET /api/v1/boards/{slug}/outputs/stream` (axum SSE) emits the snapshot on connect
   then each subsequent snapshot, under the same tenant authorization as `/outputs` (Finding 7).
-- **Done — UI hook:** `useBoardOutputsStream` reads the stream over `fetch` (native `EventSource`
-  can't send the bearer header), retains last-known-good per `(node, port)` so a momentary empty run
-  no longer blanks the canvas, and reconnects with backoff. Replaces the 5s poll for live boards.
-  Wiring it into the flow editor lives in the working tree alongside unrelated in-flight UI work.
-- **Next:** snapshots are full pictures, not yet field-level deltas with `{value, quality, ts}` (G3);
-  stop blanking on `dirty` / Test-Run / missing-node and show a freshness age in the editor.
+- **Done — UI hook + editor wiring:** `useBoardOutputsStream` reads the stream over `fetch` (native
+  `EventSource` can't send the bearer header), retains last-known-good per `(node, port)` so a
+  momentary empty run no longer blanks the canvas, and reconnects with backoff. The flow editor is
+  wired onto it, replacing the 5s poll for live boards.
+- **Next:** snapshots are full pictures, not yet field-level deltas (the SSE frame already carries
+  `quality`, so the editor can render the flag and a freshness age). Note: the editor's
+  *dirty-suppression* of live values is intentional — it lets a Test Run preview unsaved edits
+  without the live stream overwriting them — so it stays.
 
 ### Stage C — Simplify run modes to enable/disable
 - Strip the "Continuous / On demand" dropdown; leave Enabled + an optional advanced **Scan rate**.
@@ -267,11 +269,11 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
   id) and slot *lease/expiry* still to do when the persistent writer is hardened.
 - G6 (split the god-trait) — opportunistic.
 
-### Remaining (mostly UI / product)
+### Remaining (UI / product decisions)
 - Stage C — strip the "Continuous / On demand" run-mode dropdown down to Enabled + an optional
   advanced scan rate (a UX decision; the server already models it as enable + trigger).
-- Editor polish — wire the SSE hook into the flow editor (done in the working tree), stop blanking on
-  `dirty`/Test-Run/missing-node, and show the `quality` flag and freshness age.
+- Editor polish — render the `quality` flag (color) and a freshness age on each node from the stream
+  the editor now consumes (cosmetic; the data is already on the wire).
 - Stage E — point the Points page and Dashboards at the same SSE/zenoh substrate instead of the 5s
   poll.
 

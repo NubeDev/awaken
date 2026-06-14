@@ -1,0 +1,35 @@
+[package]
+name = "rubix-gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-store = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "authenticate"
+path = "tests/authenticate_test.rs"
+
+[[test]]
+name = "session_issue"
+path = "tests/session/issue_test.rs"
+
+[[test]]
+name = "scoped_read"
+path = "tests/read/scoped_read_test.rs"
+
+[[test]]
+name = "cross_namespace_denied"
+path = "tests/read/cross_namespace_denied_test.rs"

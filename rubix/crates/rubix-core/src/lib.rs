@@ -16,7 +16,9 @@ pub use correlate::CorrelationId;
 pub use error::{Error, Result, ResultExt};
 pub use id::Id;
 pub use principal::{Principal, PrincipalKind, Role};
-pub use record::{Record, create_record, delete_record, read_record, update_record};
+pub use record::{
+    Record, create_record, delete_record, list_records, read_record, update_record,
+};
 pub use tag::{
     Tag, attach_tag, create_tag, delete_tag, detach_tag, find_records_by_tags,
 };

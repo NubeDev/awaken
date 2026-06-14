@@ -15,7 +15,7 @@ finds its dependencies already committed.
 | --- | --- | --- | --- | --- | --- |
 | WS-01 | Workspace foundation + SurrealDB embedded core store | ✅ | 2026-06-14T14:59:44Z | 2026-06-14T15:12:09Z | 8d2a135a |
 | WS-02 | Generic record model + tag graph | ✅ | 2026-06-14T15:20:13Z | 2026-06-14T15:41:00Z | 3f7a4c43 |
-| WS-03 | Identity + scoped read session | ⬜ | | | |
+| WS-03 | Identity + scoped read session | ✅ | 2026-06-14T15:40:14Z | 2026-06-14T15:55:00Z | |
 | WS-04 | Capability grants (app-enforced authz) | ⬜ | | | |
 | WS-05 | Command gate + audit + correlation id | ⬜ | | | |
 | WS-06 | Undo/redo reversible change records | ⬜ | | | |
@@ -54,3 +54,4 @@ finds its dependencies already committed.
 - 2026-06-14T15:15:11Z gated WS-01 ✅ (tests green, clippy clean, commit 8d2a135a)
 - 2026-06-14T15:20:13Z spawned WS-02
 - 2026-06-14T15:36:07Z gated WS-02 ✅ (tests green, clippy clean, commit 3f7a4c43)
+- 2026-06-14T15:40:14Z spawned WS-03

@@ -3265,6 +3265,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-gate"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-store",
+ "serde_json",
+ "surrealdb",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "rubix-server"
 version = "0.1.0"
 dependencies = [

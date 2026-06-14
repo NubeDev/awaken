@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/rubix-core",
     "crates/rubix-store",
+    "crates/rubix-gate",
     "crates/rubix-server",
 ]
 
@@ -15,6 +16,7 @@ rust-version = "1.93"
 [workspace.dependencies]
 rubix-core = { version = "0.1.0", path = "crates/rubix-core" }
 rubix-store = { version = "0.1.0", path = "crates/rubix-store" }
+rubix-gate = { version = "0.1.0", path = "crates/rubix-gate" }
 
 anyhow = "1"
 axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }

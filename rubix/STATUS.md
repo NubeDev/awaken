@@ -29,6 +29,21 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   Haystack-style multi-tag set-intersection traversal). `rubix-store::init_schema`
   now declares the `record`/`tag`/`tagged` (relation) tables `SCHEMALESS`.
 
+- **WS-03 — Identity + scoped read session.** `rubix-core` `principal` module
+  (one identity model: `Principal` = subject/namespace/kind(`user|extension`)/
+  role, owned per the crate map) plus a `list_records` read verb whose visible
+  set is decided by the session's permissions. New `rubix-gate` crate: the read
+  enforcement point. `define_gate_schema` declares the `principal` record-access
+  method (`DEFINE ACCESS principal ON DATABASE TYPE RECORD` with a `SIGNIN`
+  query) and `DEFINE TABLE OVERWRITE record … PERMISSIONS FOR select WHERE
+  namespace = $auth.namespace` (SurrealDB-native row-level read scope).
+  `authenticate` resolves a `PrincipalToken` to a `Principal`; `provision_principal`
+  registers an identity on the root handle; `issue_scoped_session` clones the
+  store connection (a fresh session over the same datastore) and signs it in as
+  the principal, so reads via `read_records_on_session` / `read_record_on_session`
+  are confined to the principal's namespace by the engine — a cross-namespace
+  read returns empty/denied with no app filter (contracts #1 and #2).
+
 ---
 
 ## Not started / remaining (per STACK-DEISGN.md)
@@ -44,8 +59,8 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Tag graph — `record→tagged→tag` graph edges + tag CRUD + tag-filter queries.
 
 ### Access & policy gate
-- [ ] Identity model — users and extensions as scoped principals (one model).
-- [ ] Scoped read session — gate-issued SurrealDB session, row-level perms.
+- [x] Identity model — users and extensions as scoped principals (one model).
+- [x] Scoped read session — gate-issued SurrealDB session, row-level perms.
 - [ ] Capability grants — app-enforced authz for cross-plane (non-record) actions.
 - [ ] Command gate — every mutation through the gate; `RETURN BEFORE` capture.
 - [ ] Audit log — append-only, immutable, correlation-id stamped.

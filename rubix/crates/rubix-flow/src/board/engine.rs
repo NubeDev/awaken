@@ -31,7 +31,7 @@ use std::time::Duration;
 use reflow_actor::message::Message;
 use reflow_network::network::{Network, NetworkEvent};
 
-use super::run::NodeOutput;
+use super::run::{NodeOutput, Quality};
 use super::schema::BoardGraph;
 use crate::error::FlowError;
 use crate::port::PointAccess;
@@ -119,12 +119,14 @@ impl BoardEngine {
             } = event
             {
                 let value = serde_json::Value::from(message);
+                let quality = Quality::of(&from_port, &value);
                 self.values.insert(
                     (from_actor.clone(), from_port.clone()),
                     NodeOutput {
                         node: from_actor,
                         port: from_port,
                         value,
+                        quality,
                     },
                 );
             }
@@ -132,12 +134,15 @@ impl BoardEngine {
         // Terminal nodes: no forwarder competes, so read their outport directly.
         for id in &self.terminals {
             for (port, msg) in self.network.read_actor_output(id) {
+                let value = serde_json::Value::from(msg);
+                let quality = Quality::of(&port, &value);
                 self.values.insert(
                     (id.clone(), port.clone()),
                     NodeOutput {
                         node: id.clone(),
                         port,
-                        value: serde_json::Value::from(msg),
+                        value,
+                        quality,
                     },
                 );
             }

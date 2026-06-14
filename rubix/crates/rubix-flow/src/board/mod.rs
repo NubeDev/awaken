@@ -13,5 +13,5 @@ pub use component_schema::{
 };
 pub use engine::BoardEngine;
 pub use registry::COMPONENTS;
-pub use run::NodeOutput;
+pub use run::{NodeOutput, Quality};
 pub use schema::{BoardConnection, BoardGraph, BoardNode};

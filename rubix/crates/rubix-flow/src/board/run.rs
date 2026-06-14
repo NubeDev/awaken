@@ -25,6 +25,43 @@ const SETTLE: Duration = Duration::from_millis(50);
 /// nodes fire. Bounded so a hung run cannot wedge a single-shot board run.
 const MAX_SETTLE: Duration = Duration::from_secs(120);
 
+/// Link/value quality, the status flag every Niagara/Sedona link carries — so a
+/// retained value is self-describing rather than "a value that might be stale or
+/// a fault". Derived from the port and value at capture time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Quality {
+    /// A normal value on a normal port.
+    Ok,
+    /// A value emitted on a node's `error` port — the node failed this run.
+    Fault,
+    /// The port carried a null/absent value.
+    Null,
+}
+
+impl Quality {
+    /// Classify a captured `(port, value)` pair. An `error` port is a fault; a
+    /// JSON null is null; everything else is ok.
+    pub fn of(port: &str, value: &serde_json::Value) -> Self {
+        if port == "error" {
+            Quality::Fault
+        } else if value.is_null() {
+            Quality::Null
+        } else {
+            Quality::Ok
+        }
+    }
+
+    /// The lowercase wire token (`ok`/`fault`/`null`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Quality::Ok => "ok",
+            Quality::Fault => "fault",
+            Quality::Null => "null",
+        }
+    }
+}
+
 /// One node's collected outport output after a run.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct NodeOutput {
@@ -32,6 +69,8 @@ pub struct NodeOutput {
     pub port: String,
     /// JSON projection of the reflow message emitted on `port`.
     pub value: serde_json::Value,
+    /// Quality of this value, derived from the port and value.
+    pub quality: Quality,
 }
 
 impl BoardGraph {
@@ -66,10 +105,13 @@ impl BoardGraph {
             for node in &self.nodes {
                 for (port, msg) in network.read_actor_output(&node.id) {
                     drained = true;
+                    let value = serde_json::Value::from(msg);
+                    let quality = Quality::of(&port, &value);
                     outputs.push(NodeOutput {
                         node: node.id.clone(),
                         port,
-                        value: serde_json::Value::from(msg),
+                        value,
+                        quality,
                     });
                 }
             }

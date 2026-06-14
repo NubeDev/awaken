@@ -30,6 +30,8 @@ pub struct PortOutput {
     pub port: String,
     #[schema(value_type = Object)]
     pub value: serde_json::Value,
+    /// Link quality (`ok`/`fault`/`null`) so a retained value is self-describing.
+    pub quality: String,
     pub at: String,
 }
 
@@ -67,6 +69,7 @@ impl BoardOutputs {
                     node: o.node.clone(),
                     port: o.port.clone(),
                     value: o.value.clone(),
+                    quality: o.quality.as_str().to_string(),
                     at: at.clone(),
                 };
                 (key, out)
@@ -135,10 +138,12 @@ mod tests {
     use serde_json::json;
 
     fn out(node: &str, port: &str, value: serde_json::Value) -> NodeOutput {
+        let quality = rubix_flow::Quality::of(port, &value);
         NodeOutput {
             node: node.into(),
             port: port.into(),
             value,
+            quality,
         }
     }
 

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use awaken_runtime::AgentRuntime;
 use rubix_datasource::DatasourceRegistry;
 use rubix_flow::BoardGraph;
+use uuid::Uuid;
 
 use super::outputs::BoardOutputs;
 use crate::bus::ZenohBus;
@@ -31,20 +32,26 @@ pub(super) struct BoardRunDeps {
     pub agent: Option<Arc<AgentRuntime>>,
     pub datasources: Option<Arc<DatasourceRegistry>>,
     pub outputs: BoardOutputs,
+    /// Process-wide, board-scoped `Session` node state, so a node's Session state
+    /// survives a republish/engine rebuild.
+    pub session_state: crate::flow::SessionStore,
 }
 
 impl BoardRunDeps {
-    /// The [`StorePointAccess`] a run of `graph` binds to: store, bus, agent,
-    /// tenant org/site, and datasource registry. Shared by the one-shot
+    /// The [`StorePointAccess`] a run of `board_id`'s `graph` binds to: store,
+    /// bus, agent, tenant org/site, datasource registry, and the board-scoped
+    /// node-state backings (Session map + board id). Shared by the one-shot
     /// `evaluate` path and the persistent interval engine so both bind a board to
     /// the backend identically.
-    pub(super) fn access_for(&self, graph: &BoardGraph) -> Arc<StorePointAccess> {
+    pub(super) fn access_for(&self, graph: &BoardGraph, board_id: Uuid) -> Arc<StorePointAccess> {
         Arc::new(
             StorePointAccess::with_bus(self.store.clone(), self.bus.clone())
                 .with_agent(self.agent.clone())
                 .with_org(graph.tenant_org())
                 .with_site(graph.tenant_site())
-                .with_datasources(self.datasources.clone()),
+                .with_datasources(self.datasources.clone())
+                .with_session_state(Some(self.session_state.clone()))
+                .with_board_id(Some(board_id.to_string())),
         )
     }
 
@@ -62,8 +69,8 @@ impl BoardRunDeps {
 /// Run `graph` once over the store. Logs at debug on success and warn on
 /// failure; never panics, so a single bad board cannot take down the loop. On
 /// success the run's outputs replace this board's latest entry in the cache.
-pub(super) async fn evaluate(slug: &str, graph: &BoardGraph, deps: &BoardRunDeps) {
-    let access = deps.access_for(graph);
+pub(super) async fn evaluate(slug: &str, board_id: Uuid, graph: &BoardGraph, deps: &BoardRunDeps) {
+    let access = deps.access_for(graph, board_id);
     match graph.run(access).await {
         Ok(outputs) => {
             deps.outputs

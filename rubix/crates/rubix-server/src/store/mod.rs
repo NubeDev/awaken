@@ -17,6 +17,7 @@ mod error;
 mod grants;
 mod his;
 mod nav_nodes;
+mod node_state;
 mod his_flush;
 mod keyexpr;
 mod migrate;

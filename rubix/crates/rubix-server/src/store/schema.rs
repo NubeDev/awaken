@@ -287,6 +287,13 @@ CREATE INDEX IF NOT EXISTS idx_users_org ON users (org, email);
 CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
 CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
 CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
+CREATE TABLE IF NOT EXISTS node_state (
+    board_id TEXT NOT NULL,
+    node     TEXT NOT NULL,
+    key      TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    PRIMARY KEY (board_id, node, key)
+);
 ";
 
 /// Postgres dialect of the same schema. Identifiers and shapes mirror
@@ -563,4 +570,11 @@ CREATE INDEX IF NOT EXISTS idx_users_org ON users (org, email);
 CREATE INDEX IF NOT EXISTS idx_teams_org ON teams (org, slug);
 CREATE INDEX IF NOT EXISTS idx_memberships_team ON memberships (team_id);
 CREATE INDEX IF NOT EXISTS idx_grants_subject ON grants (org, subject_kind, subject_id);
+CREATE TABLE IF NOT EXISTS node_state (
+    board_id TEXT NOT NULL,
+    node     TEXT NOT NULL,
+    key      TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    PRIMARY KEY (board_id, node, key)
+);
 ";

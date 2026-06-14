@@ -41,7 +41,7 @@ pub(super) async fn run_subscription(
                         };
                         match lookup {
                             Ok(Ok(board)) if board.is_scheduled() => {
-                                evaluate(&slug, &board.graph, &deps).await;
+                                evaluate(&slug, board_id, &board.graph, &deps).await;
                             }
                             Ok(Ok(_)) => {}
                             Ok(Err(e)) => {

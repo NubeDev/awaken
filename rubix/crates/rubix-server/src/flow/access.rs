@@ -3,7 +3,8 @@
 //! via [`Store::command_point`]; the agent-priority gate is enforced at the
 //! HTTP/tool layer, not here (boards are operator-authored control logic).
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -17,10 +18,12 @@ use futures::SinkExt;
 use rubix_core::{HisSample, PointValue, Spark};
 use rubix_datasource::{DatasourceRegistry, Param, Params};
 use rubix_flow::{
-    AgentOutcome, AgentRequest, DatasourceQuery, FlowAccessError, PointAccess, SparkDraft,
-    WatchSample,
+    AgentOutcome, AgentRequest, DatasourceQuery, FlowAccessError, NodeState, PointAccess,
+    SparkDraft, WatchSample,
 };
 use uuid::Uuid;
+
+use super::node_state::{BoardNodeState, EphemeralStore, SessionStore};
 
 use crate::agent::AGENT_ID;
 use crate::bus::ZenohBus;
@@ -48,18 +51,20 @@ pub struct StorePointAccess {
     /// `datasource` node fail closed (no datasource manifest loaded, or a board
     /// access — the agent's own `run_board` — that deliberately withholds it).
     datasources: Option<Arc<DatasourceRegistry>>,
+    /// Per-engine Ephemeral node state, created fresh per access (so it resets
+    /// when the engine is rebuilt on a republish).
+    ephemeral_state: EphemeralStore,
+    /// Process-wide, board-scoped Session node state. Set by the scheduler so a
+    /// node's Session state survives a republish; absent on one-shot runs.
+    session_state: Option<SessionStore>,
+    /// The board's stable id, scoping Session/Durable node state. Set on the
+    /// scheduler/board-run paths; absent on accesses with no board identity.
+    board_id: Option<String>,
 }
 
 impl StorePointAccess {
     pub fn new(store: Store) -> Self {
-        Self {
-            store,
-            bus: None,
-            agent: None,
-            org: None,
-            site: None,
-            datasources: None,
-        }
+        Self::with_bus(store, None)
     }
 
     /// Construct with a bus so `emit_spark` publishes findings live.
@@ -71,7 +76,23 @@ impl StorePointAccess {
             org: None,
             site: None,
             datasources: None,
+            ephemeral_state: Arc::new(Mutex::new(HashMap::new())),
+            session_state: None,
+            board_id: None,
         }
+    }
+
+    /// Bind the process-wide Session node-state map (owned by the scheduler) so a
+    /// node's `Session` state survives a republish/engine rebuild.
+    pub fn with_session_state(mut self, session: Option<SessionStore>) -> Self {
+        self.session_state = session;
+        self
+    }
+
+    /// Bind the board's stable id, scoping its Session/Durable node state.
+    pub fn with_board_id(mut self, board_id: Option<String>) -> Self {
+        self.board_id = board_id;
+        self
     }
 
     /// Add the agent runtime so an `agent_call` node can raise a run. Chained
@@ -257,6 +278,19 @@ impl PointAccess for StorePointAccess {
                 self.site.clone(),
             )) as Arc<dyn rubix_rules::RuleStore>
         })
+    }
+
+    /// The board-scoped node-state handle: per-engine Ephemeral, scheduler-shared
+    /// Session, and store-backed Durable. Always present (Ephemeral always works);
+    /// Session/Durable degrade to Ephemeral when this access carries no session
+    /// map / board id (a one-shot run).
+    fn node_state(&self) -> Option<Arc<dyn NodeState>> {
+        Some(Arc::new(BoardNodeState::new(
+            self.ephemeral_state.clone(),
+            self.session_state.clone(),
+            self.store.clone(),
+            self.board_id.clone(),
+        )))
     }
 
     /// Run a `datasource` node's read against the external engine under the

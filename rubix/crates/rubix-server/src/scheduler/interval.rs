@@ -99,7 +99,7 @@ fn ensure_engine(
     }
     // First scan or a republished version: drop the old engine (tearing its
     // network down) and build a fresh one from the new graph.
-    let access = deps.access_for(&board.graph);
+    let access = deps.access_for(&board.graph, board.id);
     match board.graph.spawn_engine(access) {
         Ok(fresh) => {
             *engine = Some((fresh, board.version));

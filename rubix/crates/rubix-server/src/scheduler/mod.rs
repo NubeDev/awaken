@@ -58,6 +58,10 @@ struct SchedulerInner {
     /// closed at run time.
     datasources: Option<Arc<DatasourceRegistry>>,
     outputs: BoardOutputs,
+    /// Process-wide, board-scoped `Session` node state. Owned here so it outlives
+    /// an engine rebuild (a republish/save) — that is what lets a `trigger`'s
+    /// clock survive a save instead of re-firing its boot fire.
+    session_state: crate::flow::SessionStore,
     /// Live loops keyed by board row id. The id is globally unique across all
     /// org/site scopes (a slug is not), so the loop can re-fetch its board by id
     /// without carrying scope context.
@@ -74,6 +78,7 @@ impl SchedulerInner {
             agent: self.agent.clone(),
             datasources: self.datasources.clone(),
             outputs: self.outputs.clone(),
+            session_state: self.session_state.clone(),
         }
     }
 }
@@ -98,6 +103,7 @@ impl Scheduler {
                 agent,
                 datasources,
                 outputs: BoardOutputs::new(),
+                session_state: Arc::new(std::sync::Mutex::new(HashMap::new())),
                 tasks: Mutex::new(HashMap::new()),
             }),
         };

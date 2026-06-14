@@ -25,9 +25,17 @@ use self::trigger_state::TriggerSlot;
 use crate::node::actor_base::{boxed, error_out, ActorBase};
 use crate::port::PointAccess;
 use crate::rubix_node;
+use crate::state::StatePolicy;
 
-/// Actor-state key under which the trigger's retained slot is stored.
-const SLOT_KEY: &str = "trigger.slot";
+/// Sub-key under which the trigger retains its clock slot.
+const CLOCK_KEY: &str = "clock";
+
+/// The trigger's clock is `Session` state: it survives a board republish (so
+/// saving a board does not restart its timers / re-fire its boot fire), but
+/// resets on a server restart (boot fires again after start). A node author
+/// chooses this policy explicitly — a different cadence node could pick
+/// `Ephemeral` (reset on save) or `Durable` (survive restart) instead.
+const TRIGGER_POLICY: StatePolicy = StatePolicy::Session;
 
 #[derive(Clone)]
 pub struct TriggerActor {
@@ -41,11 +49,7 @@ impl TriggerActor {
         Self {
             base: ActorBase::new(&["trigger"], &["boot", "count", "output", "error"]),
             access,
-            // The trigger's clock state lives in the actor's own state (which
-            // survives across scans on the persistent engine), not the seam, so
-            // the body does no async I/O — wrap the sync `fire` in a ready future
-            // to satisfy the async `NodeBody`.
-            body: Arc::new(|_access, context| boxed(async move { fire(context, now_ms()) })),
+            body: Arc::new(|access, context| boxed(fire(access, context))),
         }
     }
 }
@@ -70,18 +74,24 @@ fn period(context: &ActorContext) -> Result<Duration, String> {
     Ok(Duration::from_secs_f64(every * unit_secs))
 }
 
-/// Evaluate the trigger for one invocation against wall-clock `now_ms`. Reads and
-/// writes the retained slot from the actor's own state, which persists across
-/// scans on the persistent engine.
-fn fire(context: &ActorContext, now_ms: i64) -> HashMap<String, Message> {
+/// Evaluate the trigger for one invocation. Loads and saves its clock slot
+/// through the node-state contract under [`TRIGGER_POLICY`], so the clock
+/// survives a republish; when the access wires no state store (a test fake, a
+/// one-shot Test Run), it falls back to ephemeral actor memory, which resets per
+/// run — the correct behaviour there.
+async fn fire(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let period = match period(context) {
         Ok(p) => p,
         Err(e) => return error_out(e),
     };
     let period_ms = period.as_millis() as i64;
-    let mut slot = load_slot(context);
-    let fired = trigger_state::advance(&mut slot, period_ms, now_ms);
-    store_slot(context, slot);
+    let node = context.get_config().get_node_id().to_string();
+
+    let store = access.node_state();
+    let mut slot = load_slot(store.as_deref(), context, &node).await;
+    let fired = trigger_state::advance(&mut slot, period_ms, now_ms());
+    save_slot(store.as_deref(), context, &node, slot).await;
+
     match fired {
         None => HashMap::new(), // not due yet — stay quiet
         Some(f) => HashMap::from([
@@ -101,26 +111,49 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// Load the retained slot from the actor's state, defaulting to a fresh slot.
-fn load_slot(context: &ActorContext) -> TriggerSlot {
+/// Load the clock slot: from the node-state store when present, else from
+/// ephemeral actor memory. Defaults to a fresh slot.
+async fn load_slot(
+    store: Option<&dyn crate::state::NodeState>,
+    context: &ActorContext,
+    node: &str,
+) -> TriggerSlot {
+    if let Some(store) = store {
+        return store
+            .load(node, CLOCK_KEY, TRIGGER_POLICY)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+    }
     let state = context.get_state();
     let guard = state.lock();
     guard
         .as_any()
         .downcast_ref::<MemoryState>()
-        .and_then(|mem| mem.get(SLOT_KEY))
+        .and_then(|mem| mem.get(CLOCK_KEY))
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default()
 }
 
-/// Persist the slot back to the actor's state for the next scan.
-fn store_slot(context: &ActorContext, slot: TriggerSlot) {
+/// Save the clock slot back to the node-state store, else to ephemeral actor
+/// memory.
+async fn save_slot(
+    store: Option<&dyn crate::state::NodeState>,
+    context: &ActorContext,
+    node: &str,
+    slot: TriggerSlot,
+) {
+    let value = serde_json::to_value(slot).unwrap_or_default();
+    if let Some(store) = store {
+        let _ = store.save(node, CLOCK_KEY, TRIGGER_POLICY, value).await;
+        return;
+    }
     let state = context.get_state();
     let mut guard = state.lock();
     if let Some(mem) = guard.as_mut_any().downcast_mut::<MemoryState>() {
-        if let Ok(value) = serde_json::to_value(slot) {
-            mem.insert(SLOT_KEY, value);
-        }
+        mem.insert(CLOCK_KEY, value);
     }
 }
 

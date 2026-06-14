@@ -12,6 +12,7 @@ mod board;
 mod error;
 mod node;
 mod port;
+mod state;
 
 pub use board::{
     component_schemas, BoardConnection, BoardEngine, BoardGraph, BoardNode, ComponentKind,
@@ -25,3 +26,4 @@ pub use node::{
 pub use port::{
     AgentOutcome, AgentRequest, DatasourceQuery, PointAccess, SparkDraft, WatchSample,
 };
+pub use state::{NodeState, StatePolicy};

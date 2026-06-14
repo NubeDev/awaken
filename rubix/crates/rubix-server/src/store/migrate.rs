@@ -63,6 +63,10 @@ const MIGRATIONS: &[Migration] = &[
         version: 9,
         step: migrate_v9_change_ledger,
     },
+    Migration {
+        version: 10,
+        step: migrate_v10_node_state,
+    },
 ];
 
 /// v1 — dashboards as a first-class entity. Widgets gain `dashboard_id` and hang
@@ -389,6 +393,23 @@ fn migrate_v9_change_ledger(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<
         CREATE INDEX IF NOT EXISTS idx_changes_resource
             ON changes (org, kind, resource_id, at DESC);
         CREATE INDEX IF NOT EXISTS idx_changes_group ON changes (group_id);
+        ",
+    )
+}
+
+/// v10 — durable node state. A board-scoped key-value table backing
+/// `StatePolicy::Durable`, so a stateful node's state can survive a server
+/// restart. A no-op on a fresh database (the base schema already creates it).
+fn migrate_v10_node_state(tx: &rusqlite::Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS node_state (
+            board_id TEXT NOT NULL,
+            node     TEXT NOT NULL,
+            key      TEXT NOT NULL,
+            value    TEXT NOT NULL,
+            PRIMARY KEY (board_id, node, key)
+        );
         ",
     )
 }

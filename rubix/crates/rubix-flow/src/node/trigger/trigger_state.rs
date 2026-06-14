@@ -1,11 +1,7 @@
-//! Retained state for a self-paced `trigger` node. On the persistent scan engine
-//! the trigger actor lives across scans, so its clock/count/level now live in the
-//! actor's own state ([`reflow_actor::MemoryState`]) rather than a process-global
-//! map. A one-shot `run()` rebuilds the network, so each such run starts from a
-//! fresh slot — its first fire is the boot fire.
-//!
-//! The slot is JSON (it round-trips through `MemoryState`), so timing uses a
-//! wall-clock millis stamp instead of a monotonic `Instant`; acceptable for the
+//! The retained state of a self-paced `trigger` node, and the pure clock logic
+//! that advances it. The slot is JSON (it round-trips through [`crate::NodeState`]
+//! under the node's chosen [`crate::StatePolicy`]), so timing uses a wall-clock
+//! millis stamp rather than a monotonic `Instant`; acceptable for the
 //! supervisory sec/min/hour cadences a `trigger` paces.
 
 use serde::{Deserialize, Serialize};
@@ -76,10 +72,8 @@ mod tests {
         let period = 10_000;
 
         assert!(advance(&mut slot, period, 0).is_some(), "boot fire");
-        // Before the period elapses: no fire.
         assert!(advance(&mut slot, period, 3_000).is_none());
         assert!(advance(&mut slot, period, 9_000).is_none());
-        // At/after the period: fires, not a boot fire, count advances, toggles.
         let fire = advance(&mut slot, period, 10_000).expect("second fire");
         assert!(!fire.boot);
         assert_eq!(fire.count, 2);

@@ -14,6 +14,7 @@ use rubix_core::{HisSample, PointValue, SparkSeverity};
 use rubix_rules::RuleStore;
 
 use crate::error::FlowAccessError;
+use crate::state::NodeState;
 
 /// A pushed point update from [`PointAccess::watch`]: the point's keyexpr and its
 /// new value (`None` when cleared). The event-driven counterpart to the pull-only
@@ -162,6 +163,15 @@ pub trait PointAccess: Send + Sync + 'static {
     /// store-backed impl overrides this. An inline-script `rule` node needs no
     /// store and runs regardless. A pure accessor (no I/O), so it stays sync.
     fn rule_store(&self) -> Option<Arc<dyn RuleStore>> {
+        None
+    }
+
+    /// The board-scoped [`NodeState`] a stateful node retains its state through.
+    /// The default returns `None`, so a state-less access (test fakes, the
+    /// agent's own board access) makes a stateful node fall back to ephemeral
+    /// actor memory. The server's store-backed impl wires the in-memory and
+    /// durable backings. A pure accessor (no I/O), so it stays sync.
+    fn node_state(&self) -> Option<Arc<dyn NodeState>> {
         None
     }
 

@@ -18,6 +18,7 @@ pub(super) mod his;
 pub(super) mod his_flush;
 pub(super) mod keyexpr;
 pub(super) mod nav_nodes;
+pub(super) mod node_state;
 pub(super) mod points;
 pub(super) mod prefs;
 pub(super) mod rules;

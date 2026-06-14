@@ -1,0 +1,41 @@
+[package]
+name = "rubix-query"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-store = { workspace = true }
+rubix-gate = { workspace = true }
+datafusion = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[[test]]
+name = "query_run"
+path = "tests/query/run_test.rs"
+
+[[test]]
+name = "query_guard"
+path = "tests/query/guard_test.rs"
+
+[[test]]
+name = "query_authorize"
+path = "tests/query/authorize_test.rs"
+
+[[test]]
+name = "aggregate_rollup"
+path = "tests/aggregate/rollup_test.rs"
+
+[[test]]
+name = "search_nearest"
+path = "tests/search/nearest_test.rs"

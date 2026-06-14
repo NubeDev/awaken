@@ -119,7 +119,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 ### Event bus
 - [x] In-process tokio control plane.
 - [x] Data-change plane over SurrealDB live queries, permission-filtered.
-- [ ] Tracing spans on the bus, bounded/sampled retention.
+- [x] Tracing spans on the bus, bounded/sampled retention.
 
 ### Query / compute
 - [ ] DataFusion `TableProvider` over SurrealDB + unified `/query` surface.
@@ -155,6 +155,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 | `RUBIX_DATABASE` | `main` | `rubix-server` | SurrealDB database to bootstrap/use. |
 | `RUBIX_DATA_DIR` | `rubix-data` | `rubix-server` | SurrealKV file-backed data directory. |
 | `RUBIX_BIND` | `127.0.0.1:8080` | `rubix-server` | HTTP listen address. |
+| `RUBIX_TRACE_SAMPLE` | `0.0` | `rubix-trace` | Span drop fraction `[0.0, 1.0]`; `0.0` keeps all, `1.0` drops all. |
 
 ---
 

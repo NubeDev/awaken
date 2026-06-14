@@ -3317,6 +3317,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-trace"
+version = "0.1.0"
+dependencies = [
+ "rubix-bus",
+ "rubix-core",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "rust-stemmers"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

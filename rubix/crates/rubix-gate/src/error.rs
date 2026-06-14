@@ -58,6 +58,17 @@ pub enum GateError {
     /// Writing the append-only audit row for an applied command failed.
     #[error("audit write failed: {0}")]
     AuditWrite(#[source] surrealdb::Error),
+
+    /// A change was refused at the undo boundary: undo covers user-facing
+    /// definitions only — never the data plane (readings, insight firings) and
+    /// never the audit log (`rubix/docs/SCOPE.md`, "Undo/redo").
+    #[error("undo boundary: {0}")]
+    UndoBoundary(String),
+
+    /// There was nothing left to undo (or redo) for the principal + resource —
+    /// the stack for that slot is empty.
+    #[error("nothing to reverse: {0}")]
+    NothingToReverse(String),
 }
 
 impl From<GateError> for CoreError {

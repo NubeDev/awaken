@@ -23,6 +23,7 @@ mod principal;
 mod read;
 mod session;
 mod token;
+mod undo;
 
 pub use audit::{AuditRecord, define_audit_schema};
 pub use authenticate::authenticate;
@@ -36,3 +37,4 @@ pub use principal::provision_principal;
 pub use read::{read_record_on_session, read_records_on_session};
 pub use session::{ScopedSession, issue_scoped_session};
 pub use token::PrincipalToken;
+pub use undo::{ChangeRecord, RecordKind, UndoEntry, UndoStore, is_undoable, push_change, redo, undo};

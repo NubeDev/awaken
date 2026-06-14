@@ -4,6 +4,7 @@
 //! HTTP/tool layer, not here (boards are operator-authored control logic).
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use awaken_runtime::run::RunActivation;
@@ -105,15 +106,15 @@ impl StorePointAccess {
 #[async_trait]
 impl PointAccess for StorePointAccess {
     async fn read_point(&self, keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
-        let id = self
-            .store
-            .point_by_keyexpr(keyexpr)
-            .map_err(FlowAccessError::store)?;
-        Ok(self
-            .store
-            .get_point(id)
-            .map_err(FlowAccessError::store)?
-            .cur_value)
+        let store = self.store.clone();
+        let keyexpr = keyexpr.to_string();
+        // SQLite is synchronous; off-load it so the scan loop's cadence reads
+        // never park a Tokio worker (G1).
+        on_store(move || {
+            let id = store.point_by_keyexpr(&keyexpr)?;
+            Ok(store.get_point(id)?.cur_value)
+        })
+        .await
     }
 
     async fn write_point(
@@ -122,15 +123,16 @@ impl PointAccess for StorePointAccess {
         priority: u8,
         value: PointValue,
     ) -> Result<Option<PointValue>, FlowAccessError> {
-        let id = self
-            .store
-            .point_by_keyexpr(keyexpr)
-            .map_err(FlowAccessError::store)?;
-        let point = self
-            .store
-            .command_point(id, priority, Some(value), Utc::now())
-            .map_err(FlowAccessError::store)?;
-        Ok(point.cur_value)
+        let store = self.store.clone();
+        let keyexpr = keyexpr.to_string();
+        let now = Utc::now();
+        on_store(move || {
+            let id = store.point_by_keyexpr(&keyexpr)?;
+            Ok(store
+                .command_point(id, priority, Some(value), now)?
+                .cur_value)
+        })
+        .await
     }
 
     async fn query_his(
@@ -138,13 +140,13 @@ impl PointAccess for StorePointAccess {
         keyexpr: &str,
         limit: usize,
     ) -> Result<Vec<HisSample>, FlowAccessError> {
-        let id = self
-            .store
-            .point_by_keyexpr(keyexpr)
-            .map_err(FlowAccessError::store)?;
-        self.store
-            .his_query(id, None, None, limit)
-            .map_err(FlowAccessError::store)
+        let store = self.store.clone();
+        let keyexpr = keyexpr.to_string();
+        on_store(move || {
+            let id = store.point_by_keyexpr(&keyexpr)?;
+            Ok(store.his_query(id, None, None, limit)?)
+        })
+        .await
     }
 
     /// Persist a rule-board finding and, when a bus is present, publish it on
@@ -154,33 +156,34 @@ impl PointAccess for StorePointAccess {
     /// one), so a slow or failed publish never blocks the graph. The spark is
     /// already durable, so the publish is best-effort.
     async fn emit_spark(&self, draft: SparkDraft) -> Result<(), FlowAccessError> {
-        let site_id = self
-            .store
-            .site_id_by_prefix(&draft.site_prefix)
-            .map_err(FlowAccessError::store)?;
-        let spark = Spark {
-            id: Uuid::new_v4(),
-            site_id,
-            rule: draft.rule,
-            severity: draft.severity,
-            message: draft.message,
-            point_ids: Vec::new(),
-            ts: Utc::now(),
-            acknowledged: false,
-        };
-        self.store
-            .create_spark(&spark)
-            .map_err(FlowAccessError::store)?;
-        if let Some(bus) = &self.bus {
-            // `site_prefix` is `{org}/{site}` — the two segments the publish key
-            // needs. Resolved already by `site_id_by_prefix`, so it is well-formed.
-            if let Some((org, site_slug)) = draft.site_prefix.split_once('/') {
-                let bus = bus.clone();
-                let (org, site_slug) = (org.to_string(), site_slug.to_string());
-                tokio::spawn(async move {
-                    bus.publish_spark(&org, &site_slug, &spark).await;
-                });
-            }
+        let store = self.store.clone();
+        // `site_prefix` is `{org}/{site}` — split the publish-key parts out before
+        // the draft moves into the store task.
+        let publish_target = draft
+            .site_prefix
+            .split_once('/')
+            .map(|(org, site)| (org.to_string(), site.to_string()));
+        let spark = on_store(move || {
+            let site_id = store.site_id_by_prefix(&draft.site_prefix)?;
+            let spark = Spark {
+                id: Uuid::new_v4(),
+                site_id,
+                rule: draft.rule,
+                severity: draft.severity,
+                message: draft.message,
+                point_ids: Vec::new(),
+                ts: Utc::now(),
+                acknowledged: false,
+            };
+            store.create_spark(&spark)?;
+            Ok(spark)
+        })
+        .await?;
+        if let (Some(bus), Some((org, site_slug))) = (&self.bus, publish_target) {
+            let bus = bus.clone();
+            tokio::spawn(async move {
+                bus.publish_spark(&org, &site_slug, &spark).await;
+            });
         }
         Ok(())
     }
@@ -241,11 +244,18 @@ impl PointAccess for StorePointAccess {
         let executor = registry
             .executor(datasource)
             .map_err(FlowAccessError::store)?;
-        let raw = match &query {
-            DatasourceQuery::Sql(sql) => executor.execute(sql, &params).await,
-            DatasourceQuery::Named(name) => executor.invoke_named(name, &params).await,
-        }
-        .map_err(FlowAccessError::store)?;
+        let run = async {
+            match &query {
+                DatasourceQuery::Sql(sql) => executor.execute(sql, &params).await,
+                DatasourceQuery::Named(name) => executor.invoke_named(name, &params).await,
+            }
+        };
+        // Bound the round-trip so a hung datasource cannot wedge the node task
+        // indefinitely on the persistent scan loop.
+        let raw = tokio::time::timeout(DATASOURCE_TIMEOUT, run)
+            .await
+            .map_err(|_| FlowAccessError::Store("datasource query timed out".into()))?
+            .map_err(FlowAccessError::store)?;
         // Strict (spark) path: turn a cap breach into an error rather than
         // handing a partial grid downstream.
         let result = executor.strict(raw).map_err(FlowAccessError::store)?;
@@ -260,9 +270,10 @@ impl PointAccess for StorePointAccess {
         request: AgentRequest,
     ) -> Result<AgentOutcome, FlowAccessError> {
         let agent = self.agent_or_fail()?.clone();
-        let result = agent
-            .run_to_completion(activation_for(request))
+        // Bound the LLM round-trip so an awaited node can't hang forever.
+        let result = tokio::time::timeout(AGENT_TIMEOUT, agent.run_to_completion(activation_for(request)))
             .await
+            .map_err(|_| FlowAccessError::Store("agent run timed out".into()))?
             .map_err(|e| FlowAccessError::Store(format!("agent run failed: {e}")))?;
         Ok(AgentOutcome {
             run_id: result.run_id,
@@ -280,6 +291,25 @@ impl StorePointAccess {
             FlowAccessError::Unsupported("agent_call: no agent runtime on this board access".into())
         })
     }
+}
+
+/// Upper bound on an awaited `agent_call` LLM round-trip before the node fails.
+const AGENT_TIMEOUT: Duration = Duration::from_secs(120);
+/// Upper bound on a `datasource` node's external query before the node fails.
+const DATASOURCE_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Run a synchronous (SQLite-backed) store closure on the blocking pool and fold
+/// both the join error and the store error into a [`FlowAccessError::Store`], so
+/// the async seam never blocks a Tokio worker on disk I/O.
+async fn on_store<T, F>(f: F) -> Result<T, FlowAccessError>
+where
+    F: FnOnce() -> anyhow::Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| FlowAccessError::Store(format!("store task: {e}")))?
+        .map_err(FlowAccessError::store)
 }
 
 /// Parse a `datasource` node's JSON `params` (a `[{type,value}, …]` array) into

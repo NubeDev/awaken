@@ -179,6 +179,36 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   span tree shows each rule, the values seen, and the decision. Additive bus
   surface: the `insight.recorded` control-event type for live insight firings.
 
+- **WS-12 — Zenoh ingestion + pre-processing.** New `rubix-ingest` crate, the
+  streaming-ingestion path (SCOPE "Ingestion and pre-processing": sources publish
+  to Zenoh; the platform consumes in flight and persists before, not after,
+  query). `subscribe` module: `authorize_keyspace` is the **single capability
+  decision taken at subscribe** (contract #2) — it checks the WS-04
+  `zenoh-subscribe` grant fail closed, then confirms the requested key expression
+  is *included* in the principal's edge-identity key-space subtree
+  (`rubix/ingest/<namespace>/**`), and only then yields an `AuthorizedKeySpace`,
+  the sole way `open_subscription` gets a scope; an out-of-grant or out-of-partition
+  key-space is refused once, before any Zenoh session opens, so a high-rate stream
+  is never re-taxed per message. `IngestSubscriber` opens a Zenoh peer session
+  (`ZenohEndpoint` → `zenoh::Config`), declares the subscriber on the resolved
+  scope, and decodes each sample payload into a free-form-JSON `Sample`. `process`
+  module: the in-flight pre-processing nodes — `Decimator` (stateful 1-in-N rate
+  cut, factor clamped ≥1), `Filter` (predicate drop), `Enricher` (merge derived
+  fields, the one node that rewrites) — composed in order by `Pipeline`
+  (decimate → filter → enrich, each optional, a drop short-circuits the rest).
+  `persist` module: `append_sample` writes each survivor as a fresh-id `Record`
+  into the partition keyed by the principal's namespace (the edge identity,
+  contract #5) — append-only, never updating an existing row, and *not* re-crossing
+  the command gate per sample (the capability was decided once at subscribe);
+  `partition_for`/`keyspace_root` are the one place the edge partition is derived,
+  so the subscribe scope and the persistence partition cannot drift. Verified on
+  kv-mem + a local Zenoh peer pair over TCP loopback: a granted principal opens a
+  subscription on its edge key-space, published samples flow through
+  decimate+filter, and exactly the survivors land append-only under the edge
+  partition; an ungranted subscribe and an out-of-partition key-space are both
+  refused at subscribe. Additive workspace change: the `zenoh` dependency
+  (`default-features = false`, `transport_tcp`).
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -216,8 +246,8 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
       data-change event, span tree per evaluation.
 
 ### Ingestion / transport
-- [ ] Zenoh ingestion + pre-processing (decimate/filter/enrich), edge-partitioned.
-- [ ] Key-space scope resolved once at subscribe (capability decision).
+- [x] Zenoh ingestion + pre-processing (decimate/filter/enrich), edge-partitioned.
+- [x] Key-space scope resolved once at subscribe (capability decision).
 
 ### Extensions
 - [ ] Extension principal model + JSON-RPC control plane + Zenoh data plane.

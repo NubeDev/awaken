@@ -24,7 +24,7 @@ finds its dependencies already committed.
 | WS-09 | DataFusion query surface over SurrealDB + vector search | ✅ | 2026-06-14T17:40:15Z | 2026-06-15T01:10:00Z | 93b8abef |
 | WS-10 | Datasource connector framework + Postgres connector | ✅ | 2026-06-14T22:29:24Z | 2026-06-15T02:30:00Z | aa9d56a9 |
 | WS-11 | Rhai rules / insights runtime | ✅ | 2026-06-14T23:00:14Z | 2026-06-15T06:20:00Z | 6eeea5be |
-| WS-12 | Zenoh ingestion + pre-processing | 🔵 | 2026-06-14T23:30:26Z | | |
+| WS-12 | Zenoh ingestion + pre-processing | ✅ | 2026-06-14T23:30:26Z | 2026-06-15T08:25:00Z | eefe9b71 |
 | WS-13 | Extensions as scoped principals | ⛔ | | | |
 | WS-14 | Edge/cloud profiles (features + runtime config) | ⛔ | | | |
 | WS-15 | Edge↔cloud sync shipper over Zenoh | ⛔ | | | |
@@ -73,3 +73,4 @@ finds its dependencies already committed.
 - 2026-06-14T23:00:14Z spawned WS-11
 - 2026-06-15T06:20:00Z gated WS-11 ✅ (tests green, clippy clean, commit 6eeea5be)
 - 2026-06-14T23:30:26Z spawned WS-12
+- 2026-06-15T08:25:00Z gated WS-12 ✅ (tests green, clippy clean, commit eefe9b71)

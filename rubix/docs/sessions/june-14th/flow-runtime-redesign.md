@@ -259,10 +259,17 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
   - `Session` — survives a republish (in-memory, board-scoped via the scheduler); clears on restart.
   - `Durable` — survives a republish **and** a server restart (a `node_state` store table; sqlite +
     postgres). Higher policies degrade to `Ephemeral` on a one-shot run that wires no backing.
-- **Why it exists.** A save re-registers the board → rebuilds the engine → reset per-actor state, so
-  a `trigger` re-fired its boot fire on every save. The `trigger` now declares `Session`, so its
-  clock survives a save (no re-boot) but resets on restart — the intended behaviour, without the old
-  process-global `static HashMap`. `write_point` keeps its coalescing memory as `Ephemeral`.
+- **Why it exists (the "fires once per save" bug).** Two compounding causes, both now fixed:
+  1. **Loop leak.** Republishing a board writes a **new version row with a new `id`**, but the
+     scheduler keyed its loops by `id`, so `register(new_id)` never cancelled the prior version's
+     loop. Every save left another loop running — each with its own engine ticking the trigger. Fixed
+     by keying the loop table (and node-state scope) on the **stable** identity `(org, site_id, slug)`
+     and having loops re-fetch the latest version by it. Verified via the API: republishing keeps the
+     loop count at one.
+  2. **State reset.** Even with one loop, a republish rebuilds the engine, resetting per-actor state →
+     the trigger re-booted. The `trigger` now declares `Session` (keyed by the stable identity), so
+     its clock survives a save (no re-boot) but resets on restart. `write_point` keeps its coalescing
+     memory as `Ephemeral`.
 - **Still to do:** retained link values as the single source of truth (the engine already retains the
   latest per link — extend to a continuous hold once `watch`-driven); board-scoped cleanup of state
   on board delete.

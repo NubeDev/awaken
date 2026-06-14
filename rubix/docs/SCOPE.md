@@ -24,9 +24,12 @@ brain; everything else attaches around it.
    its grants allow — like a user.
 6. **AI-ready by construction.** Vectors live beside the same data the rules and
    dashboards use, so semantic search and agent memory need no separate store.
-7. **Audit, undo, and tracing are byproducts of routing.** Everything crosses the
-   access gate and the event bus, so who-did-what (audit), what-changed (undo), and
-   how-it-flowed (trace) are captured at those two chokepoints — not bolted on.
+7. **Commands go through the gate; reads are SurrealDB-native.** Every *mutation/
+   command* crosses the access gate (which captures audit/undo and mints the
+   correlation id). Reads — including live-query subscriptions — run on a
+   gate-issued **scoped SurrealDB session** and are enforced by SurrealDB's own
+   row-level permissions, not proxied per message. This is the split that makes
+   audit/undo/trace cheap without taxing every read (see Access & policy gate).
 
 ## Stack
 
@@ -60,7 +63,7 @@ brain; everything else attaches around it.
 ║                    ACCESS & POLICY GATE   (one gate, every principal)           ║
 ║   authenticate → authorize → scope.   Backed by SurrealDB auth:                 ║
 ║   namespace (tenant) · team · user/extension identity · grants · row-level perms║
-║   ── users AND extensions pass through here for EVERY action ──                 ║
+║   ── users AND extensions pass here for every COMMAND (reads = scoped session) ──║
 ╚════════════════════════════════════╤═════════════════════════════════════════╝
                                       ▼
         ┌─────────────────────  EVENT BUS  (the spine) ─────────────────────┐
@@ -111,12 +114,35 @@ unification or heavy vectorized aggregation is wanted.
 
 ### Access & policy gate
 
-A single authorize-and-scope path that **every** principal passes through — users
-and extensions alike. It authenticates against SurrealDB auth, resolves the
-principal's namespace (tenant), team, capability grants, and row-level
-permissions, and stamps that scope onto every downstream action: event
-subscriptions, datasource queries, store reads/writes, rule invocations, and Zenoh
-streams. There is no privileged bypass; an extension is a non-human user.
+One identity, **two enforcement points** — this is the load-bearing distinction, so
+it is stated precisely rather than collapsed into "one gate does everything":
+
+- **Commands (mutations) → app gate.** Every write/command goes through the gate.
+  The gate authenticates the principal, checks **capability grants**, captures the
+  before/after for audit+undo, mints the correlation id, and only then applies the
+  change. Clients never write directly to SurrealDB.
+- **Reads (incl. live queries) → scoped SurrealDB session.** At auth time the gate
+  issues a **scoped session token**; SurrealDB's own **row-level permissions** then
+  enforce what that session may read, natively, with no per-message app proxy. This
+  is why native live queries and the "one gate audits everything" goals do not
+  conflict — reads are not gated per message, they are scoped once at the session.
+
+#### Two authz layers (do not conflate)
+
+| Authz | Governs | Enforced by |
+| --- | --- | --- |
+| **Data-record perms** | which SurrealDB records a principal may read/write | SurrealDB row-level permissions (native), via the scoped session |
+| **Capability grants** | non-record actions: register a datasource, invoke a rule, publish ingest, query an external (Postgres/MQTT) datasource, subscribe to a Zenoh key-space | **app-enforced** by the gate |
+
+SurrealDB's permission engine only governs SurrealDB data. Everything that touches
+another plane (DataFusion over external sources, Zenoh streams, rule invocation,
+extension registration) is an **application capability** the gate enforces. Both
+layers key off the *same* principal identity — so it is one identity model, but
+honestly two enforcement layers, not one.
+
+For Zenoh, the gate resolves the principal's permitted **key-space once at
+subscription setup** (a capability decision), not per message — so high-throughput
+streams stay un-taxed while still being scoped.
 
 ### Event bus
 
@@ -130,8 +156,11 @@ Three planes, presented to principals as one permission-filtered eventing surfac
 - **Stream / transport** — Zenoh for high-throughput data in (pre-processing) and
   edge↔cloud movement.
 
-Subscriptions are filtered by the access gate: a principal sees all event *types*
-it is granted, but only the *records* its grants allow.
+Subscription scope is set **once**, not per message: live-query reads are filtered
+by SurrealDB row-level permissions on the principal's scoped session; a Zenoh
+key-space is resolved by the gate at subscribe time. A principal sees all event
+*types* it is granted, but only the *records* its perms allow — enforced by the
+plane that owns the data, not by a per-message app proxy.
 
 ### DataFusion — query and compute
 
@@ -186,11 +215,14 @@ respects per-user **unit (metric/imperial)** and **datetime** preferences.
 ## Extensions as principals
 
 The load-bearing access rule: an extension is modeled as a **service account in
-SurrealDB auth**, scoped to a namespace with capability grants and row-level
-permissions — identical machinery to a user. Consequences:
+SurrealDB auth**, scoped to a namespace — the *same identity model* as a user.
+Enforcement, though, is the two layers above: SurrealDB row-perms for data records,
+app-enforced capability grants for cross-plane actions. Consequences:
 
-- **One identity model.** No separate "plugin trust" path; one auth system for
-  users and extensions.
+- **One identity, two enforcement layers.** No separate "plugin trust" path — users
+  and extensions are the same kind of principal — but data-record perms are
+  SurrealDB-native while capability grants (ingest, rule invoke, datasource
+  register, Zenoh key-space) are app-enforced. Same identity, two enforcers.
 - **Reach everything, restricted to a lane.** An extension may touch every plane
   (events, query, datasources, store, ingest) but only within its granted data.
   "Access the whole bus" means all event *types*, not all *records*.
@@ -236,7 +268,9 @@ audit of any action it triggered → the undo entry that changed the rule.
   reads). Because all principals — users and extensions — cross the gate, audit is
   uniform and automatic; an extension is audited identically to a user.
 - Record: principal, namespace, action, target record, before/after summary,
-  correlation id, timestamp.
+  correlation id, timestamp. The before-image is taken atomically with the write
+  (SurrealDB `RETURN BEFORE`), so capturing it does not add a separate
+  read-before-write round trip.
 - Stored append-only in SurrealDB per namespace; immutability enforced by SurrealDB
   permissions (no UPDATE/DELETE grant to any principal but the system). Synced
   edge→cloud.
@@ -275,9 +309,28 @@ The same binary, configured two ways:
   to cloud over Zenoh when connected. No multi-tenancy code path; the gate resolves
   to the one tenant.
 - **Cloud** — namespace-per-tenant for isolation, teams/users via SurrealDB auth,
-  fleet-wide views, and cloud-only add-ons. Because both sides use SurrealDB as the
-  historian, edge↔cloud sync is homogeneous (SurrealDB→SurrealDB) rather than a
-  cross-engine bridge.
+  fleet-wide views, and cloud-only add-ons.
+
+### Sync and conflict model
+
+Same engine on both sides removes the *schema-translation* problem but **does not**
+solve reconciliation. SurrealDB has no mature multi-master replication (live queries
+are change notification, not replication), so sync is an **application-level shipper
+over Zenoh**, not DB replication — and it needs an explicit conflict model:
+
+- **Data plane (readings, insights, audit, traces) — append-only, edge-owned.**
+  Each edge writes into a **partition keyed by its own device/edge identity**, so
+  two edges never write the same records. Reconciliation is ordering + dedup by id,
+  not merge. No multi-master conflict by construction.
+- **Config plane (dashboards, rules, tags, datasource defs) — the real conflict
+  surface**, since the same definition can be edited in cloud and on edge. Default
+  policy: **ownership** — cloud owns shared/tenant config, edge owns local-only
+  config — with **last-write-wins + the audit log as tiebreak** where overlap is
+  unavoidable. A CRDT model is only warranted if genuine concurrent edit of the same
+  definition becomes a requirement.
+
+This keeps the hard case (config) small and the high-volume case (data) conflict-free
+by partitioning. The unresolved edges are tracked in Open Questions.
 
 ## Scale path
 
@@ -288,6 +341,14 @@ rollup tables** written in SurrealDB as data lands. An external time-series engi
 only when pre-aggregation is not enough — it is never required for the core to run.
 All history access stays behind a single historian boundary so this swap is
 contained, not a refactor.
+
+**Known bet — single-engine concentration.** Pub/sub fan-out, audit, high-volume
+traces, time-series, vector, and auth all land on one SurrealDB instance. The
+DataFusion + optional-Timescale seam is a **read**-scale escape hatch; there is no
+equivalent **write/pub-sub** hatch today. This is a deliberate bet that
+concentration buys simplicity now; if it bites, the likely relief valves are moving
+traces/audit to a separate store and offloading live-query fan-out to Zenoh. Tracked
+in Open Questions.
 
 ## Non-goals
 
@@ -301,23 +362,34 @@ contained, not a refactor.
 
 ## Open questions
 
-1. **SurrealDB time-series at target volume** — where pre-aggregated rollups stop
+1. **Edge↔cloud sync / conflict resolution (highest risk).** The shipper-over-Zenoh
+   model and the partition+ownership conflict policy above are a starting position,
+   not a solved design. Open: ordering/dedup guarantees under long edge offline
+   windows; how config-plane ownership boundaries are declared and enforced; whether
+   LWW-with-audit-tiebreak is acceptable or a CRDT is needed for any shared
+   definition; replay/idempotency on reconnect. SurrealDB has no mature multi-master
+   replication, so this is app-level and must be designed, not assumed.
+2. **Single-engine write/pub-sub concentration.** No escape hatch today for write
+   and live-query-fan-out load (only reads have the DataFusion/Timescale seam).
+   Decide trigger points and relief valves (separate trace/audit store; Zenoh
+   fan-out offload) before the concentration bites.
+3. **SurrealDB time-series at target volume** — where pre-aggregated rollups stop
    being enough and an external historian datasource is warranted (verify at real
    cardinality).
-2. **SurrealDB storage engine on edge** — embedded backend choice (durability/ops),
+4. **SurrealDB storage engine on edge** — embedded backend choice (durability/ops),
    given SurrealKV maturity.
-3. **Rhai rule vocabulary** — confirm time-windowed conditions and hysteresis/
+5. **Rhai rule vocabulary** — confirm time-windowed conditions and hysteresis/
    debounce ("for N minutes") split cleanly: DataFusion computes the window, Rhai
    makes the decision.
-4. **Live-query fan-out limits** — scale ceiling of SurrealDB live queries as the
+6. **Live-query fan-out limits** — scale ceiling of SurrealDB live queries as the
    data-change bus under many subscribers; where Zenoh takes over.
-5. **Extension scope enforcement on the bus** — how the access gate filters a
+7. **Extension scope enforcement on the bus** — how the access gate filters a
    Zenoh data subscription by the extension's grants without a per-message gate
    cost.
-6. **Reusable cloud-only insight/validation surface** — whether to harvest an
+8. **Reusable cloud-only insight/validation surface** — whether to harvest an
    existing Apache-2.0 eval/labeling frontend + schema for the cloud "prove a rule
    before deploy" loop, or build it native.
-7. **Undo collaboration model** — per-user linear undo per resource vs. shared/
+9. **Undo collaboration model** — per-user linear undo per resource vs. shared/
    collaborative undo, given the audit log is the global truth either way.
-8. **Trace retention and sampling** — what to keep, for how long, and the sampling
+10. **Trace retention and sampling** — what to keep, for how long, and the sampling
    rate, given rule-run and data-flow spans are high volume.

@@ -1,0 +1,5 @@
+# Loop runtime artifacts — not source, never commit.
+.loop.lock
+.loop.heartbeat
+.loop.STOP
+cron.log

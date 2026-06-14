@@ -1,0 +1,96 @@
+[package]
+name = "rubix-gate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-store = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[[test]]
+name = "authenticate"
+path = "tests/authenticate_test.rs"
+
+[[test]]
+name = "session_issue"
+path = "tests/session/issue_test.rs"
+
+[[test]]
+name = "scoped_read"
+path = "tests/read/scoped_read_test.rs"
+
+[[test]]
+name = "cross_namespace_denied"
+path = "tests/read/cross_namespace_denied_test.rs"
+
+[[test]]
+name = "capability_check"
+path = "tests/capability/check_test.rs"
+
+[[test]]
+name = "capability_fail_closed"
+path = "tests/capability/fail_closed_test.rs"
+
+[[test]]
+name = "grant_create"
+path = "tests/capability/grant/create_test.rs"
+
+[[test]]
+name = "grant_list"
+path = "tests/capability/grant/list_test.rs"
+
+[[test]]
+name = "grant_revoke"
+path = "tests/capability/grant/revoke_test.rs"
+
+[[test]]
+name = "grant_no_escalation"
+path = "tests/capability/grant/no_escalation_test.rs"
+
+[[test]]
+name = "command_apply"
+path = "tests/command/apply_test.rs"
+
+[[test]]
+name = "command_capture"
+path = "tests/command/capture_test.rs"
+
+[[test]]
+name = "command_correlate"
+path = "tests/command/correlate_test.rs"
+
+[[test]]
+name = "audit_append"
+path = "tests/audit/append_test.rs"
+
+[[test]]
+name = "audit_immutable"
+path = "tests/audit/immutable_test.rs"
+
+[[test]]
+name = "undo_change"
+path = "tests/undo/change_test.rs"
+
+[[test]]
+name = "undo_classify"
+path = "tests/undo/classify_test.rs"
+
+[[test]]
+name = "undo_undo"
+path = "tests/undo/undo_test.rs"
+
+[[test]]
+name = "undo_redo"
+path = "tests/undo/redo_test.rs"

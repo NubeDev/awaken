@@ -1,0 +1,41 @@
+[package]
+name = "rubix-trace"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-bus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rubix-store = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "emit"
+path = "tests/trace/emit_test.rs"
+
+[[test]]
+name = "sample"
+path = "tests/trace/sample_test.rs"
+
+[[test]]
+name = "persist"
+path = "tests/trace/persist_test.rs"
+
+[[test]]
+name = "retain"
+path = "tests/trace/retain_test.rs"
+
+[[test]]
+name = "assemble"
+path = "tests/trace/assemble_test.rs"

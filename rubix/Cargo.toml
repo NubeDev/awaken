@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rubix-core",
+    "crates/rubix-store",
+    "crates/rubix-gate",
+    "crates/rubix-bus",
+    "crates/rubix-trace",
+    "crates/rubix-query",
+    "crates/rubix-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.93"
+
+[workspace.dependencies]
+rubix-core = { version = "0.1.0", path = "crates/rubix-core" }
+rubix-store = { version = "0.1.0", path = "crates/rubix-store" }
+rubix-gate = { version = "0.1.0", path = "crates/rubix-gate" }
+rubix-bus = { version = "0.1.0", path = "crates/rubix-bus" }
+rubix-trace = { version = "0.1.0", path = "crates/rubix-trace" }
+rubix-query = { version = "0.1.0", path = "crates/rubix-query" }
+
+anyhow = "1"
+datafusion = { version = "53", default-features = false, features = ["sql", "unicode_expressions", "regex_expressions"] }
+futures = "0.3"
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+surrealdb = { version = "3", default-features = false, features = ["kv-mem", "kv-surrealkv"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

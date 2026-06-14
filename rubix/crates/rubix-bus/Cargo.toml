@@ -1,0 +1,34 @@
+[package]
+name = "rubix-bus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-store = { workspace = true }
+futures = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+rubix-gate = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "inprocess_publish_subscribe"
+path = "tests/inprocess/publish_subscribe_test.rs"
+
+[[test]]
+name = "livequery_subscribe"
+path = "tests/livequery/subscribe_test.rs"
+
+[[test]]
+name = "livequery_scope_filter"
+path = "tests/livequery/scope_filter_test.rs"

@@ -1,0 +1,43 @@
+[package]
+name = "rubix-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[[test]]
+name = "record_create"
+path = "tests/record/create_test.rs"
+
+[[test]]
+name = "record_update"
+path = "tests/record/update_test.rs"
+
+[[test]]
+name = "record_delete"
+path = "tests/record/delete_test.rs"
+
+[[test]]
+name = "tag_attach"
+path = "tests/tag/attach_test.rs"
+
+[[test]]
+name = "tag_detach"
+path = "tests/tag/detach_test.rs"
+
+[[test]]
+name = "tag_find_by_tags"
+path = "tests/tag/find_by_tags_test.rs"

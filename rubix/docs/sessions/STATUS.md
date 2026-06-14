@@ -13,7 +13,7 @@ finds its dependencies already committed.
 
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
-| WS-01 | Workspace foundation + SurrealDB embedded core store | ⬜ | | | |
+| WS-01 | Workspace foundation + SurrealDB embedded core store | ✅ | 2026-06-14T14:59:44Z | 2026-06-14T15:12:09Z | 8d2a135a |
 | WS-02 | Generic record model + tag graph | ⬜ | | | |
 | WS-03 | Identity + scoped read session | ⬜ | | | |
 | WS-04 | Capability grants (app-enforced authz) | ⬜ | | | |
@@ -50,4 +50,5 @@ finds its dependencies already committed.
 
 ## Loop log
 <!-- The loop appends one line per wake here: <utc> <action> (spawned WS-xx / gated WS-xx ✅ / blocked WS-xx ⛔ / idle). -->
-- (pending first wake)
+- 2026-06-14T14:59:44Z spawned WS-01
+- 2026-06-14T15:15:11Z gated WS-01 ✅ (tests green, clippy clean, commit 8d2a135a)

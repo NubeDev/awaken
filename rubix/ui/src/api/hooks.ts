@@ -4,8 +4,11 @@
  * invalidate the affected keys.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+
 import * as api from './endpoints'
 import { qk } from './keys'
+import { streamBoardOutputs } from './stream'
 import type {
   CreateEquip,
   CreatePoint,
@@ -21,6 +24,7 @@ import type {
   PatchPoint,
   PatchSite,
   PatchWidget,
+  PortOutput,
   PreferencesPatch,
   ProvisionOrg,
   QueryVariable,
@@ -397,6 +401,81 @@ export function useBoardOutputs(
   })
 }
 
+/** Backoff before reconnecting a dropped board outputs stream. */
+const STREAM_RECONNECT_MS = 2_000
+
+/**
+ * Subscribe to a board's live output values over SSE (real-time, replacing the
+ * 5s poll of {@link useBoardOutputs}). Seeds from the snapshot the server sends
+ * on connect, then folds each subsequent snapshot into a retained
+ * last-known-good map keyed by `(node, port)` — so a momentary empty run does
+ * not blank the canvas, and a dropped connection keeps the last values until it
+ * reconnects. Inactive (and emits nothing) when `live` is false.
+ */
+export function useBoardOutputsStream(
+  slug: string | undefined,
+  scope: { org: string | undefined; siteId?: Uuid },
+  live: boolean
+): { data: PortOutput[] } {
+  const org = scope.org
+  const siteId = scope.siteId
+  // The active subscription identity; empty when not streaming.
+  const activeKey = live && slug && org ? `${slug}|${org}|${siteId ?? ''}` : ''
+
+  // Snapshot tagged with the subscription it belongs to, plus the retained
+  // last-known-good map. Tagging lets a board/scope switch derive an empty view
+  // (below) without a synchronous setState in the effect.
+  const [snapshot, setSnapshot] = useState<{ key: string; items: PortOutput[] }>({
+    key: '',
+    items: [],
+  })
+  const retained = useRef<{ key: string; map: Map<string, PortOutput> }>({
+    key: '',
+    map: new Map(),
+  })
+
+  useEffect(() => {
+    if (!live || !slug || !org) return
+    const key = `${slug}|${org}|${siteId ?? ''}`
+    // A fresh subscription owns its own retained map (ref write — no render).
+    retained.current = { key, map: new Map() }
+
+    const controller = new AbortController()
+    let stopped = false
+
+    const consume = (incoming: PortOutput[]) => {
+      if (retained.current.key !== key) return
+      for (const out of incoming) {
+        retained.current.map.set(`${out.node} ${out.port}`, out)
+      }
+      setSnapshot({ key, items: Array.from(retained.current.map.values()) })
+    }
+
+    const run = async () => {
+      while (!stopped) {
+        try {
+          await streamBoardOutputs(slug, { org, siteId }, consume, controller.signal)
+        } catch {
+          // Network drop or non-OK response — fall through to backoff/reconnect.
+        }
+        if (stopped) break
+        await new Promise((resolve) => setTimeout(resolve, STREAM_RECONNECT_MS))
+      }
+    }
+    void run()
+
+    return () => {
+      stopped = true
+      controller.abort()
+    }
+  }, [slug, org, siteId, live])
+
+  // Only surface the snapshot that belongs to the current subscription; a switch
+  // shows nothing until the new stream's first frame, never the prior board's.
+  const data = snapshot.key === activeKey ? snapshot.items : []
+  return { data }
+}
+
 /**
  * The board component catalogue (ports + config schema). Static for a server
  * build, so it never refetches; the flow editor's palette and config form read
@@ -407,6 +486,25 @@ export function useBoardComponents() {
     queryKey: qk.boardComponents,
     queryFn: ({ signal }) => api.boards.components(signal),
     staleTime: Infinity,
+  })
+}
+
+/**
+ * Dropdown choices for a config field's `option_source`, scoped to the board's
+ * `{org}/{site}`. `enabled` lets a caller hold the fetch until the dropdown is
+ * opened (and until any required `datasource` narrowing is known). The client
+ * stays agnostic to what `source` means — the server resolves it.
+ */
+export function useBoardOptions(
+  source: string | undefined,
+  scope: { org?: string; site?: string; datasource?: string },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: qk.boardOptions(source ?? '', scope),
+    queryFn: ({ signal }) => api.boards.options(source!, scope, signal),
+    enabled: Boolean(source) && enabled && Boolean(scope.org),
+    staleTime: 30_000,
   })
 }
 

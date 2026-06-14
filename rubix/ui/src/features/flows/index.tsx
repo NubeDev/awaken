@@ -17,7 +17,7 @@ import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 import {
   useBoardComponents,
-  useBoardOutputs,
+  useBoardOutputsStream,
   useBoards,
   useRunInlineBoard,
   useSaveBoard,
@@ -215,29 +215,30 @@ function BoardEditor({
     | undefined
 
   // A board that the scheduler runs autonomously (enabled + non-manual) streams
-  // its node values; poll them so the canvas shows live values without a manual
-  // Test Run. A manual board has no background runs, so we don't poll it.
+  // its node values in real time (SSE), so the canvas shows live values without
+  // a manual Test Run. A manual board has no background runs, so we don't stream
+  // it.
   const isLive = board.enabled && board.trigger.kind !== 'manual'
-  const outputsQuery = useBoardOutputs(
+  const outputsStream = useBoardOutputsStream(
     board.slug,
     { org: board.org, siteId: board.site_id ?? undefined },
     isLive
   )
 
-  // Live values, keyed by node, derived from the poll. Suppressed while the
-  // user has unsaved edits — then a manual Test Run owns the values (it writes
-  // `lastValues` onto the nodes directly) and a background poll must not fight
-  // it. Empty otherwise, so nodes show their own (Test Run) values or none.
+  // Live values, keyed by node, from the stream. Suppressed while the user has
+  // unsaved edits — then a manual Test Run owns the values (it writes
+  // `lastValues` onto the nodes directly) and the background stream must not
+  // fight it. Empty otherwise, so nodes show their own (Test Run) values or none.
   const liveByNode = useMemo(() => {
     const map = new Map<string, Record<string, unknown>>()
-    if (!isLive || dirty || !outputsQuery.data) return map
-    for (const o of outputsQuery.data) {
+    if (!isLive || dirty || !outputsStream.data) return map
+    for (const o of outputsStream.data) {
       const m = map.get(o.node) ?? {}
       m[o.port] = o.value
       map.set(o.node, m)
     }
     return map
-  }, [isLive, dirty, outputsQuery.data])
+  }, [isLive, dirty, outputsStream.data])
 
   // The nodes React Flow renders: the edited nodes overlaid with live values
   // when polling. Derived (not stored) so polling never disturbs drag/edit
@@ -255,13 +256,13 @@ function BoardEditor({
   const inspectorRun = useMemo(() => {
     if (liveByNode.size === 0) return lastRun
     return {
-      outputs: (outputsQuery.data ?? []).map((o) => ({
+      outputs: (outputsStream.data ?? []).map((o) => ({
         node: o.node,
         port: o.port,
         value: o.value,
       })),
     }
-  }, [liveByNode, outputsQuery.data, lastRun])
+  }, [liveByNode, outputsStream.data, lastRun])
 
   // Port-type compatibility, checked against the live schema. Used both to gate
   // the drag interaction (React Flow's `isValidConnection`) and to guard the

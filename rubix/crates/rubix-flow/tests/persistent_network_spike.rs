@@ -72,7 +72,12 @@ fn read_to_write() -> BoardGraph {
 /// tick and later ticks would produce nothing.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn started_network_survives_repeated_ticks_without_shutdown() {
-    let mut net = read_to_write().load(Arc::new(FakeAccess)).expect("load");
+    // A changing source value (1, 2, 3, 4) so each tick is a distinct command —
+    // `write_point` coalesces *unchanged* re-commands, which a constant value
+    // would trigger, hiding the per-tick liveness this test is about.
+    let mut net = read_to_write()
+        .load(Arc::new(CountingAccess::default()))
+        .expect("load");
     net.start().expect("start");
 
     const TICKS: usize = 4;
@@ -101,9 +106,10 @@ async fn started_network_survives_repeated_ticks_without_shutdown() {
         "a persistent network must keep producing one terminal output per tick \
          (got {w1_values:?})"
     );
-    assert!(
-        w1_values.iter().all(|v| *v == json!(21.5)),
-        "each tick re-reads 21.5 and commands it downstream: {w1_values:?}"
+    assert_eq!(
+        w1_values,
+        vec![json!(1.0), json!(2.0), json!(3.0), json!(4.0)],
+        "each tick re-reads the next value and commands it downstream: {w1_values:?}"
     );
 
     net.shutdown();
@@ -228,5 +234,55 @@ async fn board_engine_retains_and_updates_link_values_across_scans() {
         after_second.iter().filter(|o| o.node == "w1").count(),
         1,
         "retained snapshot keeps one value per link"
+    );
+}
+
+/// Reads a constant value and counts commands, so write coalescing is visible.
+#[derive(Default)]
+struct StickyAccess {
+    writes: AtomicU64,
+}
+
+#[async_trait]
+impl PointAccess for StickyAccess {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
+        Ok(Some(PointValue::Number(7.0)))
+    }
+    async fn write_point(
+        &self,
+        _keyexpr: &str,
+        _priority: u8,
+        value: PointValue,
+    ) -> Result<Option<PointValue>, FlowAccessError> {
+        self.writes.fetch_add(1, Ordering::SeqCst);
+        Ok(Some(value))
+    }
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
+        Ok(vec![])
+    }
+}
+
+/// On the persistent engine, `write_point` re-ticks every scan but coalesces an
+/// unchanged command: a board commanding the same value should hit the priority
+/// array once, not once per scan.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn board_engine_coalesces_unchanged_writes() {
+    let access = std::sync::Arc::new(StickyAccess::default());
+    let mut engine = read_to_write()
+        .spawn_engine(access.clone())
+        .expect("spawn engine");
+
+    for _ in 0..3 {
+        engine.scan().await;
+    }
+
+    assert_eq!(
+        access.writes.load(Ordering::SeqCst),
+        1,
+        "an unchanged value commands the priority array once, then coalesces"
     );
 }

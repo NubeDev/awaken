@@ -46,6 +46,21 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 
 ---
 
+- **WS-04 — Capability grants (app-enforced authz, the second layer).**
+  `rubix-gate` `capability` module: a `Capability` enum (datasource-register,
+  rule-invoke, ingest-publish, external-query, zenoh-subscribe) with a
+  registry (`is_registered`) that is the fail-closed allow-set; a `Grant`
+  binding a capability to a principal's subject within its namespace, persisted
+  in the `grant` table (declared by `define_gate_schema`, no scoped-session
+  `select` perm — grants are app-enforced, read on the store handle). `create_grant`
+  / `list_grants` / `revoke_grant` administer grants through the gate with a
+  fail-closed authority rule (`may_administer`: only an Admin operating within
+  the grantee's own namespace), so no privilege escalation and no cross-namespace
+  grant. `check_capability` denies unknown capabilities and missing grants and
+  allows only an exact (subject, namespace, capability) match — the second authz
+  layer of contract #2, distinct from WS-03's SurrealDB-native row-level layer,
+  keyed off the same `Principal`.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -61,7 +76,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 ### Access & policy gate
 - [x] Identity model — users and extensions as scoped principals (one model).
 - [x] Scoped read session — gate-issued SurrealDB session, row-level perms.
-- [ ] Capability grants — app-enforced authz for cross-plane (non-record) actions.
+- [x] Capability grants — app-enforced authz for cross-plane (non-record) actions.
 - [ ] Command gate — every mutation through the gate; `RETURN BEFORE` capture.
 - [ ] Audit log — append-only, immutable, correlation-id stamped.
 - [ ] Undo/redo — reversible change records for definitions, applied through gate.

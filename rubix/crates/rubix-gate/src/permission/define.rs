@@ -6,6 +6,10 @@
 //! app filter. This statement wires that enforcement:
 //!
 //! - the `principal` table holds the identity records a session signs in as;
+//! - the `grant` table holds the app-enforced capability grants (the second
+//!   authz layer, `rubix/docs/SCOPE.md`); it carries no scoped-session `select`
+//!   permission because grants are read by the gate on the store handle, never
+//!   on a principal's scoped session;
 //! - `DEFINE ACCESS principal ON DATABASE TYPE RECORD` with a `SIGNIN` clause
 //!   resolves a token to a principal record and binds it to `$auth`;
 //! - the `record` table's `PERMISSIONS FOR select` clause keys on
@@ -29,6 +33,7 @@ use crate::error::{GateError, Result};
 /// own namespace.
 const GATE_SCHEMA: &str = "\
 DEFINE TABLE IF NOT EXISTS principal SCHEMALESS;\n\
+DEFINE TABLE IF NOT EXISTS grant SCHEMALESS;\n\
 DEFINE ACCESS IF NOT EXISTS principal ON DATABASE TYPE RECORD\n\
   SIGNIN (\n\
     SELECT * FROM principal\n\

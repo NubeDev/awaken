@@ -6,9 +6,12 @@
 //! principles 5 and 7). One identity model — `rubix_core::Principal` — for users
 //! and extensions; this crate authenticates a principal, mints its scoped
 //! session, and runs scoped reads. The capability-grant layer (app-enforced
-//! authz) and the command path land in later workstreams.
+//! authz over cross-plane actions, the second authz layer of
+//! `rubix/docs/SCOPE.md`) lives in [`capability`]; the command path lands in a
+//! later workstream.
 
 mod authenticate;
+pub mod capability;
 mod error;
 mod permission;
 mod principal;
@@ -17,6 +20,9 @@ mod session;
 mod token;
 
 pub use authenticate::authenticate;
+pub use capability::{
+    Capability, Grant, check_capability, create_grant, is_registered, list_grants, revoke_grant,
+};
 pub use error::{GateError, Result};
 pub use permission::define_gate_schema;
 pub use principal::provision_principal;

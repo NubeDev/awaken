@@ -33,3 +33,27 @@ path = "tests/read/scoped_read_test.rs"
 [[test]]
 name = "cross_namespace_denied"
 path = "tests/read/cross_namespace_denied_test.rs"
+
+[[test]]
+name = "capability_check"
+path = "tests/capability/check_test.rs"
+
+[[test]]
+name = "capability_fail_closed"
+path = "tests/capability/fail_closed_test.rs"
+
+[[test]]
+name = "grant_create"
+path = "tests/capability/grant/create_test.rs"
+
+[[test]]
+name = "grant_list"
+path = "tests/capability/grant/list_test.rs"
+
+[[test]]
+name = "grant_revoke"
+path = "tests/capability/grant/revoke_test.rs"
+
+[[test]]
+name = "grant_no_escalation"
+path = "tests/capability/grant/no_escalation_test.rs"

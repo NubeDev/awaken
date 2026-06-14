@@ -34,6 +34,15 @@ pub enum GateError {
     /// A scoped read against the principal's session failed.
     #[error("scoped read failed: {0}")]
     Read(#[source] CoreError),
+
+    /// A grantor lacked the authority to create or revoke a grant (the
+    /// app-enforced capability layer failing closed, `rubix/docs/SCOPE.md`).
+    #[error("not authorized to administer grant: {0}")]
+    GrantDenied(String),
+
+    /// Persisting, listing, or revoking a capability grant failed.
+    #[error("grant store operation failed: {0}")]
+    GrantStore(#[source] surrealdb::Error),
 }
 
 impl From<GateError> for CoreError {

@@ -18,7 +18,7 @@ finds its dependencies already committed.
 | WS-03 | Identity + scoped read session | ✅ | 2026-06-14T15:40:14Z | 2026-06-14T15:55:00Z | a4212379 |
 | WS-04 | Capability grants (app-enforced authz) | ✅ | 2026-06-14T16:05:13Z | 2026-06-14T16:30:00Z | 59d300d4 |
 | WS-05 | Command gate + audit + correlation id | ✅ | 2026-06-14T16:20:17Z | 2026-06-14T17:05:00Z | a0e59b67 |
-| WS-06 | Undo/redo reversible change records | 🔵 | 2026-06-14T16:35:16Z | | |
+| WS-06 | Undo/redo reversible change records | ✅ | 2026-06-14T16:35:16Z | 2026-06-14T16:46:18Z | d8b8721a |
 | WS-07 | Event bus: in-process + live-query data-change | ⬜ | | | |
 | WS-08 | Tracing spans on the bus | ⬜ | | | |
 | WS-09 | DataFusion query surface over SurrealDB + vector search | ⬜ | | | |
@@ -61,3 +61,4 @@ finds its dependencies already committed.
 - 2026-06-14T16:20:17Z spawned WS-05
 - 2026-06-14T16:35:16Z gated WS-05 ✅ (tests green, clippy clean, commit a0e59b67)
 - 2026-06-14T16:35:16Z spawned WS-06
+- 2026-06-14T16:46:18Z gated WS-06 ✅ (tests green, clippy clean, commit d8b8721a)

@@ -58,3 +58,23 @@ path = "tests/capability/grant/revoke_test.rs"
 [[test]]
 name = "grant_no_escalation"
 path = "tests/capability/grant/no_escalation_test.rs"
+
+[[test]]
+name = "command_apply"
+path = "tests/command/apply_test.rs"
+
+[[test]]
+name = "command_capture"
+path = "tests/command/capture_test.rs"
+
+[[test]]
+name = "command_correlate"
+path = "tests/command/correlate_test.rs"
+
+[[test]]
+name = "audit_append"
+path = "tests/audit/append_test.rs"
+
+[[test]]
+name = "audit_immutable"
+path = "tests/audit/immutable_test.rs"

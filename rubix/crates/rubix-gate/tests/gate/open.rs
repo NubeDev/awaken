@@ -12,12 +12,15 @@ use rubix_store::StoreHandle;
 /// name to keep the in-memory datastores isolated.
 pub const NS: &str = "rubix";
 
-/// Open an in-memory store handle with the gate schema applied.
+/// Open an in-memory store handle with the gate and audit schema applied.
 pub async fn open_gate_store(database: &str) -> StoreHandle {
     let cfg = RuntimeConfig::in_memory(NS, database);
     let handle = StoreHandle::open(&cfg).await.expect("open in-memory store");
     rubix_gate::define_gate_schema(handle.raw())
         .await
         .expect("define gate schema");
+    rubix_gate::define_audit_schema(handle.raw())
+        .await
+        .expect("define audit schema");
     handle
 }

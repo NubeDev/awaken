@@ -61,6 +61,24 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   layer of contract #2, distinct from WS-03's SurrealDB-native row-level layer,
   keyed off the same `Principal`.
 
+- **WS-05 — Command gate + audit + correlation id.** `rubix-gate` `command`
+  module: the single write-enforcement point. A `Command` (principal +
+  required `Capability` + target id + `Change` = create/update/delete over
+  free-form JSON) crosses `apply`, which sequences the gate pipeline —
+  `authorize` (the WS-04 `check_capability` grant check, fail closed before any
+  write) → `correlate` (mint a fresh `CorrelationId`, or carry an upstream one
+  for WS-06 undo replay) → `capture` (run the mutation with SurrealDB
+  `RETURN BEFORE`, so the before-image is taken atomically with the write, one
+  round trip, no read-before-write) → `append_audit`. The capture's before/after
+  pair is the one consumed by audit here and by undo in WS-06 (one capture, two
+  consumers). `audit` module: an immutable `AuditRecord` (subject, namespace,
+  action, target, before/after summary, correlation id, timestamp) written
+  append-only to the `audit` table; `define_audit_schema` declares that table
+  with `PERMISSIONS FOR select WHERE namespace = $auth.namespace` and
+  `FOR create, update, delete NONE`, so immutability is engine-enforced — the gate
+  appends on the root/owner handle (the only session past `NONE`), and a scoped
+  principal's `UPDATE`/`DELETE` is refused by SurrealDB. Contracts #1, #3, #4.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -77,8 +95,8 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Identity model — users and extensions as scoped principals (one model).
 - [x] Scoped read session — gate-issued SurrealDB session, row-level perms.
 - [x] Capability grants — app-enforced authz for cross-plane (non-record) actions.
-- [ ] Command gate — every mutation through the gate; `RETURN BEFORE` capture.
-- [ ] Audit log — append-only, immutable, correlation-id stamped.
+- [x] Command gate — every mutation through the gate; `RETURN BEFORE` capture.
+- [x] Audit log — append-only, immutable, correlation-id stamped.
 - [ ] Undo/redo — reversible change records for definitions, applied through gate.
 
 ### Event bus

@@ -1,0 +1,56 @@
+[package]
+name = "rubix-datasource"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Cloud-only Postgres connector via `datafusion-table-providers`; absent by
+# default so the edge build carries no Postgres backend (STACK-DEISGN.md, "Edge
+# is the default build"). When the feature is off the connector fails closed.
+postgres = ["dep:datafusion-table-providers", "dep:secrecy"]
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-gate = { workspace = true }
+rubix-query = { workspace = true }
+datafusion = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+datafusion-table-providers = { workspace = true, optional = true, features = ["postgres"] }
+secrecy = { version = "0.10", optional = true }
+
+[dev-dependencies]
+rubix-core = { workspace = true }
+rubix-gate = { workspace = true }
+rubix-query = { workspace = true }
+rubix-store = { workspace = true }
+datafusion = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "registry_register"
+path = "tests/registry/register_test.rs"
+
+[[test]]
+name = "registry_authorize"
+path = "tests/registry/authorize_test.rs"
+
+[[test]]
+name = "registry_resolve"
+path = "tests/registry/resolve_test.rs"
+
+[[test]]
+name = "registry_span"
+path = "tests/registry/span_test.rs"
+
+[[test]]
+name = "postgres_connect"
+path = "tests/postgres/connect_test.rs"
+required-features = ["postgres"]

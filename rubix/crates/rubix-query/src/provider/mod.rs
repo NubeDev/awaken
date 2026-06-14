@@ -36,10 +36,15 @@ pub(crate) use scan::scan_table;
 /// table no writer has populated registers as an empty table, so a query over it
 /// returns no rows rather than failing to resolve the name.
 ///
+/// This is the entry the pluggable-datasource layer (`rubix-datasource`, WS-10)
+/// extends: it builds the native SurrealDB context here, then registers each
+/// connector's `TableProvider` on the same context so a query spans SurrealDB and
+/// the external sources (`rubix/docs/SCOPE.md`, "Datasources").
+///
 /// # Errors
 /// Returns a [`QueryError`](crate::QueryError) if any table scan or registration
 /// fails.
-pub(crate) async fn build_context(session: &Surreal<Db>) -> Result<SessionContext> {
+pub async fn build_context(session: &Surreal<Db>) -> Result<SessionContext> {
     let ctx = SessionContext::new();
     for table in CanonicalTable::ALL {
         let batch = scan_table(session, table).await?;

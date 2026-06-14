@@ -22,6 +22,6 @@ mod search;
 
 pub use aggregate::{BucketRollup, Grain, Sample, rollup_window};
 pub use error::{QueryError, Result};
-pub use provider::CanonicalTable;
+pub use provider::{CanonicalTable, build_context};
 pub use query::{ensure_read_only, run, run_authorized};
 pub use search::{Neighbour, nearest};

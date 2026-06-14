@@ -7,6 +7,7 @@ members = [
     "crates/rubix-bus",
     "crates/rubix-trace",
     "crates/rubix-query",
+    "crates/rubix-datasource",
     "crates/rubix-server",
 ]
 
@@ -23,9 +24,11 @@ rubix-gate = { version = "0.1.0", path = "crates/rubix-gate" }
 rubix-bus = { version = "0.1.0", path = "crates/rubix-bus" }
 rubix-trace = { version = "0.1.0", path = "crates/rubix-trace" }
 rubix-query = { version = "0.1.0", path = "crates/rubix-query" }
+rubix-datasource = { version = "0.1.0", path = "crates/rubix-datasource" }
 
 anyhow = "1"
 datafusion = { version = "53", default-features = false, features = ["sql", "unicode_expressions", "regex_expressions"] }
+datafusion-table-providers = { version = "0.11", default-features = false }
 futures = "0.3"
 axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
 serde = { version = "1", features = ["derive"] }

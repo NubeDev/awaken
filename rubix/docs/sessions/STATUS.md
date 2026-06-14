@@ -20,7 +20,7 @@ finds its dependencies already committed.
 | WS-05 | Command gate + audit + correlation id | ✅ | 2026-06-14T16:20:17Z | 2026-06-14T17:05:00Z | a0e59b67 |
 | WS-06 | Undo/redo reversible change records | ✅ | 2026-06-14T16:35:16Z | 2026-06-14T16:46:18Z | d8b8721a |
 | WS-07 | Event bus: in-process + live-query data-change | ✅ | 2026-06-14T16:55:12Z | 2026-06-14T17:04:33Z | e5f53b47 |
-| WS-08 | Tracing spans on the bus | ⬜ | | | |
+| WS-08 | Tracing spans on the bus | ✅ | 2026-06-14T17:15:12Z | 2026-06-14T17:32:00Z | d24b0dd4 |
 | WS-09 | DataFusion query surface over SurrealDB + vector search | ⬜ | | | |
 | WS-10 | Datasource connector framework + Postgres connector | ⬜ | | | |
 | WS-11 | Rhai rules / insights runtime | ⬜ | | | |
@@ -64,3 +64,5 @@ finds its dependencies already committed.
 - 2026-06-14T16:46:18Z gated WS-06 ✅ (tests green, clippy clean, commit d8b8721a)
 - 2026-06-14T16:55:12Z spawned WS-07
 - 2026-06-14T17:10:11Z gated WS-07 ✅ (tests green, clippy clean, commit e5f53b47)
+- 2026-06-14T17:15:12Z spawned WS-08
+- 2026-06-14T17:30:13Z gated WS-08 ✅ (tests green, clippy clean, commit d24b0dd4)

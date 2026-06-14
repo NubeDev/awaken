@@ -8,8 +8,11 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use rubix_core::{HisSample, PointValue, SparkSeverity};
 use rubix_rules::RuleStore;
+
+use crate::error::FlowAccessError;
 
 /// A finding a rule board wants to record. The board names the owning site by
 /// its `{org}/{site}` keyexpr prefix (the same way it addresses points); the
@@ -74,26 +77,30 @@ pub enum DatasourceQuery {
 /// way the bus and tags do. Also the sink for rule-board findings (sparks) and
 /// the entry point for `agent_call` — both part of the BMS the engine acts on,
 /// not a separate transport.
+#[async_trait]
 pub trait PointAccess: Send + Sync + 'static {
     /// Current effective value of a point, or `None` if unset/unknown.
-    fn read_point(&self, keyexpr: &str) -> anyhow::Result<Option<PointValue>>;
+    async fn read_point(&self, keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError>;
 
     /// Command a priority slot (1..=16). Returns the new effective value.
-    fn write_point(
+    async fn write_point(
         &self,
         keyexpr: &str,
         priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>>;
+    ) -> Result<Option<PointValue>, FlowAccessError>;
 
     /// History samples for a point, most recent first, capped at `limit`.
-    fn query_his(&self, keyexpr: &str, limit: usize) -> anyhow::Result<Vec<HisSample>>;
+    async fn query_his(&self, keyexpr: &str, limit: usize)
+        -> Result<Vec<HisSample>, FlowAccessError>;
 
     /// Record a rule-board finding. The default implementation rejects it, so
     /// a `PointAccess` that does not back a store (test fakes) need not handle
     /// sparks; the server's store-backed impl overrides this.
-    fn emit_spark(&self, _draft: SparkDraft) -> anyhow::Result<()> {
-        anyhow::bail!("emit_spark: this point access does not record sparks")
+    async fn emit_spark(&self, _draft: SparkDraft) -> Result<(), FlowAccessError> {
+        Err(FlowAccessError::Unsupported(
+            "emit_spark: this point access does not record sparks".into(),
+        ))
     }
 
     /// Raise an agent request from an `agent_call` node. The default rejects it,
@@ -101,16 +108,23 @@ pub trait PointAccess: Send + Sync + 'static {
     /// the board access the agent's own `run_board` tool builds — which breaks
     /// the agent → board → agent recursion) need not handle it. The server's
     /// scheduler/HTTP-backed impl overrides this to activate a detached run.
-    fn request_agent(&self, _request: AgentRequest) -> anyhow::Result<()> {
-        anyhow::bail!("agent_call: this point access has no agent runtime")
+    async fn request_agent(&self, _request: AgentRequest) -> Result<(), FlowAccessError> {
+        Err(FlowAccessError::Unsupported(
+            "agent_call: this point access has no agent runtime".into(),
+        ))
     }
 
-    /// Raise an agent request and block until the run completes, returning its
-    /// [`AgentOutcome`]. Used by an `agent_call` node configured to await so the
-    /// agent's decision flows downstream in the same single-shot board run. The
-    /// default rejects it for the same fail-closed reason as [`Self::request_agent`].
-    fn request_agent_blocking(&self, _request: AgentRequest) -> anyhow::Result<AgentOutcome> {
-        anyhow::bail!("agent_call: this point access has no agent runtime")
+    /// Raise an agent request and await the run, returning its [`AgentOutcome`].
+    /// Used by an `agent_call` node configured to await so the agent's decision
+    /// flows downstream in the same board run. The default rejects it for the
+    /// same fail-closed reason as [`Self::request_agent`].
+    async fn request_agent_awaited(
+        &self,
+        _request: AgentRequest,
+    ) -> Result<AgentOutcome, FlowAccessError> {
+        Err(FlowAccessError::Unsupported(
+            "agent_call: this point access has no agent runtime".into(),
+        ))
     }
 
     /// The tenant-scoped store a `rule` node resolves stored rules and
@@ -118,7 +132,7 @@ pub trait PointAccess: Send + Sync + 'static {
     /// `PointAccess` that does not back a rule store (test fakes, the agent's own
     /// board access) makes a stored-rule `rule` node fail closed. The server's
     /// store-backed impl overrides this. An inline-script `rule` node needs no
-    /// store and runs regardless.
+    /// store and runs regardless. A pure accessor (no I/O), so it stays sync.
     fn rule_store(&self) -> Option<Arc<dyn RuleStore>> {
         None
     }
@@ -136,12 +150,14 @@ pub trait PointAccess: Send + Sync + 'static {
     /// datasource registry (test fakes, the agent's own board access) makes a
     /// `datasource` node fail closed; the server's registry-backed impl
     /// overrides it.
-    fn query_datasource(
+    async fn query_datasource(
         &self,
         _datasource: &str,
         _query: DatasourceQuery,
         _params: serde_json::Value,
-    ) -> anyhow::Result<serde_json::Value> {
-        anyhow::bail!("datasource: this point access has no datasource registry")
+    ) -> Result<serde_json::Value, FlowAccessError> {
+        Err(FlowAccessError::Unsupported(
+            "datasource: this point access has no datasource registry".into(),
+        ))
     }
 }

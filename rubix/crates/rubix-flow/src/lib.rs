@@ -17,7 +17,7 @@ pub use board::{
     component_schemas, BoardConnection, BoardGraph, BoardNode, ComponentKind, ComponentSchema,
     ConfigField, FieldType, NodeOutput, PortSchema, PortType, COMPONENTS,
 };
-pub use error::FlowError;
+pub use error::{FlowAccessError, FlowError};
 pub use node::{
     frame_from_his, map_severity, AgentCallActor, EmitSparkActor, QueryHisActor, ReadPointActor,
     RuleActor, TriggerActor, WritePointActor,

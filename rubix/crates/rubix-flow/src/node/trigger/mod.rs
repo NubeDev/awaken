@@ -21,7 +21,7 @@ use reflow_actor::ActorContext;
 
 mod trigger_state;
 
-use crate::node::actor_base::{error_out, ActorBase};
+use crate::node::actor_base::{boxed, error_out, ActorBase};
 use crate::port::PointAccess;
 use crate::rubix_node;
 
@@ -37,7 +37,10 @@ impl TriggerActor {
         Self {
             base: ActorBase::new(&["trigger"], &["boot", "count", "output", "error"]),
             access,
-            body: Arc::new(|_access, context| fire(context, Instant::now())),
+            // The trigger's clock state lives in `trigger_state`, not the seam,
+            // so the body does no async I/O — wrap the sync `fire` in a ready
+            // future to satisfy the async `NodeBody`.
+            body: Arc::new(|_access, context| boxed(async move { fire(context, Instant::now()) })),
         }
     }
 }

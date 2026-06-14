@@ -50,6 +50,7 @@ impl TypedTool for ReadPointTool {
         let value = self
             .access
             .read_point(&args.point)
+            .await
             .map_err(|e| ToolError::Internal(e.to_string()))?;
         let data = serde_json::json!({ "point": args.point, "value": value });
         Ok(ToolResult::success("read_point", data).into())

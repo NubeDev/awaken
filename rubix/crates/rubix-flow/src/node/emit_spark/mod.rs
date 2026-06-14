@@ -23,7 +23,7 @@ use reflow_actor::message::Message;
 use reflow_actor::ActorContext;
 use rubix_core::SparkSeverity;
 
-use super::actor_base::{config_str, error_out, ActorBase};
+use super::actor_base::{boxed, config_str, error_out, ActorBase};
 use crate::port::{PointAccess, SparkDraft};
 use crate::rubix_node;
 
@@ -39,12 +39,12 @@ impl EmitSparkActor {
         Self {
             base: ActorBase::new(&["value", "finding"], &["output", "error"]),
             access,
-            body: Arc::new(emit),
+            body: Arc::new(|access, context| boxed(emit(access, context))),
         }
     }
 }
 
-fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
+async fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let Some(site_prefix) = config_str(context, "site") else {
         return error_out("emit_spark: missing `site` config");
     };
@@ -77,7 +77,7 @@ fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
         severity,
         message,
     };
-    match access.emit_spark(draft) {
+    match access.emit_spark(draft).await {
         Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
         Err(e) => error_out(format!("emit_spark: {e}")),
     }

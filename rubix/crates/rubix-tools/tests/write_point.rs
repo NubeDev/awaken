@@ -3,9 +3,10 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use async_trait::async_trait;
 use awaken_runtime_contract::contract::tool::{Tool, ToolCallContext, ToolError};
 use rubix_core::{HisSample, PointValue};
-use rubix_flow::PointAccess;
+use rubix_flow::{FlowAccessError, PointAccess};
 use rubix_tools::WritePointTool;
 use serde_json::json;
 
@@ -16,20 +17,25 @@ struct RecordingAccess {
     last: Mutex<Option<(String, u8, PointValue)>>,
 }
 
+#[async_trait]
 impl PointAccess for RecordingAccess {
-    fn read_point(&self, _keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(None)
     }
-    fn write_point(
+    async fn write_point(
         &self,
         keyexpr: &str,
         priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         *self.last.lock().unwrap() = Some((keyexpr.to_string(), priority, value.clone()));
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(vec![])
     }
 }

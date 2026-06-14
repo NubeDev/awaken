@@ -20,20 +20,21 @@ async fn store_point_access_reads_writes_and_histories() {
     let access = StorePointAccess::new(store);
 
     // No command yet → no effective value.
-    assert_eq!(access.read_point(keyexpr).unwrap(), None);
+    assert_eq!(access.read_point(keyexpr).await.unwrap(), None);
 
     // Command priority 8 → becomes the effective value, readable back.
     let effective = access
         .write_point(keyexpr, 8, PointValue::Bool(true))
+        .await
         .unwrap();
     assert_eq!(effective, Some(PointValue::Bool(true)));
     assert_eq!(
-        access.read_point(keyexpr).unwrap(),
+        access.read_point(keyexpr).await.unwrap(),
         Some(PointValue::Bool(true))
     );
 
     // The command landed in history.
-    let his = access.query_his(keyexpr, 10).unwrap();
+    let his = access.query_his(keyexpr, 10).await.unwrap();
     assert_eq!(his.len(), 1);
     assert_eq!(his[0].value, PointValue::Bool(true));
 }
@@ -109,5 +110,5 @@ async fn run_board_rejects_unknown_component() {
 async fn unknown_keyexpr_is_an_error() {
     let (_app, store) = TestApp::with_store();
     let access = StorePointAccess::new(store);
-    assert!(access.read_point("no/such/point/here").is_err());
+    assert!(access.read_point("no/such/point/here").await.is_err());
 }

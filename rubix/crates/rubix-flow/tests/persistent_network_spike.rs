@@ -17,28 +17,34 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use reflow_actor::message::Message;
 use reflow_network::network::NetworkEvent;
 use rubix_core::{HisSample, PointValue};
-use rubix_flow::{BoardGraph, PointAccess};
+use rubix_flow::{BoardGraph, FlowAccessError, PointAccess};
 use serde_json::json;
 
-/// Reads a fixed value; records each command so writes are observable.
+/// Reads a fixed value; echoes each command so writes are observable.
 struct FakeAccess;
 
+#[async_trait]
 impl PointAccess for FakeAccess {
-    fn read_point(&self, _keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(PointValue::Number(21.5)))
     }
-    fn write_point(
+    async fn write_point(
         &self,
         _keyexpr: &str,
         _priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(vec![])
     }
 }

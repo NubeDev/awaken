@@ -8,7 +8,7 @@ use std::sync::Arc;
 use reflow_actor::message::Message;
 use reflow_actor::ActorContext;
 
-use super::actor_base::{config_str, error_out, ActorBase};
+use super::actor_base::{boxed, config_str, error_out, ActorBase};
 use super::value_msg::{message_to_value, value_to_message};
 use crate::port::PointAccess;
 use crate::rubix_node;
@@ -25,12 +25,12 @@ impl WritePointActor {
         Self {
             base: ActorBase::new(&["value"], &["output", "error"]),
             access,
-            body: Arc::new(write),
+            body: Arc::new(|access, context| boxed(write(access, context))),
         }
     }
 }
 
-fn write(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
+async fn write(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let Some(keyexpr) = config_str(context, "point") else {
         return error_out("write_point: missing `point` config");
     };
@@ -41,7 +41,7 @@ fn write(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<Strin
     let Some(value) = message_to_value(msg) else {
         return error_out("write_point: input is not a scalar point value");
     };
-    match access.write_point(&keyexpr, priority, value) {
+    match access.write_point(&keyexpr, priority, value).await {
         Ok(Some(v)) => HashMap::from([("output".to_string(), value_to_message(&v))]),
         Ok(None) => HashMap::from([("output".to_string(), Message::Flow)]),
         Err(e) => error_out(format!("write_point: {e}")),

@@ -23,7 +23,7 @@ use reflow_actor::message::{EncodableValue, Message};
 use reflow_actor::ActorContext;
 use serde_json::Value;
 
-use super::actor_base::{error_out, ActorBase};
+use super::actor_base::{boxed, error_out, ActorBase};
 use crate::port::{DatasourceQuery, PointAccess};
 use crate::rubix_node;
 
@@ -39,7 +39,7 @@ impl DatasourceActor {
         Self {
             base: ActorBase::new(&["trigger"], &["output", "error"]),
             access,
-            body: Arc::new(query),
+            body: Arc::new(|access, context| boxed(query(access, context))),
         }
     }
 }
@@ -53,12 +53,15 @@ struct Request {
     params: Value,
 }
 
-fn query(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
+async fn query(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let req = match parse_request(&context.get_config_hashmap()) {
         Ok(req) => req,
         Err(e) => return error_out(e),
     };
-    match access.query_datasource(&req.datasource, req.intent, req.params) {
+    match access
+        .query_datasource(&req.datasource, req.intent, req.params)
+        .await
+    {
         Ok(result) => HashMap::from([(
             "output".to_string(),
             Message::Object(Arc::new(EncodableValue::from(result))),

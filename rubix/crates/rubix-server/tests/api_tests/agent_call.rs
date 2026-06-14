@@ -264,6 +264,7 @@ async fn request_agent_fails_closed_without_an_agent() {
             thread: "t".into(),
             prompt: "do something".into(),
         })
+        .await
         .unwrap_err();
     assert!(err.to_string().contains("no agent runtime"), "{err}");
     // The node is still a registered component regardless.

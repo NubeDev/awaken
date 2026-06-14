@@ -4,28 +4,34 @@ use std::sync::Arc;
 
 use std::sync::Mutex;
 
+use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
 use rubix_core::{HisSample, PointValue, SparkSeverity};
-use rubix_flow::{AgentOutcome, AgentRequest, BoardGraph, PointAccess, SparkDraft};
+use rubix_flow::{AgentOutcome, AgentRequest, BoardGraph, FlowAccessError, PointAccess, SparkDraft};
 use rubix_rules::{MemoryRuleStore, RuleStore, StoredRule};
 use serde_json::json;
 
 /// In-memory point access: a single point with a fixed value and history.
 struct FakeAccess;
 
+#[async_trait]
 impl PointAccess for FakeAccess {
-    fn read_point(&self, _keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(PointValue::Number(21.5)))
     }
-    fn write_point(
+    async fn write_point(
         &self,
         _keyexpr: &str,
         _priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(vec![])
     }
 }
@@ -37,22 +43,30 @@ struct AwaitingAgentAccess {
     seen: Mutex<Vec<AgentRequest>>,
 }
 
+#[async_trait]
 impl PointAccess for AwaitingAgentAccess {
-    fn read_point(&self, _keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(PointValue::Number(21.5)))
     }
-    fn write_point(
+    async fn write_point(
         &self,
         _keyexpr: &str,
         _priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(vec![])
     }
-    fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {
+    async fn request_agent_awaited(
+        &self,
+        request: AgentRequest,
+    ) -> Result<AgentOutcome, FlowAccessError> {
         self.seen.lock().unwrap().push(request);
         Ok(AgentOutcome {
             run_id: "run-1".into(),
@@ -88,22 +102,27 @@ impl RuleAccess {
     }
 }
 
+#[async_trait]
 impl PointAccess for RuleAccess {
-    fn read_point(&self, _keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(None)
     }
-    fn write_point(
+    async fn write_point(
         &self,
         _keyexpr: &str,
         _priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(self.history.iter().take(limit).cloned().collect())
     }
-    fn emit_spark(&self, draft: SparkDraft) -> anyhow::Result<()> {
+    async fn emit_spark(&self, draft: SparkDraft) -> Result<(), FlowAccessError> {
         self.sparks.lock().unwrap().push(draft);
         Ok(())
     }

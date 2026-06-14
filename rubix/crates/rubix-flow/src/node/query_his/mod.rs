@@ -8,7 +8,7 @@ use std::sync::Arc;
 use reflow_actor::message::{EncodableValue, Message};
 use reflow_actor::ActorContext;
 
-use super::actor_base::{config_str, error_out, ActorBase};
+use super::actor_base::{boxed, config_str, error_out, ActorBase};
 use crate::port::PointAccess;
 use crate::rubix_node;
 
@@ -24,12 +24,12 @@ impl QueryHisActor {
         Self {
             base: ActorBase::new(&["trigger"], &["output", "error"]),
             access,
-            body: Arc::new(query),
+            body: Arc::new(|access, context| boxed(query(access, context))),
         }
     }
 }
 
-fn query(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
+async fn query(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let Some(keyexpr) = config_str(context, "point") else {
         return error_out("query_his: missing `point` config");
     };
@@ -38,7 +38,7 @@ fn query(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<Strin
         .get("limit")
         .and_then(|v| v.as_u64())
         .unwrap_or(100) as usize;
-    match access.query_his(&keyexpr, limit) {
+    match access.query_his(&keyexpr, limit).await {
         Ok(samples) => match serde_json::to_value(&samples) {
             Ok(json) => HashMap::from([(
                 "output".to_string(),

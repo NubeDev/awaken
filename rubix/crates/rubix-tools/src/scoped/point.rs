@@ -7,8 +7,9 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use rubix_core::{HisSample, PointValue};
-use rubix_flow::{AgentOutcome, AgentRequest, PointAccess, SparkDraft};
+use rubix_flow::{AgentOutcome, AgentRequest, FlowAccessError, PointAccess, SparkDraft};
 
 use crate::scope::TenantScope;
 
@@ -28,49 +29,57 @@ impl ScopedPointAccess {
     }
 
     /// Authorize a keyexpr against the scope, or return the tenant-denial error.
-    fn guard(&self, keyexpr: &str) -> anyhow::Result<()> {
+    fn guard(&self, keyexpr: &str) -> Result<(), FlowAccessError> {
         if self.scope.covers(keyexpr) {
             Ok(())
         } else {
-            anyhow::bail!(
+            Err(FlowAccessError::Denied(format!(
                 "point `{keyexpr}` is outside the run's tenant scope `{}`",
                 self.scope.scope_id()
-            )
+            )))
         }
     }
 }
 
+#[async_trait]
 impl PointAccess for ScopedPointAccess {
-    fn read_point(&self, keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         self.guard(keyexpr)?;
-        self.inner.read_point(keyexpr)
+        self.inner.read_point(keyexpr).await
     }
 
-    fn write_point(
+    async fn write_point(
         &self,
         keyexpr: &str,
         priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         self.guard(keyexpr)?;
-        self.inner.write_point(keyexpr, priority, value)
+        self.inner.write_point(keyexpr, priority, value).await
     }
 
-    fn query_his(&self, keyexpr: &str, limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        keyexpr: &str,
+        limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         self.guard(keyexpr)?;
-        self.inner.query_his(keyexpr, limit)
+        self.inner.query_his(keyexpr, limit).await
     }
 
-    fn emit_spark(&self, draft: SparkDraft) -> anyhow::Result<()> {
-        self.inner.emit_spark(draft)
+    async fn emit_spark(&self, draft: SparkDraft) -> Result<(), FlowAccessError> {
+        self.inner.emit_spark(draft).await
     }
 
-    fn request_agent(&self, request: AgentRequest) -> anyhow::Result<()> {
-        self.inner.request_agent(request)
+    async fn request_agent(&self, request: AgentRequest) -> Result<(), FlowAccessError> {
+        self.inner.request_agent(request).await
     }
 
-    fn request_agent_blocking(&self, request: AgentRequest) -> anyhow::Result<AgentOutcome> {
-        self.inner.request_agent_blocking(request)
+    async fn request_agent_awaited(
+        &self,
+        request: AgentRequest,
+    ) -> Result<AgentOutcome, FlowAccessError> {
+        self.inner.request_agent_awaited(request).await
     }
 }
 
@@ -86,23 +95,28 @@ mod tests {
         seen: Mutex<Vec<String>>,
     }
 
+    #[async_trait]
     impl PointAccess for RecordingAccess {
-        fn read_point(&self, keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+        async fn read_point(&self, keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
             self.seen.lock().unwrap().push(keyexpr.to_string());
             Ok(Some(PointValue::Number(1.0)))
         }
 
-        fn write_point(
+        async fn write_point(
             &self,
             keyexpr: &str,
             _priority: u8,
             _value: PointValue,
-        ) -> anyhow::Result<Option<PointValue>> {
+        ) -> Result<Option<PointValue>, FlowAccessError> {
             self.seen.lock().unwrap().push(keyexpr.to_string());
             Ok(None)
         }
 
-        fn query_his(&self, keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+        async fn query_his(
+            &self,
+            keyexpr: &str,
+            _limit: usize,
+        ) -> Result<Vec<HisSample>, FlowAccessError> {
             self.seen.lock().unwrap().push(keyexpr.to_string());
             Ok(Vec::new())
         }
@@ -114,25 +128,37 @@ mod tests {
         (inner, scoped)
     }
 
-    #[test]
-    fn in_scope_calls_reach_the_inner_access() {
+    #[tokio::test]
+    async fn in_scope_calls_reach_the_inner_access() {
         let (inner, access) = scoped();
-        assert!(access.read_point("nube/hq/ahu-3/fan").is_ok());
-        assert!(access.write_point("nube/hq/ahu-3/fan", 16, PointValue::Bool(true)).is_ok());
-        assert!(access.query_his("nube/hq/ahu-3/fan", 10).is_ok());
+        assert!(access.read_point("nube/hq/ahu-3/fan").await.is_ok());
+        assert!(access
+            .write_point("nube/hq/ahu-3/fan", 16, PointValue::Bool(true))
+            .await
+            .is_ok());
+        assert!(access.query_his("nube/hq/ahu-3/fan", 10).await.is_ok());
         assert_eq!(inner.seen.lock().unwrap().len(), 3);
     }
 
-    #[test]
-    fn out_of_scope_calls_are_refused_before_the_inner_access() {
+    #[tokio::test]
+    async fn out_of_scope_calls_are_refused_before_the_inner_access() {
         let (inner, access) = scoped();
         for key in ["acme/hq/ahu-3/fan", "nube/dc1/ahu-3/fan", "nube/hq2/ahu/fan"] {
-            assert!(access.read_point(key).is_err(), "read {key} must be denied");
             assert!(
-                access.write_point(key, 16, PointValue::Bool(true)).is_err(),
+                access.read_point(key).await.is_err(),
+                "read {key} must be denied"
+            );
+            assert!(
+                access
+                    .write_point(key, 16, PointValue::Bool(true))
+                    .await
+                    .is_err(),
                 "write {key} must be denied"
             );
-            assert!(access.query_his(key, 10).is_err(), "his {key} must be denied");
+            assert!(
+                access.query_his(key, 10).await.is_err(),
+                "his {key} must be denied"
+            );
         }
         // No denied call ever touched the inner store.
         assert!(inner.seen.lock().unwrap().is_empty());

@@ -11,6 +11,7 @@ rubix-core.workspace = true
 rubix-rules.workspace = true
 reflow_network.workspace = true
 reflow_actor.workspace = true
+async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

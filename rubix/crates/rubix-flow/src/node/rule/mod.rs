@@ -32,7 +32,7 @@ use rubix_rules::{params_from_json, run_rule, RuleResult, RuleSource, SandboxLim
 
 use self::frame::{frame_from_samples, FrameError};
 use self::severity::spark_severity;
-use super::actor_base::{config_str, error_out, ActorBase};
+use super::actor_base::{boxed, config_str, error_out, ActorBase};
 use crate::port::PointAccess;
 use crate::rubix_node;
 
@@ -56,7 +56,10 @@ impl RuleActor {
         Self {
             base: ActorBase::new(&["input"], &["finding", "clear", "error"]),
             access,
-            body: Arc::new(evaluate),
+            // `evaluate` does no async seam I/O (it resolves the rule store
+            // synchronously and bridges the synchronous engine via `run_blocking`),
+            // so wrap the sync body in a ready future rather than making it async.
+            body: Arc::new(|access, context| boxed(async move { evaluate(access, context) })),
         }
     }
 }

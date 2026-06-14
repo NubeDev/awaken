@@ -170,6 +170,7 @@ impl TypedTool for WritePointTool {
         let effective = self
             .access
             .write_point(&args.point, priority, value)
+            .await
             .map_err(|e| ToolError::Internal(e.to_string()))?;
         let data = serde_json::json!({
             "point": args.point,

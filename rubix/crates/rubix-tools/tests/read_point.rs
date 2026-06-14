@@ -3,31 +3,37 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use awaken_runtime_contract::contract::tool::{Tool, ToolCallContext};
 use rubix_core::{HisSample, PointValue};
-use rubix_flow::PointAccess;
+use rubix_flow::{FlowAccessError, PointAccess};
 use rubix_tools::ReadPointTool;
 use serde_json::json;
 
 /// Returns a fixed value for any keyexpr; errors for the sentinel "missing".
 struct FakeAccess;
 
+#[async_trait]
 impl PointAccess for FakeAccess {
-    fn read_point(&self, keyexpr: &str) -> anyhow::Result<Option<PointValue>> {
+    async fn read_point(&self, keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
         if keyexpr == "no/such/point/here" {
-            anyhow::bail!("point not found");
+            return Err(FlowAccessError::Store("point not found".into()));
         }
         Ok(Some(PointValue::Number(21.5)))
     }
-    fn write_point(
+    async fn write_point(
         &self,
         _keyexpr: &str,
         _priority: u8,
         value: PointValue,
-    ) -> anyhow::Result<Option<PointValue>> {
+    ) -> Result<Option<PointValue>, FlowAccessError> {
         Ok(Some(value))
     }
-    fn query_his(&self, _keyexpr: &str, _limit: usize) -> anyhow::Result<Vec<HisSample>> {
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
         Ok(vec![])
     }
 }

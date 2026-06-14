@@ -8,10 +8,10 @@
 //!   [`PointAccess::request_agent`] and the agent runs out-of-band — a control
 //!   board must not block on an LLM. The node acknowledges on `output` so the
 //!   graph continues immediately.
-//! - Awaited (`await: true`): the node blocks on
-//!   [`PointAccess::request_agent_blocking`] and emits the agent's final response
+//! - Awaited (`await: true`): the node awaits
+//!   [`PointAccess::request_agent_awaited`] and emits the agent's final response
 //!   text on `output`, so a downstream node can branch on the agent's decision
-//!   in the same single-shot board run.
+//!   in the same board run.
 //!
 //! Boards run by the agent's own `run_board` tool get a `PointAccess` without an
 //! agent, so the request fails closed there and the agent → board → agent loop
@@ -23,7 +23,7 @@ use std::sync::Arc;
 use reflow_actor::message::Message;
 use reflow_actor::ActorContext;
 
-use super::actor_base::{config_str, error_out, ActorBase};
+use super::actor_base::{boxed, config_str, error_out, ActorBase};
 use super::value_msg::message_to_value;
 use crate::port::{AgentRequest, PointAccess};
 use crate::rubix_node;
@@ -43,12 +43,12 @@ impl AgentCallActor {
         Self {
             base: ActorBase::new(&["value"], &["output", "error"]),
             access,
-            body: Arc::new(call),
+            body: Arc::new(|access, context| boxed(call(access, context))),
         }
     }
 }
 
-fn call(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
+async fn call(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String, Message> {
     let prompt = match prompt_of(context) {
         Some(p) => p,
         None => return error_out("agent_call: no `prompt` config and no `value` input"),
@@ -56,7 +56,7 @@ fn call(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
     let thread = config_str(context, "thread").unwrap_or_else(|| DEFAULT_THREAD.to_string());
     let request = AgentRequest { thread, prompt };
     if awaits(context) {
-        match access.request_agent_blocking(request) {
+        match access.request_agent_awaited(request).await {
             Ok(outcome) => HashMap::from([(
                 "output".to_string(),
                 Message::String(outcome.response.into()),
@@ -64,7 +64,7 @@ fn call(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<String
             Err(e) => error_out(format!("agent_call: {e}")),
         }
     } else {
-        match access.request_agent(request) {
+        match access.request_agent(request).await {
             Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
             Err(e) => error_out(format!("agent_call: {e}")),
         }

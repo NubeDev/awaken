@@ -3253,6 +3253,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-bus"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "rubix-core",
+ "rubix-gate",
+ "rubix-store",
+ "serde_json",
+ "surrealdb",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "rubix-core"
 version = "0.1.0"
 dependencies = [

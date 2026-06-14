@@ -8,6 +8,7 @@
 //! the `rubix-store` durable handle.
 
 mod create;
+mod decode;
 mod delete;
 mod list;
 mod read;
@@ -15,6 +16,7 @@ mod row;
 mod update;
 
 pub use create::create_record;
+pub use decode::decode_record;
 pub use delete::delete_record;
 pub use list::list_records;
 pub use read::read_record;

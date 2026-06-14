@@ -1,0 +1,46 @@
+[package]
+name = "rubix-ingest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-gate = { workspace = true }
+zenoh = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rubix-store = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "subscribe_authorize"
+path = "tests/subscribe/authorize_test.rs"
+
+[[test]]
+name = "subscribe_listen"
+path = "tests/subscribe/listen_test.rs"
+
+[[test]]
+name = "process_decimate"
+path = "tests/process/decimate_test.rs"
+
+[[test]]
+name = "process_filter"
+path = "tests/process/filter_test.rs"
+
+[[test]]
+name = "process_enrich"
+path = "tests/process/enrich_test.rs"
+
+[[test]]
+name = "persist_append"
+path = "tests/persist/append_test.rs"

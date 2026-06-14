@@ -227,13 +227,17 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
   now that the loop reads on a cadence (G1).
 
 ### Stage B — Live value bus + SSE
-- Per-board broadcast channel fed by the engine's drain of `NetworkEvent::MessageSent` + terminal
-  outputs (§2b Finding 1); publishes `{value, quality, ts}` deltas (closes G3 at the link level).
-  New `GET /boards/{slug}/outputs/stream` (axum SSE) emits the current snapshot on connect, then
-  deltas. Keep `GET /outputs` REST for the snapshot. **Gate the stream with the same tenant/capability
-  check as `/outputs`** (Finding 7).
-- UI: `useBoardOutputsStream` via `EventSource`; seed from snapshot, retain last-known-good per
-  port, drop the 5s poll. Stop blanking on `dirty` / Test-Run / missing-node; show freshness age.
+- **Done — server:** `BoardOutputs` holds a per-board `tokio::sync::broadcast`; every `record`
+  (scheduled scan, subscription sample, on-demand run) pushes the snapshot, so the stream and the
+  REST snapshot share one feed. `clear` pushes an empty frame so a disabled/deleted board blanks
+  subscribers. `GET /api/v1/boards/{slug}/outputs/stream` (axum SSE) emits the snapshot on connect
+  then each subsequent snapshot, under the same tenant authorization as `/outputs` (Finding 7).
+- **Done — UI hook:** `useBoardOutputsStream` reads the stream over `fetch` (native `EventSource`
+  can't send the bearer header), retains last-known-good per `(node, port)` so a momentary empty run
+  no longer blanks the canvas, and reconnects with backoff. Replaces the 5s poll for live boards.
+  Wiring it into the flow editor lives in the working tree alongside unrelated in-flight UI work.
+- **Next:** snapshots are full pictures, not yet field-level deltas with `{value, quality, ts}` (G3);
+  stop blanking on `dirty` / Test-Run / missing-node and show a freshness age in the editor.
 
 ### Stage C — Simplify run modes to enable/disable
 - Strip the "Continuous / On demand" dropdown; leave Enabled + an optional advanced **Scan rate**.

@@ -78,3 +78,19 @@ path = "tests/audit/append_test.rs"
 [[test]]
 name = "audit_immutable"
 path = "tests/audit/immutable_test.rs"
+
+[[test]]
+name = "undo_change"
+path = "tests/undo/change_test.rs"
+
+[[test]]
+name = "undo_classify"
+path = "tests/undo/classify_test.rs"
+
+[[test]]
+name = "undo_undo"
+path = "tests/undo/undo_test.rs"
+
+[[test]]
+name = "undo_redo"
+path = "tests/undo/redo_test.rs"

@@ -97,7 +97,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Capability grants — app-enforced authz for cross-plane (non-record) actions.
 - [x] Command gate — every mutation through the gate; `RETURN BEFORE` capture.
 - [x] Audit log — append-only, immutable, correlation-id stamped.
-- [ ] Undo/redo — reversible change records for definitions, applied through gate.
+- [x] Undo/redo — reversible change records for definitions, applied through gate.
 
 ### Event bus
 - [ ] In-process tokio control plane.

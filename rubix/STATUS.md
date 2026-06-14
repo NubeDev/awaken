@@ -150,6 +150,35 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   `RUBIX_TEST_PG` is unset. Minimal additive change to WS-09: `build_context`
   widened to `pub` so the scoped scan is reused, not duplicated.
 
+- **WS-11 — Rhai rules / insights runtime.** New `rubix-rules` crate, the
+  embedded deterministic rule/insight runtime (SCOPE "Rhai — rules and
+  insights"; `rubix/STACK-DEISGN.md`, "Rhai owns the decision; DataFusion owns
+  the data"). `engine` module: a hardened Rhai `Engine` (bounded operations and
+  call depth so a script fails deterministically rather than hanging) with one
+  host fn `invoke(id)` resolving a sub-rule's already-computed decision value,
+  and a `Decision` (fired/value/reason) normalised from a script's bool or
+  decision-map return — a non-decision return is an error, no guessed fallback.
+  `rule` module: a `Rule` (script + input `Binding`s + declared `subrules` +
+  output kind), a `Binding` that resolves a script input to a DataFusion window
+  value (an `Aggregate` of the latest `rollup_window` bucket pulled through the
+  principal's scoped session, contract #1 — a series with no bucket fails the
+  binding, never a silent zero), and a `RuleRegistry` that resolves sub-rules
+  fail-closed. `evaluate` module: `evaluate` mints one correlation id, evaluates
+  the rule and its sub-rules depth-first against the window values (`compose`
+  + `run`), emits and persists a WS-08 span per node (`span`, two-phase span ids
+  so the tree nests without a mutable span), records the root decision as an
+  insight through the WS-05 gate as a `rule-invoke` command (`record` — a fresh
+  generic record, authorized + captured + correlated + audited, fail closed when
+  ungranted), and publishes the firing on the WS-07 in-process bus (`publish`)
+  under the same correlation id. The one id threads the decision, insight, audit
+  row, event, and every span (contract #3), so `rubix_trace::assemble_trace`
+  retrieves the full per-evaluation "why". Verified on kv-mem: a rule fires
+  offline on a window value and records an insight + audit row; an ungranted
+  evaluation is denied with no insight written; a composed rule (rule-calls-rule)
+  reflects its child and nests the sub-rule span under the parent; the assembled
+  span tree shows each rule, the values seen, and the decision. Additive bus
+  surface: the `insight.recorded` control-event type for live insight firings.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -183,7 +212,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [ ] MQTT / REST connectors (follow-up behind the framework).
 
 ### Rules / insights
-- [ ] Rhai embedded runtime — composable rules, offline, decision → SurrealDB +
+- [x] Rhai embedded runtime — composable rules, offline, decision → SurrealDB +
       data-change event, span tree per evaluation.
 
 ### Ingestion / transport

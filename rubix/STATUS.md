@@ -79,6 +79,23 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   appends on the root/owner handle (the only session past `NONE`), and a scoped
   principal's `UPDATE`/`DELETE` is refused by SurrealDB. Contracts #1, #3, #4.
 
+- **WS-07 — Event bus: in-process + live-query data-change.** New `rubix-bus`
+  crate, the eventing spine's first two planes (SCOPE "Event bus"). `inprocess`
+  module: a cloneable `ControlBus` over tokio broadcast, one channel per event
+  type created lazily; `publish` fans a `ControlEvent` (type + JSON payload +
+  `CorrelationId`, contract #3) out to every `subscribe`r of its type and to no
+  other type — a no-subscriber publish is a zero-reach no-op, not a failure.
+  `livequery` module: `subscribe_table` opens a SurrealDB `LIVE SELECT` on a
+  WS-03 gate-issued scoped session's connection, so SurrealDB row-level
+  permissions decide which records the subscriber sees — scope set once at
+  subscribe, not proxied per message (contract #1); the `DataChangeStream` maps
+  each notification's `Action` to a `DataChange` (Created/Updated/Deleted),
+  decoding the record through a new `rubix_core::decode_record` (reuses the one
+  record decode path, no row-shape duplication). A `Killed` query ends the
+  stream; an `Action::Error` surfaces as `BusError::Evaluation`. Verified on
+  kv-mem: an insert in a principal's namespace pushes a `Created` event; a
+  foreign-namespace write is never delivered to that principal's subscriber.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -100,8 +117,8 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Undo/redo — reversible change records for definitions, applied through gate.
 
 ### Event bus
-- [ ] In-process tokio control plane.
-- [ ] Data-change plane over SurrealDB live queries, permission-filtered.
+- [x] In-process tokio control plane.
+- [x] Data-change plane over SurrealDB live queries, permission-filtered.
 - [ ] Tracing spans on the bus, bounded/sampled retention.
 
 ### Query / compute

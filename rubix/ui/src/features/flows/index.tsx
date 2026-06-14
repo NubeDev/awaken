@@ -240,16 +240,35 @@ function BoardEditor({
     return map
   }, [isLive, dirty, outputsStream.data])
 
+  // Per-node link quality from the stream, keyed like `liveByNode`, so the canvas
+  // can colour a fault/null port differently from a good value.
+  const liveQualityByNode = useMemo(() => {
+    const map = new Map<string, Record<string, string>>()
+    if (!isLive || dirty || !outputsStream.data) return map
+    for (const o of outputsStream.data) {
+      if (!o.quality) continue
+      const m = map.get(o.node) ?? {}
+      m[o.port] = o.quality
+      map.set(o.node, m)
+    }
+    return map
+  }, [isLive, dirty, outputsStream.data])
+
   // The nodes React Flow renders: the edited nodes overlaid with live values
-  // when polling. Derived (not stored) so polling never disturbs drag/edit
-  // state, and the overlay vanishes the moment the board goes manual/disabled.
+  // (and their quality) when streaming. Derived (not stored) so streaming never
+  // disturbs drag/edit state, and the overlay vanishes the moment the board goes
+  // manual/disabled.
   const displayNodes = useMemo(() => {
     if (liveByNode.size === 0) return nodes
     return nodes.map((n) => ({
       ...n,
-      data: { ...n.data, lastValues: liveByNode.get(n.id) ?? n.data.lastValues },
+      data: {
+        ...n.data,
+        lastValues: liveByNode.get(n.id) ?? n.data.lastValues,
+        lastQuality: liveQualityByNode.get(n.id) ?? n.data.lastQuality,
+      },
     }))
-  }, [nodes, liveByNode])
+  }, [nodes, liveByNode, liveQualityByNode])
 
   // The inspector's value panel reads from the live poll when live, else from
   // the last manual Test Run.

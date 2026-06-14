@@ -50,6 +50,12 @@ export type FlowNodeData = {
   schema: ComponentView
   /** Last test-run values for this node's outports, keyed by port id. */
   lastValues?: Record<string, unknown>
+  /**
+   * Link quality (`ok`/`fault`/`null`) per outport id, from the live stream. A
+   * fault (a value on the node's `error` port) or a null reads differently from
+   * a good value, so the canvas colours it.
+   */
+  lastQuality?: Record<string, string>
 }
 
 /** Render a port value compactly: strings quoted, objects as JSON, all clamped. */
@@ -57,6 +63,13 @@ function formatPortValue(value: unknown): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value)
   if (text === undefined) return ''
   return text.length > 28 ? `${text.slice(0, 27)}…` : text
+}
+
+/** Text colour for a port value by its link quality. */
+const QUALITY_TEXT: Record<string, string> = {
+  ok: 'text-foreground/80',
+  fault: 'text-destructive',
+  null: 'text-muted-foreground',
 }
 
 /**
@@ -107,6 +120,7 @@ export function FlowNode({ data, selected }: NodeProps & { data: FlowNodeData })
               side='out'
               value={data.lastValues?.[port.id]}
               hasValue={data.lastValues ? port.id in data.lastValues : false}
+              quality={data.lastQuality?.[port.id]}
             />
           ))}
         </div>
@@ -127,11 +141,13 @@ function PortRow({
   side,
   value,
   hasValue,
+  quality,
 }: {
   port: PortView
   side: 'in' | 'out'
   value?: unknown
   hasValue?: boolean
+  quality?: string
 }) {
   const dot = PORT_DOT[port.port_type]
   return (
@@ -151,7 +167,10 @@ function PortRow({
       <span className='text-muted-foreground block truncate font-mono'>{port.label}</span>
       {hasValue && (
         <span
-          className='text-foreground/80 block truncate font-mono text-[10px]'
+          className={cn(
+            'block truncate font-mono text-[10px]',
+            QUALITY_TEXT[quality ?? 'ok'] ?? QUALITY_TEXT.ok
+          )}
           title={typeof value === 'string' ? value : JSON.stringify(value)}
         >
           = {formatPortValue(value)}

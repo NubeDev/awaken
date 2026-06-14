@@ -307,6 +307,8 @@ export interface PortOutput {
   node: string
   port: string
   value: unknown
+  /** Link quality (`ok`/`fault`/`null`) so a value is self-describing. */
+  quality?: string
   at: IsoTimestamp
 }
 

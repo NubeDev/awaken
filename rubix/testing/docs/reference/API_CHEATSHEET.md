@@ -11,8 +11,9 @@ calls go through unauthenticated.
 
 ```bash
 export BASE=http://127.0.0.1:8088   # the `make dev-be` default; raw `cargo run` uses :8080
-post() { curl -s -X POST "$BASE$1" -H content-type:application/json -d "$2"; }
-del()  { curl -s -X DELETE "$BASE$1"; }
+post()  { curl -s -X POST "$BASE$1" -H content-type:application/json -d "$2"; }
+patch() { curl -s -X PATCH "$BASE$1" -H content-type:application/json -d "$2"; }
+del()   { curl -s -X DELETE "$BASE$1"; }
 ```
 
 ---
@@ -105,18 +106,31 @@ up — which is what the agent dispatcher subscribes to.
 
 ---
 
-## Boards (reflow)
+## Boards (reflow)  — see [features/BOARDS_REFLOW.md](../features/BOARDS_REFLOW.md)
+
+The graph is wrapped in `{"board": <graph>}` on `/run`; `POST /boards` takes the
+graph under `board` (required `display_name` + `trigger`), and the response calls it
+`graph`. Outputs carry `{node, port, value, quality}`. Board endpoints are
+tenant-scoped: `?org=` required, `?site_id=` optional.
 
 ```bash
-# run an inline board once, get every node's outputs
-post /api/v1/boards/run '{"nodes":[{"id":"r","component":"read_point","config":{"point":"nube/hq/ahu-3/temp"}}],"connections":[]}' | jq
+# the node palette (ports + config schema for all 8 components)
+curl -s $BASE/api/v1/boards/components | jq
 
-# stored + versioned
-post /api/v1/boards '{"slug":"ahu3-guard","graph":{...},"trigger":{...},"enabled":true}' | jq
-curl -s $BASE/api/v1/boards | jq                   # list (latest per slug)
-curl -s $BASE/api/v1/boards/ahu3-guard | jq
-post /api/v1/boards/ahu3-guard/run ''              # run latest stored
-del /api/v1/boards/ahu3-guard
+# run an inline board once → {"outputs":[{node,port,value,quality}]}
+post /api/v1/boards/run '{"board":{"nodes":[{"id":"r","component":"read_point","config":{"point":"nube/hq/ahu-3/temp"}}],"connections":[]}}' | jq
+
+# stored + versioned (trigger is {"kind":"manual"|"interval"|"subscription", …})
+post /api/v1/boards '{"slug":"ahu3-guard","display_name":"AHU3 Guard","trigger":{"kind":"interval","seconds":1},"board":{...},"enabled":true}' | jq
+curl -s "$BASE/api/v1/boards?org=nube" | jq                 # list (latest per slug)
+curl -s "$BASE/api/v1/boards/ahu3-guard?org=nube" | jq
+post '/api/v1/boards/ahu3-guard/run?org=nube' ''            # run latest stored
+patch /api/v1/boards/ahu3-guard?org=nube '{"enabled":false}'  # enable/disable (un)registers the loop
+del '/api/v1/boards/ahu3-guard?org=nube'
+
+# live values: snapshot, and the SSE stream the editor consumes
+curl -s "$BASE/api/v1/boards/ahu3-guard/outputs?org=nube" | jq        # [{node,port,value,quality,at}]
+curl -N "$BASE/api/v1/boards/ahu3-guard/outputs/stream?org=nube"      # SSE: snapshot then deltas
 ```
 
 Components: `read_point`, `write_point`, `query_his`, `emit_spark`, `agent_call`.

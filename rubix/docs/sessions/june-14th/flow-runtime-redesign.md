@@ -251,14 +251,21 @@ foundation the rest builds on. No board-level rebuilds after the first stage.
 - Strip the "Continuous / On demand" dropdown; leave Enabled + an optional advanced **Scan rate**.
   Intra-graph rate stays on the `trigger` node. `Manual` stays server-side for the Test Run button.
 
-### Stage D — Persistent component state (true scan model)
-- **Done:** `trigger` state (clock/count/level) now lives in the actor's own `MemoryState`, which
-  survives across scans on the persistent engine — the process-global `static HashMap` and its
-  restart-coupling of `boot` are gone ([`node/trigger`](../../../crates/rubix-flow/src/node/trigger)).
-  `write_point` likewise keeps its last-committed command in actor state (the coalescing above).
-- **Still to do:** any further stateful node follows the same pattern; retained link values as the
-  single source of truth (the engine already retains the latest per link — extend to a continuous
-  hold once `watch`-driven).
+### Stage D — Persistent component state (the node-state system)
+- **Done — node-state contract.** A stateful node no longer hand-rolls persistence; it declares an
+  explicit [`StatePolicy`](../../../crates/rubix-flow/src/state.rs) per call against a board-scoped
+  `NodeState` store. There is **no default** — saving a board is an explicit persistence decision:
+  - `Ephemeral` — resets on an engine rebuild (republish/save). A per-engine in-memory map.
+  - `Session` — survives a republish (in-memory, board-scoped via the scheduler); clears on restart.
+  - `Durable` — survives a republish **and** a server restart (a `node_state` store table; sqlite +
+    postgres). Higher policies degrade to `Ephemeral` on a one-shot run that wires no backing.
+- **Why it exists.** A save re-registers the board → rebuilds the engine → reset per-actor state, so
+  a `trigger` re-fired its boot fire on every save. The `trigger` now declares `Session`, so its
+  clock survives a save (no re-boot) but resets on restart — the intended behaviour, without the old
+  process-global `static HashMap`. `write_point` keeps its coalescing memory as `Ephemeral`.
+- **Still to do:** retained link values as the single source of truth (the engine already retains the
+  latest per link — extend to a continuous hold once `watch`-driven); board-scoped cleanup of state
+  on board delete.
 
 ### Stage E — Unify the live bus across the app
 - Points page and Dashboards subscribe to the same SSE/zenoh-backed stream instead of 5s

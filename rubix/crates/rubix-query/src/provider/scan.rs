@@ -18,6 +18,7 @@ use surrealdb::engine::local::Db;
 
 use crate::error::{QueryError, Result};
 
+use super::instant::parse_created_micros;
 use super::schema::CanonicalTable;
 
 /// Scan `table` on `session` into a single Arrow [`RecordBatch`].
@@ -32,15 +33,30 @@ use super::schema::CanonicalTable;
 /// [`QueryError::DataFusion`] if the decoded columns cannot form a batch.
 pub async fn scan_table(session: &Surreal<Db>, table: CanonicalTable) -> Result<RecordBatch> {
     let surreal_table = table.surreal_table();
-    let mut response = session
+    let outcome = session
         .query(format!("SELECT * FROM {surreal_table}"))
         .await
-        .map_err(|e| QueryError::Scan(e.to_string()))?;
-    let rows: Vec<serde_json::Value> = response
-        .take(0)
-        .map_err(|e| QueryError::Scan(e.to_string()))?;
+        .and_then(|mut response| response.take::<Vec<serde_json::Value>>(0));
+    let rows = match outcome {
+        Ok(rows) => rows,
+        // A canonical table no workstream has declared yet (e.g. `insight`
+        // before its WS-11 writer) is legitimately empty, not an error: a
+        // read-only scan over an absent table yields zero rows.
+        Err(error) if is_missing_table(&error) => Vec::new(),
+        Err(error) => return Err(QueryError::Scan(error.to_string())),
+    };
 
     build_batch(table, &rows)
+}
+
+/// Whether a SurrealDB error reports that the scanned table does not exist.
+///
+/// Matched on the engine's message because SurrealDB does not surface a typed
+/// "missing table" variant here; the read is otherwise infallible for an empty
+/// table, so the narrow string match cannot mask a different failure.
+fn is_missing_table(error: &surrealdb::Error) -> bool {
+    let message = error.to_string();
+    message.contains("does not exist") && message.contains("table")
 }
 
 /// Project decoded JSON rows into the table's Arrow schema.
@@ -91,110 +107,19 @@ fn string_field(row: &serde_json::Value, field: &str) -> Option<String> {
 
 /// Read an RFC3339 datetime field as microseconds since the Unix epoch.
 ///
-/// SurrealDB serialises a `datetime` to an RFC3339 string in JSON; this parses
-/// that into the epoch-microsecond representation the Arrow timestamp column
-/// uses, which the window-bucket math then aligns (see `crate::aggregate`).
+/// Delegates to [`parse_created_micros`] so the scan and the rollup series reader
+/// share one datetime parser (`docs/FILE-LAYOUT.md`, dedup).
 fn micros_field(row: &serde_json::Value, field: &str) -> Option<i64> {
-    let raw = match row.get(field) {
-        Some(serde_json::Value::String(s)) => s,
-        _ => return None,
-    };
-    parse_rfc3339_micros(raw)
-}
-
-/// Parse an RFC3339 timestamp into microseconds since the Unix epoch.
-///
-/// Implemented without a date library: SurrealDB always emits UTC RFC3339 with a
-/// `Z` (or `+00:00`) offset for stored datetimes, so a fixed-shape parser is
-/// sufficient and avoids a new dependency for one field. Returns `None` for any
-/// string that is not that shape rather than guessing.
-fn parse_rfc3339_micros(raw: &str) -> Option<i64> {
-    let bytes = raw.as_bytes();
-    // YYYY-MM-DDTHH:MM:SS is the minimum prefix.
-    if bytes.len() < 19 || bytes[4] != b'-' || bytes[10] != b'T' {
-        return None;
+    match row.get(field) {
+        Some(serde_json::Value::String(s)) => parse_created_micros(s),
+        _ => None,
     }
-    let year: i64 = raw.get(0..4)?.parse().ok()?;
-    let month: u32 = raw.get(5..7)?.parse().ok()?;
-    let day: u32 = raw.get(8..10)?.parse().ok()?;
-    let hour: i64 = raw.get(11..13)?.parse().ok()?;
-    let minute: i64 = raw.get(14..16)?.parse().ok()?;
-    let second: i64 = raw.get(17..19)?.parse().ok()?;
-
-    let days = days_from_civil(year, month, day)?;
-    let secs = days * 86_400 + hour * 3_600 + minute * 60 + second;
-    let micros = fractional_micros(&raw[19..]);
-    Some(secs * 1_000_000 + micros)
-}
-
-/// Days since the Unix epoch for a civil date, by Howard Hinnant's algorithm.
-fn days_from_civil(year: i64, month: u32, day: u32) -> Option<i64> {
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return None;
-    }
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let m = i64::from(month);
-    let d = i64::from(day);
-    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    Some(era * 146_097 + doe - 719_468)
-}
-
-/// Microseconds from the fractional-seconds tail of an RFC3339 string.
-///
-/// Accepts `.ffffff` of up to six digits before the timezone marker; any tail
-/// that is not a fractional part contributes zero (the seconds resolution is
-/// still correct).
-fn fractional_micros(tail: &str) -> i64 {
-    let Some(rest) = tail.strip_prefix('.') else {
-        return 0;
-    };
-    let digits: String = rest.chars().take_while(char::is_ascii_digit).take(6).collect();
-    if digits.is_empty() {
-        return 0;
-    }
-    let scale = 10_i64.pow(6 - digits.len() as u32);
-    digits.parse::<i64>().unwrap_or(0) * scale
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_batch, parse_rfc3339_micros};
+    use super::build_batch;
     use crate::provider::schema::CanonicalTable;
-
-    #[test]
-    fn epoch_start_parses_to_zero() {
-        assert_eq!(parse_rfc3339_micros("1970-01-01T00:00:00Z"), Some(0));
-    }
-
-    #[test]
-    fn a_known_instant_parses_to_its_epoch_micros() {
-        // 2021-01-01T00:00:00Z == 1609459200 seconds since the epoch.
-        assert_eq!(
-            parse_rfc3339_micros("2021-01-01T00:00:00Z"),
-            Some(1_609_459_200_000_000)
-        );
-    }
-
-    #[test]
-    fn fractional_seconds_contribute_micros() {
-        assert_eq!(
-            parse_rfc3339_micros("1970-01-01T00:00:00.5Z"),
-            Some(500_000)
-        );
-        assert_eq!(
-            parse_rfc3339_micros("1970-01-01T00:00:00.000123Z"),
-            Some(123)
-        );
-    }
-
-    #[test]
-    fn a_malformed_timestamp_is_none() {
-        assert_eq!(parse_rfc3339_micros("not-a-date"), None);
-        assert_eq!(parse_rfc3339_micros("2021/01/01"), None);
-    }
 
     #[test]
     fn an_empty_table_builds_a_zero_row_batch() {

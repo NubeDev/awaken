@@ -14,10 +14,14 @@
 //!   over `minute…week` epoch-aligned buckets) that feeds rule decisions;
 //! - a **vector / semantic-search surface** over SurrealDB vector columns.
 
+mod aggregate;
 mod error;
 mod provider;
 mod query;
+mod search;
 
+pub use aggregate::{BucketRollup, Grain, Sample, rollup_window};
 pub use error::{QueryError, Result};
 pub use provider::CanonicalTable;
 pub use query::{ensure_read_only, run, run_authorized};
+pub use search::{Neighbour, nearest};

@@ -96,6 +96,29 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   kv-mem: an insert in a principal's namespace pushes a `Created` event; a
   foreign-namespace write is never delivered to that principal's subscriber.
 
+- **WS-09 — DataFusion query surface over SurrealDB + vector search.** New
+  `rubix-query` crate, the unification/compute layer (SCOPE "DataFusion — query
+  and compute"). DataFusion sits **above** SurrealDB only for unification and
+  heavy aggregation (contract #6); SurrealQL stays first. `provider` module:
+  each canonical table (`record`/`tag`/`audit`/`insight`) is scanned through the
+  principal's WS-03 scoped session via plain SurrealQL `SELECT`, projected into a
+  fixed Arrow schema (structural columns + free-form `content` JSON string,
+  principle 4) and registered as an in-memory table — so the only rows DataFusion
+  can plan over are the ones SurrealDB row-level permissions already admitted
+  (contract #1), and there is no unscoped base table to escape; a not-yet-written
+  table (`insight` ahead of WS-11) scans as empty. `query` module: `run`
+  executes a single `SELECT`/`WITH` over that context after a statement `guard`
+  rejects any write/DDL/multi-statement input (the read-only injection guard,
+  parsed with DataFusion's own parser); `run_authorized` gates the query action
+  on the WS-04 `external-query` capability before any scan, fail closed (contract
+  #2). `aggregate` module: `rollup_window` reads a numeric `content.<field>`
+  series through the scoped session and folds it into epoch-aligned buckets
+  (`minute…week`) with `avg/min/max/sum/count/first/last` per bucket — the
+  vectorized window values that feed a Rhai rule decision (WS-11). `search`
+  module: `nearest` runs SurrealDB-native `vector::distance::euclidean` k-nearest
+  over a record's vector column on the scoped session (SurrealQL first), with the
+  table/field-path validated as identifiers to close the one injection surface.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -122,9 +145,9 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Tracing spans on the bus, bounded/sampled retention.
 
 ### Query / compute
-- [ ] DataFusion `TableProvider` over SurrealDB + unified `/query` surface.
-- [ ] Vectorized time-window aggregation feeding rule decisions.
-- [ ] Vector / semantic search surface.
+- [x] DataFusion `TableProvider` over SurrealDB + unified `/query` surface.
+- [x] Vectorized time-window aggregation feeding rule decisions.
+- [x] Vector / semantic search surface.
 - [ ] Datasource connector framework + Postgres connector.
 - [ ] MQTT / REST connectors (follow-up behind the framework).
 

@@ -10,6 +10,7 @@
 //! principal's permissions, because the only rows present are the ones the scoped
 //! scan already returned.
 
+mod instant;
 mod scan;
 mod schema;
 
@@ -24,6 +25,7 @@ use crate::error::Result;
 
 pub use schema::CanonicalTable;
 
+pub(crate) use instant::parse_created_micros;
 pub(crate) use scan::scan_table;
 
 /// Build a DataFusion context with every canonical table registered, scanned
@@ -42,7 +44,7 @@ pub(crate) async fn build_context(session: &Surreal<Db>) -> Result<SessionContex
     for table in CanonicalTable::ALL {
         let batch = scan_table(session, table).await?;
         let provider = MemTable::try_new(batch.schema(), vec![vec![batch]])
-            .map_err(|e| crate::QueryError::DataFusion(e.into()))?;
+            .map_err(crate::QueryError::DataFusion)?;
         ctx.register_table(table.register_name(), Arc::new(provider))
             .map_err(crate::QueryError::DataFusion)?;
     }

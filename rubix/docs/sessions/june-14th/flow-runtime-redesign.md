@@ -206,26 +206,25 @@ Ordered so nothing is thrown away: the persistent network and the seam redesign 
 foundation the rest builds on. No board-level rebuilds after the first stage.
 
 ### Stage A — Seam redesign + persistent network (foundation)
-- **Done:** `PointAccess` is `async` with a typed `FlowAccessError` (closes G1, G4); the
-  `block_in_place` bridges are gone. The tracing dial is disabled at `load` (no more
+- **Done — async seam:** `PointAccess` is `async` with a typed `FlowAccessError` (closes G1, G4);
+  the `block_in_place` bridges are gone. The tracing dial is disabled at `load` (no more
   `ws://localhost:8080` storm). The keystone is spiked (§2b).
+- **Done — `BoardEngine`** ([`board/engine.rs`](../../../crates/rubix-flow/src/board/engine.rs)):
+  owns one started `Network` for the board's lifetime; `spawn_engine` / `scan` / `current_values`.
+  `scan` re-ticks the sources and folds link values into a retained per-`(node,port)` snapshot —
+  interior links from the `NetworkEvent::MessageSent` tap, terminals from `read_actor_output`
+  (Finding 1) — draining the event channel each scan (Finding 2). Dropping the engine tears the
+  network down (Findings 3, 6).
+- **Done — interval wiring:** `scheduler/interval.rs` builds the engine once and *scans* it every
+  `seconds` (the scan rate), rebuilding on a `version` bump (republish) and dropping it on disable.
+  The one-shot `run()` stays for subscription, on-demand, and Test Run.
 - **Next — `watch(prefix) -> Stream` (G2):** add it to the seam as a `BoxStream` of
   `{keyexpr, value, quality, ts}`, tenant-scoped, with a fail-closed default; fold the scheduler's
   `Subscription` trigger onto it so there is one subscription substrate (§2b / G2).
-- **Next — `BoardEngine`** owning one started reflow `Network` for its lifetime:
-  `spawn` / `scan` / `current_values` / `shutdown`. Replace per-tick build→run→shutdown in
-  `scheduler/interval.rs` with build-once + a scan loop; `Interval{seconds}` is reinterpreted as the
-  **scan rate**. Design constraints from the spike: observe link values from the
-  `NetworkEvent::MessageSent` stream + terminal `read_actor_output` (Finding 1); continuously drain
-  the event receiver (Finding 2); on scan, bound each cycle with a timeout and run at most one
-  in-flight scan, skipping overruns (Finding 4, G1a); coalesce unchanged `write_point` commands
-  (Finding 5).
-- Keep the one-shot `run()` only for Test Run and Manual `/run`.
-- Lifecycle: scheduler `register`/`unregister` spawn/kill an engine; republish/disable **drops** the
-  old `Network` (not just `shutdown()`) and rebuilds, reseeding SSE subscribers from the snapshot
-  (Findings 3, 6).
-- Move the SQLite point/history reads to `spawn_blocking` here, where the scan loop reads on a
-  cadence (G1).
+- **Next — robustness on the scan loop:** bound each scan with a timeout, keep at most one in-flight
+  scan (Finding 4, G1a); coalesce unchanged `write_point` commands so a 1 Hz board does not re-push
+  the priority array every scan (Finding 5); move SQLite point/history reads to `spawn_blocking`,
+  now that the loop reads on a cadence (G1).
 
 ### Stage B — Live value bus + SSE
 - Per-board broadcast channel fed by the engine's drain of `NetworkEvent::MessageSent` + terminal
@@ -263,7 +262,7 @@ Stage A (async seam + persistent net) ─┬─> Stage B (SSE) ──> Stage C (
                                         └─> Stage D (component state) ──> Stage E (unified bus)
 ```
 Stage A is the keystone; its one real unknown (reflow's long-lived-network behaviour) is now
-spiked and confirmed (§2b), and the seam half (async + typed error) has landed. The remaining
-Stage A work is the `watch` primitive + the `BoardEngine`, built to the §2b findings. Stages B–C
-deliver the visible win (real-time, no flicker, simple UX); Stages D–E complete the
-Niagara/Sedona model.
+spiked and confirmed (§2b). The async seam, the `BoardEngine`, and the interval scan wiring have
+landed; what remains in Stage A is the `watch` primitive and scan-loop robustness (timeout, write
+coalescing, `spawn_blocking`). Stages B–C deliver the visible win (real-time, no flicker, simple
+UX); Stages D–E complete the Niagara/Sedona model.

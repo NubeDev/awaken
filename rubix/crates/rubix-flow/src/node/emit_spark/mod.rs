@@ -76,6 +76,7 @@ async fn emit(access: &Arc<dyn PointAccess>, context: &ActorContext) -> HashMap<
         rule,
         severity,
         message,
+        points: points_of(context),
     };
     match access.emit_spark(draft).await {
         Ok(()) => HashMap::from([("output".to_string(), Message::Flow)]),
@@ -137,6 +138,21 @@ fn message_of(context: &ActorContext) -> Option<String> {
         }
     }
     config_str(context, "message")
+}
+
+/// The points this finding implicates, from config. Accepts either a `points`
+/// array of keyexprs or a single `point` string (the common rule-board shape,
+/// matching the upstream `query_his`/`read_point` node's `point`). Each entry is
+/// a keyexpr the host resolves to a point id when persisting the spark.
+fn points_of(context: &ActorContext) -> Vec<String> {
+    let config = context.get_config_hashmap();
+    if let Some(arr) = config.get("points").and_then(|v| v.as_array()) {
+        return arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+    }
+    config_str(context, "point").into_iter().collect()
 }
 
 /// Render an inbound message as finding text. Scalars stringify; structured

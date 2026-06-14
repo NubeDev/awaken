@@ -5732,8 +5732,10 @@ name = "rubix-flow"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "flume",
+ "futures",
  "parking_lot",
  "reflow_actor",
  "reflow_network",
@@ -5840,6 +5842,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "awaken-runtime-contract",
+ "futures",
  "rubix-core",
  "rubix-flow",
  "schemars 1.2.1",

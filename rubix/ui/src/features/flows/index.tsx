@@ -197,6 +197,9 @@ function BoardEditor({
   const runBoard = useRunInlineBoard()
   const saveBoard = useSaveBoard()
   const { screenToFlowPosition } = useReactFlow()
+  // Scope for config dropdowns: the board owns its org; the site slug comes from
+  // the route (an org-level flow leaves it undefined, scoping points org-wide).
+  const { site } = useScope()
 
   const seed = useMemo(
     () => mapBoard(board.graph, componentIndex),
@@ -505,6 +508,7 @@ function BoardEditor({
           onConfigChange={onConfigChange}
           onDelete={onDeleteNode}
           lastRun={inspectorRun}
+          scope={{ org: board.org, site: site?.slug }}
         />
         <RunOutput result={lastRun} />
       </Card>

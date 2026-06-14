@@ -1,9 +1,22 @@
 import { useState } from 'react'
+import { Check, ChevronsUpDown } from 'lucide-react'
 import type { ConfigFieldView } from '@/api/types'
+import { useBoardOptions } from '@/api/hooks'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -12,6 +25,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+/** The board's editing scope, needed to resolve `option_source` dropdowns. */
+export type ConfigScope = { org?: string; site?: string }
+
 type NodeConfigFormProps = {
   /** Schema fields for the selected node's component. */
   fields: ConfigFieldView[]
@@ -19,6 +35,8 @@ type NodeConfigFormProps = {
   config: Record<string, unknown>
   /** Patch one config key; the editor merges and persists. */
   onChange: (key: string, value: unknown) => void
+  /** Editing scope for `option_source` dropdowns (points, datasources, …). */
+  scope?: ConfigScope
 }
 
 /**
@@ -28,14 +46,21 @@ type NodeConfigFormProps = {
  * placeholder shows the schema default so an unset optional field reads as its
  * effective value without us silently writing it.
  */
-export function NodeConfigForm({ fields, config, onChange }: NodeConfigFormProps) {
+export function NodeConfigForm({ fields, config, onChange, scope }: NodeConfigFormProps) {
   if (fields.length === 0) {
     return <p className='text-muted-foreground text-[11.5px]'>This node takes no config.</p>
   }
   return (
     <div className='flex flex-col gap-3'>
       {fields.map((field) => (
-        <Field key={field.name} field={field} value={config[field.name]} onChange={onChange} />
+        <Field
+          key={field.name}
+          field={field}
+          value={config[field.name]}
+          config={config}
+          onChange={onChange}
+          scope={scope}
+        />
       ))}
     </div>
   )
@@ -44,11 +69,15 @@ export function NodeConfigForm({ fields, config, onChange }: NodeConfigFormProps
 function Field({
   field,
   value,
+  config,
   onChange,
+  scope,
 }: {
   field: ConfigFieldView
   value: unknown
+  config: Record<string, unknown>
   onChange: (key: string, value: unknown) => void
+  scope?: ConfigScope
 }) {
   const defaultText = field.default !== undefined ? String(field.default) : undefined
   const id = `cfg-${field.name}`
@@ -63,7 +92,15 @@ function Field({
         <span className='text-muted-foreground font-mono text-[9.5px]'>{field.field_type}</span>
       </div>
 
-      <Control id={id} field={field} value={value} defaultText={defaultText} onChange={onChange} />
+      <Control
+        id={id}
+        field={field}
+        value={value}
+        config={config}
+        defaultText={defaultText}
+        onChange={onChange}
+        scope={scope}
+      />
 
       {field.help && <p className='text-muted-foreground text-[10.5px]'>{field.help}</p>}
     </div>
@@ -74,15 +111,34 @@ function Control({
   id,
   field,
   value,
+  config,
   defaultText,
   onChange,
+  scope,
 }: {
   id: string
   field: ConfigFieldView
   value: unknown
+  config: Record<string, unknown>
   defaultText?: string
   onChange: (key: string, value: unknown) => void
+  scope?: ConfigScope
 }) {
+  // A backend-resolved dropdown takes priority over the field_type control: the
+  // server decides the choices, the client just renders a searchable select.
+  if (field.option_source) {
+    return (
+      <OptionSourceControl
+        id={id}
+        field={field}
+        value={value}
+        config={config}
+        onChange={onChange}
+        scope={scope}
+      />
+    )
+  }
+
   if (field.field_type === 'boolean') {
     const on = value === undefined ? field.default === true : value === true
     return (
@@ -125,6 +181,108 @@ function Control({
       step={field.field_type === 'integer' ? 1 : 'any'}
       onChange={(e) => onChange(field.name, coerce(field, e.target.value))}
     />
+  )
+}
+
+/**
+ * A searchable dropdown for a field whose choices come from the backend
+ * (`field.option_source`). The client is agnostic to what the source means: it
+ * fetches `[{value,label}]` for the source in the board's scope and renders a
+ * combobox. Options load lazily when the popover opens. The current value still
+ * shows even if it is no longer in the list (a point since renamed/deleted), so
+ * an edit never silently drops a saved id. `datasource_named` is narrowed by the
+ * sibling `datasource` config value the same node already holds.
+ */
+function OptionSourceControl({
+  id,
+  field,
+  value,
+  config,
+  onChange,
+  scope,
+}: {
+  id: string
+  field: ConfigFieldView
+  value: unknown
+  config: Record<string, unknown>
+  onChange: (key: string, value: unknown) => void
+  scope?: ConfigScope
+}) {
+  const [open, setOpen] = useState(false)
+  const datasource =
+    field.option_source === 'datasource_named' ? String(config.datasource ?? '') : undefined
+  const { data, isLoading, isError } = useBoardOptions(
+    field.option_source,
+    { org: scope?.org, site: scope?.site, datasource: datasource || undefined },
+    open
+  )
+  const options = data ?? []
+  const current = value === undefined || value === '' ? '' : String(value)
+  const selected = options.find((o) => o.value === current)
+  // Show the saved value as its own row when the list hasn't loaded it (or no
+  // longer contains it), so the selection is never visually lost.
+  const display = selected?.label ?? (current || 'Select…')
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type='button'
+          variant='outline'
+          role='combobox'
+          aria-expanded={open}
+          className='h-8 w-full justify-between text-[12px] font-normal'
+        >
+          <span className={cn('truncate', !current && 'text-muted-foreground')}>{display}</span>
+          <ChevronsUpDown className='ms-2 size-3.5 shrink-0 opacity-50' />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className='w-(--radix-popover-trigger-width) p-0' align='start'>
+        <Command>
+          <CommandInput placeholder={`Search ${field.label.toLowerCase()}…`} className='text-[12px]' />
+          <CommandList>
+            <CommandEmpty className='text-muted-foreground px-3 py-3 text-[11.5px]'>
+              {isLoading
+                ? 'Loading…'
+                : isError
+                  ? 'Could not load options.'
+                  : datasource === ''
+                    ? 'Pick a datasource first.'
+                    : 'No matches.'}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt.value}
+                  value={`${opt.label} ${opt.value}`}
+                  onSelect={() => {
+                    onChange(field.name, opt.value === current ? undefined : opt.value)
+                    setOpen(false)
+                  }}
+                  className='text-[12px]'
+                >
+                  <Check
+                    className={cn(
+                      'me-2 size-3.5',
+                      opt.value === current ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+                  <span className='flex flex-col'>
+                    <span>{opt.label}</span>
+                    {opt.label !== opt.value && (
+                      <span className='text-muted-foreground font-mono text-[10px]'>
+                        {opt.value}
+                      </span>
+                    )}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 

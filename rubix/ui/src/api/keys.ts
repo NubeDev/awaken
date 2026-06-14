@@ -28,6 +28,18 @@ export const qk = {
   boards: ['boards'] as const,
   board: (slug: string) => ['boards', slug] as const,
   boardComponents: ['boards', 'components'] as const,
+  boardOptions: (
+    source: string,
+    scope: { org?: string; site?: string; datasource?: string },
+  ) =>
+    [
+      'boards',
+      'options',
+      source,
+      scope.org ?? null,
+      scope.site ?? null,
+      scope.datasource ?? null,
+    ] as const,
   boardOutputs: (slug: string) => ['boards', slug, 'outputs'] as const,
   widgets: (params: { siteId?: Uuid; dashboardId?: Uuid }) =>
     ['widgets', params.siteId ?? null, params.dashboardId ?? null] as const,

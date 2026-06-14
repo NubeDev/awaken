@@ -95,6 +95,27 @@ impl DatasourceRegistry {
         self.sources.contains_key(id)
     }
 
+    /// Every registered datasource id, sorted. Backs the board editor's
+    /// `datasources` option source — the caller never sees credentials, only ids.
+    pub fn ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.sources.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    /// The operator-registered named-query names for a datasource, sorted.
+    /// Empty for an unknown id (the editor simply shows no choices). Backs the
+    /// `datasource_named` option source.
+    pub fn named_query_names(&self, id: &str) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .sources
+            .get(id)
+            .map(|r| r.named.iter().map(|q| q.name.clone()).collect())
+            .unwrap_or_default();
+        names.sort();
+        names
+    }
+
     fn resolved(&self, id: &str) -> DatasourceResult<&Resolved> {
         self.sources
             .get(id)

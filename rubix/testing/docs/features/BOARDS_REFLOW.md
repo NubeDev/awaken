@@ -101,7 +101,7 @@ the scheduler keying below are the two halves of the save-refire fix.
 | `query_his` | `trigger` | `output`, `error` | `point`, `limit` (default 100) | recent history as JSON array |
 | `datasource` | `trigger` | `output`, `error` | `datasource`, `sql`\|`named`, `params` | strict read against an external SQL datasource — see [DATASOURCE.md](DATASOURCE.md) |
 | `rule` | `input` | `finding`, `clear`, `error` | `script`\|`rule`, `params`, `max_rows` | sandboxed Rhai rule over a frame — see [RULES_ENGINE.md](RULES_ENGINE.md) |
-| `emit_spark` | `value`, `finding` | `output`, `error` | `site`, `rule`, `severity` (default warning), `message` | records a finding (+ bus publish) |
+| `emit_spark` | `value`, `finding` | `output`, `error` | `site`, `rule`, `severity` (default warning), `message`, `point` (implicated keyexpr) | records a finding (+ bus publish) |
 | `agent_call` | `value` | `output`, `error` | `prompt`, `thread`, `await` (default false) | raises an embedded-agent run |
 | `trigger` | `trigger` | `boot`, `count`, `output`, `error` | `every`, `unit` (sec\|min\|hours) | self-paced timing source |
 

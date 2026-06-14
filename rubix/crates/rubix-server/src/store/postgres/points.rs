@@ -107,6 +107,34 @@ pub(crate) fn delete_point(store: &Store, id: Uuid) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn list_point_keyexprs(
+    store: &Store,
+    org: &str,
+    site_slug: Option<&str>,
+) -> Result<Vec<(String, String)>> {
+    let mut client = store.postgres_conn()?;
+    let site = site_slug.map(|s| s.to_string());
+    let rows = client.query(
+        "SELECT s.org, s.slug, e.path, p.slug, p.display_name FROM points p \
+         JOIN equips e ON e.id = p.equip_id JOIN sites s ON s.id = e.site_id \
+         WHERE s.org = $1 AND ($2::text IS NULL OR s.slug = $2) \
+         ORDER BY s.slug, e.path, p.slug",
+        &[&org, &site],
+    )?;
+    Ok(rows
+        .iter()
+        .map(|row| {
+            let keyexpr = Point::keyexpr(
+                &row.get::<_, String>(0),
+                &row.get::<_, String>(1),
+                &row.get::<_, String>(2),
+                &row.get::<_, String>(3),
+            );
+            (keyexpr, row.get::<_, String>(4))
+        })
+        .collect())
+}
+
 pub(crate) fn point_keyexpr(store: &Store, id: Uuid) -> Result<String> {
     let mut client = store.postgres_conn()?;
     let row = client

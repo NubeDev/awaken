@@ -21,6 +21,8 @@ type NodeInspectorProps = {
   onDelete: () => void
   /** Last test-run outputs, so each outport can show the value it produced. */
   lastRun?: RunBoardResponse
+  /** The board's editing scope, used to resolve dropdown (`option_source`) fields. */
+  scope?: { org?: string; site?: string }
 }
 
 /**
@@ -29,7 +31,13 @@ type NodeInspectorProps = {
  * change is part of the next save — nothing here is hardcoded per component.
  * When a test run exists, each outport shows the value it emitted.
  */
-export function NodeInspector({ node, onConfigChange, onDelete, lastRun }: NodeInspectorProps) {
+export function NodeInspector({
+  node,
+  onConfigChange,
+  onDelete,
+  lastRun,
+  scope,
+}: NodeInspectorProps) {
   if (!node) {
     return (
       <div className='text-muted-foreground grid h-full place-items-center px-4 text-center text-[12px]'>
@@ -63,7 +71,12 @@ export function NodeInspector({ node, onConfigChange, onDelete, lastRun }: NodeI
 
       <div>
         <div className='eyebrow pb-1.5 text-[9.5px]'>Config</div>
-        <NodeConfigForm fields={schema.config} config={node.config} onChange={onConfigChange} />
+        <NodeConfigForm
+          fields={schema.config}
+          config={node.config}
+          onChange={onConfigChange}
+          scope={scope}
+        />
       </div>
 
       <div>

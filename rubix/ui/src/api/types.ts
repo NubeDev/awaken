@@ -266,9 +266,21 @@ export interface ConfigFieldView {
   required: boolean
   default?: unknown
   options?: string[]
+  /**
+   * A backend-resolved option source key. When present, the field is a dropdown
+   * whose choices come from `GET /boards/options/{option_source}` at edit time
+   * — the client is agnostic to the key's meaning, the server owns resolution.
+   */
+  option_source?: string
   min?: number
   max?: number
   help?: string
+}
+
+/** One dropdown choice from `GET /boards/options/{source}`. */
+export interface OptionView {
+  value: string
+  label: string
 }
 
 /**

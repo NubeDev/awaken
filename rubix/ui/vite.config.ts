@@ -27,6 +27,14 @@ export default defineConfig({
       },
     },
   },
+  // `react-grid-layout`'s CJS deps (`react-draggable`/`react-resizable`) read
+  // `process.env.NODE_ENV` at runtime, which is undefined in the browser bundle
+  // and throws on drag/resize. Shim it from Vite's mode so those handlers run.
+  define: {
+    'process.env': {
+      NODE_ENV: process.env.NODE_ENV ?? 'development',
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

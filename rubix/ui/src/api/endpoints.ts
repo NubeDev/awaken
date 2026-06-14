@@ -18,6 +18,7 @@ import type {
   BoardGraph,
   BoardView,
   ComponentView,
+  OptionView,
   CreateBoard,
   CreateEquip,
   CreatePoint,
@@ -206,6 +207,20 @@ export const boards = {
   /** Component catalogue: ports + config schema driving the flow editor. */
   components: (signal?: AbortSignal) =>
     request<ComponentView[]>('/api/v1/boards/components', { signal }),
+  /**
+   * Resolve a config field's dropdown choices for a `source` (e.g. `points`,
+   * `datasources`). The server owns what a source means; the client only passes
+   * the editing scope and an optional `datasource` narrowing for named queries.
+   */
+  options: (
+    source: string,
+    scope: { org?: string; site?: string; datasource?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<OptionView[]>(`/api/v1/boards/options/${source}`, {
+      query: { org: scope.org, site: scope.site, datasource: scope.datasource },
+      signal,
+    }),
   /** Create or republish a flow; an edit saves as a new version of the slug. */
   save: (body: CreateBoard) =>
     request<BoardView>('/api/v1/boards', { method: 'POST', body }),

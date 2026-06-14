@@ -134,6 +134,69 @@ cargo test -p rubix-flow --test board rule_node
 cargo test -p rubix-server --test api rules
 ```
 
+### L4. Ten real rules, the full author loop, live ✅
+
+`testing/scripts/run-rules.sh` exercises the whole curated primitive surface the
+way an author does in the **Rules Studio** (`/o/nube/s/hq/rules`,
+`ui/src/features/rules`). It boots a clean stack, seeds four sensor points with
+deterministic 60s-spaced history (a rising-then-spiking series, a calm in-band
+control, a dead-flat series, and a low-dip series), then for each of ten rules:
+
+1. **dry-runs** the inline script against its point — `POST /orgs/{org}/rules/dry-run`,
+   the debugger's "run once, no spark" — and asserts the verdict;
+2. **saves** it — `POST /orgs/{org}/rules` — so it persists in `rubix.db` and shows
+   in the Studio list;
+3. wires the **stored** rule into `query_his → rule → emit_spark` and runs the
+   board (`POST /boards/run`), asserting the spark it generates carries the rule's
+   own (mapped) severity.
+
+It then confirms `GET /orgs/{org}/rules` returns all ten and that
+`referencing(temp-high)` lists `sustained-high` (the change-impact panel).
+
+The ten rules cover one primitive path each: `filter_gt`/`filter_lt`
+(temp-high/temp-low), `zscore` (temp-spike-zscore), `anomalies`+`any_true`
+(temp-anomaly), `rolling_mean` (rolling-mean-high), `diff` (rate-of-change),
+`resample` (resample-avg-high), `describe` (stuck-sensor), `rule(...)`
+composition (sustained-high), and a deliberate **clear path** that emits nothing
+(range-band-ok).
+
+```bash
+testing/scripts/run-rules.sh            # leaves the stack up — open the Studio URL it prints
+TEARDOWN=1 testing/scripts/run-rules.sh # CI-style: clean up on exit
+```
+
+✅ 34/34 gates green (2026-06-14): every rule dry-runs to the expected verdict,
+saves, lists, and generates the expected spark; the clear-path rule emits none.
+No backend bug found — both issues hit during authoring were **Rhai script**
+gotchas, not engine bugs:
+
+- **No Rust `as` cast.** Rule scripts are Rhai; `x as f64` is a *compile* error
+  that fails the rule node, surfacing only as `emit_spark: finding input must be
+  a rule verdict object, got Optional(None)` downstream. Use `.to_float()`.
+- **`with_value` is `f64`, `row_count()` is `int`.** Rhai does not auto-coerce, so
+  `finding(...).with_value(hot.row_count())` has no matching registration and
+  errors — pass `hot.row_count().to_float()`.
+
+#### Backend bug found + fixed (2026-06-14) — sparks had no implicated points
+
+- **Symptom (found in the UI):** every rule-board spark showed *"No points
+  recorded on this finding"* on `/o/{org}/s/{site}/sparks`, and the Rule-context
+  keyexpr was blank.
+- **Root cause:** the board `emit_spark` path hardcoded `point_ids: Vec::new()`
+  (`rubix-server/src/flow/access.rs`). `SparkDraft` had no points field at all, so
+  the entire rule→spark path could never attach the point it was about — unlike the
+  direct `POST /sparks` API, which takes `point_ids`.
+- **Fix:** added `points: Vec<String>` (keyexprs) to `SparkDraft`; the `emit_spark`
+  node reads them from a `points` array config or a single `point` config
+  (`rubix-flow/src/node/emit_spark`), and the host resolves each keyexpr to a point
+  id via `point_by_keyexpr` when persisting (best-effort: an unresolvable keyexpr is
+  skipped, never fails the spark). Added a `point` field to the node's config schema
+  so the flow editor exposes it. The rule board now sets `emit_spark.point` to the
+  same keyexpr its `query_his` reads.
+- **Verified:** `inline_rule_board_emits_spark_with_rule_severity` now asserts one
+  implicated point; `run-rules.sh` shows `points=1` on all nine flagged sparks; the
+  Sparks detail panel renders the implicated point.
+
 ### L1. Board rule node — query → rule → emit_spark ✅
 
 A board wires `query_his` → `rule` → `emit_spark`. The `rule` node builds a
@@ -193,6 +256,8 @@ Live (integrated):
 - [x] L2 — a stored rule loads by name from a real org-scoped store
       (fail-closed on a missing name); referencing-rules listing works.
 - [x] L3 — a flagged result emits a real spark with the canonical severity.
+- [x] L4 — ten real rules dry-run → save → list → spark, live, via the Studio's
+      own endpoints (`testing/scripts/run-rules.sh`, 34/34).
 
 ---
 

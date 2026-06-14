@@ -136,7 +136,8 @@ fn rule_board(rule_config: serde_json::Value) -> serde_json::Value {
                  "config": {"point": "nube/hq/ahu-3/temp"}},
                 {"id": "rule1", "component": "rule", "config": rule_config},
                 {"id": "e1", "component": "emit_spark",
-                 "config": {"site": "nube/hq", "rule": "temp-check", "severity": "info"}}
+                 "config": {"site": "nube/hq", "rule": "temp-check", "severity": "info",
+                            "point": "nube/hq/ahu-3/temp"}}
             ],
             "connections": [
                 {"from_node": "q1", "from_port": "output",
@@ -167,6 +168,10 @@ async fn inline_rule_board_emits_spark_with_rule_severity() {
     assert_eq!(sparks.len(), 1, "{sparks:?}");
     assert_eq!(sparks[0]["severity"], "fault");
     assert_eq!(sparks[0]["message"], "too hot");
+    // The `point` config on emit_spark is resolved to the implicated point id, so
+    // the finding links back to its point (the UI's "Implicated points").
+    let points = sparks[0]["point_ids"].as_array().unwrap();
+    assert_eq!(points.len(), 1, "expected one implicated point: {sparks:?}");
 }
 
 #[tokio::test]

@@ -41,6 +41,11 @@ pub struct SparkDraft {
     pub rule: String,
     pub severity: SparkSeverity,
     pub message: String,
+    /// Keyexprs of the points this finding implicates
+    /// (`{org}/{site}/{equip}/{point}`). The host resolves each to a point id
+    /// when persisting the spark; an unresolvable keyexpr is skipped rather than
+    /// failing the finding.
+    pub points: Vec<String>,
 }
 
 /// A request for the embedded agent, raised by an `agent_call` board node. The

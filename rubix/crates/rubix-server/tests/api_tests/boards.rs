@@ -490,3 +490,94 @@ async fn deleting_a_board_clears_its_outputs() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(cleared.as_array().unwrap().len(), 0, "outputs cleared on delete");
 }
+
+#[tokio::test]
+async fn options_points_returns_keyexpr_value_and_display_label() {
+    let app = TestApp::new();
+    let site = app.create_site().await;
+    let equip = app.create_equip(&site).await;
+    app.create_point(&equip, "cmd", "fan").await;
+
+    let (status, body) = app
+        .request("GET", "/api/v1/boards/options/points?org=nube&site=hq", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let opts = body.as_array().expect("array");
+    let fan = opts
+        .iter()
+        .find(|o| o["value"] == json!("nube/hq/ahu-3/fan"))
+        .expect("fan point present as a keyexpr-valued option");
+    assert_eq!(fan["label"], json!("fan"), "label is the display name");
+}
+
+#[tokio::test]
+async fn options_points_scopes_to_org_and_site() {
+    let app = TestApp::new();
+    let hq = app.create_site_with("nube", "hq").await;
+    let dc = app.create_site_with("nube", "dc").await;
+    app.create_point(&app.create_equip(&hq).await, "cmd", "fan").await;
+    app.create_point(&app.create_equip(&dc).await, "cmd", "pump").await;
+
+    // Site-scoped: only hq's point.
+    let (_, hq_only) = app
+        .request("GET", "/api/v1/boards/options/points?org=nube&site=hq", None)
+        .await;
+    let values: Vec<_> = hq_only
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|o| o["value"].as_str().unwrap().to_string())
+        .collect();
+    assert!(values.iter().any(|v| v.contains("/hq/")));
+    assert!(!values.iter().any(|v| v.contains("/dc/")), "dc excluded by site scope");
+
+    // Org-wide: both sites' points.
+    let (_, org_wide) = app
+        .request("GET", "/api/v1/boards/options/points?org=nube", None)
+        .await;
+    assert_eq!(org_wide.as_array().unwrap().len(), 2, "org scope returns both points");
+}
+
+#[tokio::test]
+async fn options_sites_lists_org_site_prefixes() {
+    let app = TestApp::new();
+    app.create_site_with("nube", "hq").await;
+
+    let (status, body) = app
+        .request("GET", "/api/v1/boards/options/sites?org=nube", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let hq = body
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|o| o["value"] == json!("nube/hq"))
+        .expect("`{org}/{site}` prefix is the option value");
+    assert_eq!(hq["label"], json!("hq"));
+}
+
+#[tokio::test]
+async fn options_unknown_source_is_404() {
+    let app = TestApp::new();
+    let (status, _) = app
+        .request("GET", "/api/v1/boards/options/bogus?org=nube", None)
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn options_scoped_source_without_org_is_400() {
+    let app = TestApp::new();
+    let (status, _) = app.request("GET", "/api/v1/boards/options/points", None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn options_datasources_empty_without_registry() {
+    let app = TestApp::new();
+    let (status, body) = app
+        .request("GET", "/api/v1/boards/options/datasources?org=nube", None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body.as_array().unwrap().len(), 0, "no registry → empty, not error");
+}

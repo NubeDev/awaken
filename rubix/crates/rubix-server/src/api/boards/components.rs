@@ -56,6 +56,11 @@ pub(crate) struct ConfigFieldView {
     pub default: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<String>,
+    /// A backend-resolved option source key. When present, the editor renders a
+    /// dropdown and fetches its choices from `GET /boards/options/{source}`
+    /// instead of a free-text input. The client is agnostic to the key's meaning.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub option_source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,6 +78,7 @@ impl From<ConfigField> for ConfigFieldView {
             required: f.required,
             default: f.default,
             options: f.options,
+            option_source: f.option_source,
             min: f.min,
             max: f.max,
             help: f.help,

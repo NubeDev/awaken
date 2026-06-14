@@ -76,6 +76,49 @@ impl Store {
         Ok(filter_tags(points, tags, |p| &p.tags))
     }
 
+    /// `(keyexpr, display_name)` for every point in an org, optionally narrowed
+    /// to one site, ordered by keyexpr. Backs the board editor's `points`
+    /// option source: a single join instead of N+1 [`Self::point_keyexpr`]
+    /// calls. The keyexpr is the value a `point` node config stores; the display
+    /// name is the human label.
+    pub fn list_point_keyexprs(
+        &self,
+        org: &str,
+        site_slug: Option<&str>,
+    ) -> Result<Vec<(String, String)>> {
+        match &self.backend {
+            Backend::Sqlite(_) => self.list_point_keyexprs_sqlite(org, site_slug),
+            #[cfg(feature = "cloud")]
+            Backend::Postgres(_) => {
+                super::postgres::points::list_point_keyexprs(self, org, site_slug)
+            }
+        }
+    }
+
+    fn list_point_keyexprs_sqlite(
+        &self,
+        org: &str,
+        site_slug: Option<&str>,
+    ) -> Result<Vec<(String, String)>> {
+        let conn = self.sqlite_conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT s.org, s.slug, e.path, p.slug, p.display_name FROM points p \
+             JOIN equips e ON e.id = p.equip_id JOIN sites s ON s.id = e.site_id \
+             WHERE s.org = ?1 AND (?2 IS NULL OR s.slug = ?2) \
+             ORDER BY s.slug, e.path, p.slug",
+        )?;
+        let rows = stmt.query_map(params![org, site_slug], |row| {
+            let keyexpr = Point::keyexpr(
+                &row.get::<_, String>(0)?,
+                &row.get::<_, String>(1)?,
+                &row.get::<_, String>(2)?,
+                &row.get::<_, String>(3)?,
+            );
+            Ok((keyexpr, row.get::<_, String>(4)?))
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
     pub fn get_point(&self, id: Uuid) -> Result<Point> {
         match &self.backend {
             Backend::Sqlite(_) => self.get_point_sqlite(id),

@@ -224,13 +224,21 @@ impl PointAccess for StorePointAccess {
             .map(|(org, site)| (org.to_string(), site.to_string()));
         let spark = on_store(move || {
             let site_id = store.site_id_by_prefix(&draft.site_prefix)?;
+            // Resolve each implicated keyexpr to a point id. Best-effort: a
+            // keyexpr that does not resolve (a typo, a deleted point) is skipped
+            // so the finding still records, rather than failing the whole spark.
+            let point_ids = draft
+                .points
+                .iter()
+                .filter_map(|kx| store.point_by_keyexpr(kx).ok())
+                .collect();
             let spark = Spark {
                 id: Uuid::new_v4(),
                 site_id,
                 rule: draft.rule,
                 severity: draft.severity,
                 message: draft.message,
-                point_ids: Vec::new(),
+                point_ids,
                 ts: Utc::now(),
                 acknowledged: false,
             };

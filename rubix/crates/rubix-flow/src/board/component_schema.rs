@@ -48,6 +48,14 @@ pub struct ConfigField {
     /// Allowed tokens for an [`FieldType::Enum`] field.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<String>,
+    /// A backend-resolved option source. When set, the editor renders this
+    /// field as a dropdown whose choices it fetches from
+    /// `GET /boards/options/{source}` at edit time rather than typing the id by
+    /// hand. The editor is agnostic to what the key means — the server owns the
+    /// resolution (e.g. `points`, `datasources`, `rules`). Distinct from
+    /// `options`, which is a fixed compile-time set ([`FieldType::Enum`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub option_source: Option<String>,
     /// Inclusive lower bound for [`FieldType::Integer`]/[`FieldType::Number`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
@@ -68,6 +76,7 @@ impl ConfigField {
             required,
             default: None,
             options: Vec::new(),
+            option_source: None,
             min: None,
             max: None,
             help: None,
@@ -81,6 +90,14 @@ impl ConfigField {
 
     fn with_options(mut self, options: &[&str]) -> Self {
         self.options = options.iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    /// Mark this field as a backend-resolved dropdown sourced from `source`
+    /// (resolved by `GET /boards/options/{source}`). The editor renders a
+    /// searchable select instead of a free-text input.
+    fn with_option_source(mut self, source: &str) -> Self {
+        self.option_source = Some(source.to_string());
         self
     }
 
@@ -195,6 +212,7 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
                 PortSchema::new("error", "error", PortType::Error),
             ],
             config: vec![ConfigField::new("point", "Point", Keyexpr, true)
+                .with_option_source("points")
                 .with_help("Keyexpr of the point to read.")],
         },
         ComponentSchema {
@@ -209,6 +227,7 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
             ],
             config: vec![
                 ConfigField::new("point", "Point", Keyexpr, true)
+                    .with_option_source("points")
                     .with_help("Keyexpr of the point to command."),
                 ConfigField::new("priority", "Priority", Integer, false)
                     .with_default(serde_json::json!(16))
@@ -228,6 +247,7 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
             ],
             config: vec![
                 ConfigField::new("point", "Point", Keyexpr, true)
+                    .with_option_source("points")
                     .with_help("Keyexpr of the point to query."),
                 ConfigField::new("limit", "Limit", Integer, false)
                     .with_default(serde_json::json!(100))
@@ -249,12 +269,15 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
             ],
             config: vec![
                 ConfigField::new("datasource", "Datasource", String, true)
+                    .with_option_source("datasources")
                     .with_help("Registered datasource id to read from."),
                 ConfigField::new("sql", "SQL", String, false)
                     .with_help("Native SQL with $1-style params; set this or `named`, not both."),
-                ConfigField::new("named", "Named query", String, false).with_help(
-                    "Operator-registered named query to invoke; set this or `sql`, not both.",
-                ),
+                ConfigField::new("named", "Named query", String, false)
+                    .with_option_source("datasource_named")
+                    .with_help(
+                        "Operator-registered named query to invoke; set this or `sql`, not both.",
+                    ),
                 ConfigField::new("params", "Params", Json, false)
                     .with_help("JSON array of typed bound parameters ([{type,value}, …])."),
             ],
@@ -274,6 +297,7 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
                 ConfigField::new("script", "Script", String, false)
                     .with_help("Inline Rhai rule; set this or `rule`, not both."),
                 ConfigField::new("rule", "Stored rule", String, false)
+                    .with_option_source("rules")
                     .with_help("Stored rule id to run; set this or `script`, not both."),
                 ConfigField::new("params", "Params", Json, false)
                     .with_help("JSON object exposed to the script as `params`."),
@@ -342,6 +366,7 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
             ],
             config: vec![
                 ConfigField::new("site", "Site", Keyexpr, true)
+                    .with_option_source("sites")
                     .with_help("`{org}/{site}` keyexpr prefix the finding belongs to."),
                 ConfigField::new("rule", "Rule", String, true)
                     .with_help("Rule identifier for the finding."),
@@ -351,6 +376,13 @@ pub fn component_schemas() -> Vec<ComponentSchema> {
                     .with_help("Default severity; a connected `finding` input overrides it."),
                 ConfigField::new("message", "Message", String, false)
                     .with_help("Static finding text; a `value` or `finding` input overrides it."),
+                ConfigField::new("point", "Implicated point", Keyexpr, false)
+                    .with_option_source("points")
+                    .with_help(
+                        "Keyexpr of the point this finding is about; recorded on \
+                         the spark so it links back to the point (the usual rule-\
+                         board point). A `points` array config sets several.",
+                    ),
             ],
         },
     ]
@@ -427,6 +459,33 @@ mod tests {
                             f.name
                         );
                     }
+                }
+            }
+        }
+    }
+
+    /// A backend-resolved dropdown (`option_source`) draws choices live from the
+    /// server, so it must not also carry a fixed compile-time `options` set —
+    /// the two are mutually exclusive ways to fill the same control. Every
+    /// declared source is one the options endpoint knows how to resolve.
+    #[test]
+    fn option_sources_are_well_formed() {
+        const KNOWN: &[&str] = &["points", "datasources", "datasource_named", "rules", "sites"];
+        for s in component_schemas() {
+            for f in &s.config {
+                if let Some(src) = &f.option_source {
+                    assert!(
+                        f.options.is_empty(),
+                        "{}.{} mixes option_source with a fixed options set",
+                        s.component,
+                        f.name
+                    );
+                    assert!(
+                        KNOWN.contains(&src.as_str()),
+                        "{}.{} names an unknown option source {src:?}",
+                        s.component,
+                        f.name
+                    );
                 }
             }
         }

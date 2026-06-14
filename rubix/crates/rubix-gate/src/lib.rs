@@ -7,11 +7,16 @@
 //! and extensions; this crate authenticates a principal, mints its scoped
 //! session, and runs scoped reads. The capability-grant layer (app-enforced
 //! authz over cross-plane actions, the second authz layer of
-//! `rubix/docs/SCOPE.md`) lives in [`capability`]; the command path lands in a
-//! later workstream.
+//! `rubix/docs/SCOPE.md`) lives in [`capability`]. The write-enforcement point —
+//! every mutation crosses the gate as a [`Command`], which checks the grant,
+//! captures before/after atomically, mints/carries the correlation id, applies
+//! the change, and writes an immutable audit row — lives in [`command`] and
+//! [`audit`] (contracts #1, #3, #4).
 
+mod audit;
 mod authenticate;
 pub mod capability;
+mod command;
 mod error;
 mod permission;
 mod principal;
@@ -19,10 +24,12 @@ mod read;
 mod session;
 mod token;
 
+pub use audit::{AuditRecord, define_audit_schema};
 pub use authenticate::authenticate;
 pub use capability::{
     Capability, Grant, check_capability, create_grant, is_registered, list_grants, revoke_grant,
 };
+pub use command::{Applied, CapturedChange, Change, Command, apply};
 pub use error::{GateError, Result};
 pub use permission::define_gate_schema;
 pub use principal::provision_principal;

@@ -43,6 +43,21 @@ pub enum GateError {
     /// Persisting, listing, or revoking a capability grant failed.
     #[error("grant store operation failed: {0}")]
     GrantStore(#[source] surrealdb::Error),
+
+    /// A command's principal lacked the capability grant required to apply it.
+    /// The command is refused before any write occurs (`rubix/docs/SCOPE.md`,
+    /// "Commands go through the gate").
+    #[error("command denied: {0}")]
+    CommandDenied(String),
+
+    /// Applying a command's record mutation through the gate failed, or the
+    /// atomic before/after capture could not be decoded.
+    #[error("command apply failed: {0}")]
+    CommandApply(#[source] surrealdb::Error),
+
+    /// Writing the append-only audit row for an applied command failed.
+    #[error("audit write failed: {0}")]
+    AuditWrite(#[source] surrealdb::Error),
 }
 
 impl From<GateError> for CoreError {

@@ -329,3 +329,59 @@ fn trigger_count(engine: &rubix_flow::BoardEngine) -> Option<serde_json::Value> 
         .find(|o| o.node == "t1" && o.port == "count")
         .map(|o| o.value)
 }
+
+/// A point access whose reads always fail, so the `error` port (and its `fault`
+/// quality) is exercised through the engine.
+struct ErroringAccess;
+
+#[async_trait]
+impl PointAccess for ErroringAccess {
+    async fn read_point(&self, _keyexpr: &str) -> Result<Option<PointValue>, FlowAccessError> {
+        Err(FlowAccessError::Store("point unavailable".into()))
+    }
+    async fn write_point(
+        &self,
+        _keyexpr: &str,
+        _priority: u8,
+        value: PointValue,
+    ) -> Result<Option<PointValue>, FlowAccessError> {
+        Ok(Some(value))
+    }
+    async fn query_his(
+        &self,
+        _keyexpr: &str,
+        _limit: usize,
+    ) -> Result<Vec<HisSample>, FlowAccessError> {
+        Ok(vec![])
+    }
+}
+
+/// A failing read surfaces on the node's `error` port, and the engine tags that
+/// retained value `fault` — so the live bus can distinguish a fault from a good
+/// or stale value (G3).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn engine_tags_error_port_values_as_fault() {
+    let board: BoardGraph = serde_json::from_value(json!({
+        "nodes": [
+            {"id": "r1", "component": "read_point", "config": {"point": "nube/hq/ahu-3/temp"}}
+        ],
+        "connections": []
+    }))
+    .expect("parse board");
+    let mut engine = board
+        .spawn_engine(std::sync::Arc::new(ErroringAccess))
+        .expect("spawn engine");
+
+    engine.scan().await;
+
+    let err = engine
+        .current_values()
+        .into_iter()
+        .find(|o| o.node == "r1" && o.port == "error")
+        .expect("read failure surfaces on the error port");
+    assert_eq!(
+        err.quality,
+        rubix_flow::Quality::Fault,
+        "an error-port value is quality `fault`"
+    );
+}

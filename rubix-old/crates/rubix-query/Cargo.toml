@@ -1,0 +1,35 @@
+[package]
+name = "rubix-query"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+# The cloud profile federates the relational tables from Postgres via a
+# DataFusion connector (STACK-DEISGN.md "federated via datafusion-table-providers
+# (Postgres)"). The edge build never compiles the Postgres connector.
+cloud = ["dep:datafusion-table-providers", "dep:tokio-postgres"]
+
+[dependencies]
+datafusion = { workspace = true }
+datafusion-table-providers = { workspace = true, optional = true }
+tokio-postgres = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+utoipa = { workspace = true }
+tokio = { workspace = true }
+rusqlite = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+bytes = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

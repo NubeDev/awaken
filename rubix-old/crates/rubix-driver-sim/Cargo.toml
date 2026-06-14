@@ -1,0 +1,27 @@
+[package]
+name = "rubix-driver-sim"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "rubix-driver-sim"
+path = "src/main.rs"
+
+[dependencies]
+rubix-driver.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
+zenoh = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+rubix-server = { path = "../rubix-server" }
+futures = { workspace = true }
+
+[lints]
+workspace = true

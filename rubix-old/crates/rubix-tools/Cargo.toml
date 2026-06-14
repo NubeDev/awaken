@@ -1,0 +1,25 @@
+[package]
+name = "rubix-tools"
+description = "Rubix awaken AI tools: gated point read/write, query, run_board over the BMS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rubix-core.workspace = true
+rubix-flow.workspace = true
+awaken-runtime-contract.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

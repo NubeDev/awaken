@@ -1,0 +1,65 @@
+[package]
+name = "rubix-server"
+description = "Rubix BMS backend: axum HTTP API with OpenAPI spec over SQLite stores"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "rubix"
+path = "src/main.rs"
+
+[features]
+# Single binary, two profiles (STACK-DEISGN.md). A feature decides what is
+# compilable; RUBIX_PROFILE selects among the compiled profiles at boot. `edge`
+# is the default build (SQLite, on-box drivers, no auth — today's behavior).
+default = ["edge"]
+edge = []
+# The cloud profile adds the Postgres store backend (STACK-DEISGN.md "Postgres
+# (cloud), SQLite (edge)") and the DataFusion Postgres federation surface. The
+# edge build never compiles the Postgres client or connector.
+cloud = ["dep:postgres", "dep:r2d2_postgres", "rubix-query/cloud"]
+
+[dependencies]
+rubix-core.workspace = true
+rubix-datasource.workspace = true
+rubix-driver.workspace = true
+rubix-flow.workspace = true
+rubix-prefs.workspace = true
+rubix-query.workspace = true
+rubix-rules.workspace = true
+rubix-tools.workspace = true
+awaken-runtime-contract.workspace = true
+awaken-runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+utoipa.workspace = true
+rusqlite.workspace = true
+r2d2.workspace = true
+r2d2_sqlite.workspace = true
+postgres = { workspace = true, optional = true }
+r2d2_postgres = { workspace = true, optional = true }
+anyhow.workspace = true
+async-trait.workspace = true
+zenoh.workspace = true
+futures.workspace = true
+jsonwebtoken.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tower.workspace = true
+tempfile = "3"
+http-body-util = "0.1"
+
+[lints]
+workspace = true

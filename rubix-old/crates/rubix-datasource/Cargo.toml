@@ -1,0 +1,36 @@
+[package]
+name = "rubix-datasource"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+# `preserve_order` keeps JSON object keys in insertion order so the column order
+# `row_to_json` emits (the SQL select-list order) survives the parse into a
+# result row. The feature is additive (Map becomes an order-preserving map) and
+# unifies across the workspace; it only ever preserves more information.
+serde_json = { workspace = true, features = ["preserve_order"] }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+# This crate uses sqlx as its single Postgres client stack (matching nexus,
+# STACK-DEISGN.md "no second Postgres client stack"). It deliberately does not
+# use the workspace `postgres`/`tokio-postgres` deps. It depends on
+# `sqlx-core` + `sqlx-postgres` directly (not the `sqlx` facade) so the facade's
+# `sqlx-sqlite` driver — and its `libsqlite3-sys` — never enter the graph and
+# clash with `rusqlite`'s copy elsewhere in the workspace.
+sqlx-core = { version = "0.8.6", default-features = false, features = [
+    "json",
+    "_rt-tokio",
+    "_tls-rustls-ring-webpki",
+] }
+sqlx-postgres = { version = "0.8.6", default-features = false, features = [
+    "json",
+] }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[lints]
+workspace = true

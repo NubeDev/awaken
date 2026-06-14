@@ -1,0 +1,10 @@
+{
+  "id": "bab18de8-e55e-4cf2-86d7-2cf0554cfe9b",
+  "org": "acme",
+  "slug": "hq",
+  "display_name": "HQ",
+  "tags": {
+    "campus": true
+  },
+  "created_at": "2026-06-12T22:32:33.213474719Z"
+}

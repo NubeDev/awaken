@@ -1,0 +1,16 @@
+{
+  "id": "run_8fa2",
+  "thread_id": "thread_ops_1",
+  "origin": "chat",
+  "status": "suspended",
+  "response": "I want to set AHU-3 supply air setpoint to 18C; this needs your approval.",
+  "steps": 4,
+  "pending_write": {
+    "point": "acme/hq/ahu-3/sat",
+    "priority": 12,
+    "value": 18.0,
+    "agent_min_priority": 13
+  },
+  "created_at": "2026-06-12T22:24:00Z",
+  "updated_at": "2026-06-12T22:24:06Z"
+}

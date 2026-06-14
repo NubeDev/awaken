@@ -8,7 +8,9 @@
 use futures::StreamExt;
 use rubix_flow::PointAccess;
 use tokio::sync::watch;
+use uuid::Uuid;
 
+use super::board_state_key;
 use super::evaluate::{evaluate, BoardRunDeps};
 
 /// Drive one subscription board until shutdown. A `watch` declare failure is
@@ -16,12 +18,14 @@ use super::evaluate::{evaluate, BoardRunDeps};
 /// rather than crashing the scheduler. `watch` is backed by `deps.bus`, which the
 /// scheduler has already confirmed is present before spawning this loop.
 pub(super) async fn run_subscription(
-    board_id: uuid::Uuid,
+    org: String,
+    site_id: Option<Uuid>,
     slug: String,
     key: String,
     deps: BoardRunDeps,
     mut shutdown: watch::Receiver<bool>,
 ) {
+    let state_key = board_state_key(&org, site_id, &slug);
     let access = deps.watch_access();
     let mut stream = match access.watch(&key).await {
         Ok(stream) => stream,
@@ -37,11 +41,12 @@ pub(super) async fn run_subscription(
                     Some(_) => {
                         let lookup = {
                             let store = deps.store.clone();
-                            tokio::task::spawn_blocking(move || store.get_board_by_id(board_id)).await
+                            let (org, slug) = (org.clone(), slug.clone());
+                            tokio::task::spawn_blocking(move || store.get_board(&org, site_id, &slug)).await
                         };
                         match lookup {
                             Ok(Ok(board)) if board.is_scheduled() => {
-                                evaluate(&slug, board_id, &board.graph, &deps).await;
+                                evaluate(&slug, &state_key, &board.graph, &deps).await;
                             }
                             Ok(Ok(_)) => {}
                             Ok(Err(e)) => {

@@ -112,3 +112,57 @@ async fn unknown_keyexpr_is_an_error() {
     let access = StorePointAccess::new(store);
     assert!(access.read_point("no/such/point/here").await.is_err());
 }
+
+/// Regression: republishing an interval board (a save creates a new version with
+/// a new row id) must *replace* its scheduler loop, not add another. Keyed by
+/// the board's stable identity, the loop count stays at one — without this, every
+/// save left the prior loop running and the board fired once per save.
+#[tokio::test]
+async fn republishing_a_board_does_not_leak_a_second_loop() {
+    let (app, state) = TestApp::with_state();
+    let scheduler = state.scheduler.as_ref().expect("scheduler");
+
+    let body = |name: &str| {
+        json!({
+            "org": "nube",
+            "slug": "pacer",
+            "display_name": name,
+            "trigger": {"kind": "interval", "seconds": 1},
+            "board": {
+                "nodes": [{"id": "t1", "component": "trigger",
+                           "config": {"every": 1, "unit": "sec"}}],
+                "connections": []
+            }
+        })
+    };
+
+    let (status, _) = app
+        .request("POST", "/api/v1/boards?org=nube", Some(body("v1")))
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(scheduler.active(), 1, "one loop after first publish");
+
+    // Republish twice (each is a new version with a new row id).
+    for name in ["v2", "v3"] {
+        let (status, _) = app
+            .request("POST", "/api/v1/boards?org=nube", Some(body(name)))
+            .await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(
+            scheduler.active(),
+            1,
+            "republish replaces the loop rather than leaking another ({name})"
+        );
+    }
+
+    // Disabling removes the loop entirely.
+    let (status, _) = app
+        .request(
+            "PATCH",
+            "/api/v1/boards/pacer?org=nube",
+            Some(json!({"enabled": false})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(scheduler.active(), 0, "disabled board has no loop");
+}

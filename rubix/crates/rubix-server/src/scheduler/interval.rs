@@ -9,7 +9,9 @@ use std::time::Duration;
 
 use rubix_flow::BoardEngine;
 use tokio::sync::watch;
+use uuid::Uuid;
 
+use super::board_state_key;
 use super::evaluate::BoardRunDeps;
 use super::record::BoardRecord;
 
@@ -19,12 +21,16 @@ use super::record::BoardRecord;
 /// globally-unique id each tick (so it needs no org/site scope). `slug` is
 /// carried for logging and the output cache key.
 pub(super) async fn run_interval(
-    board_id: uuid::Uuid,
+    org: String,
+    site_id: Option<Uuid>,
     slug: String,
     seconds: u64,
     deps: BoardRunDeps,
     mut shutdown: watch::Receiver<bool>,
 ) {
+    // Stable node-state scope across versions, so a republish keeps the board's
+    // node state (a trigger's clock) instead of resetting it.
+    let state_key = board_state_key(&org, site_id, &slug);
     let mut ticker = tokio::time::interval(Duration::from_secs(seconds));
     // Skip missed ticks rather than bursting to catch up after a slow scan.
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -42,13 +48,16 @@ pub(super) async fn run_interval(
     loop {
         tokio::select! {
             _ = ticker.tick() => {
+                // Re-fetch the *latest* version by stable identity, so a republish
+                // takes effect on the next tick within this same loop.
                 let board = {
                     let store = deps.store.clone();
-                    tokio::task::spawn_blocking(move || store.get_board_by_id(board_id)).await
+                    let (org, slug) = (org.clone(), slug.clone());
+                    tokio::task::spawn_blocking(move || store.get_board(&org, site_id, &slug)).await
                 };
                 match board {
                     Ok(Ok(board)) if board.is_scheduled() => {
-                        if !ensure_engine(&mut engine, &board, &deps, &slug) {
+                        if !ensure_engine(&mut engine, &board, &deps, &state_key) {
                             continue;
                         }
                         if let Some((engine, _)) = engine.as_mut() {
@@ -88,7 +97,7 @@ fn ensure_engine(
     engine: &mut Option<(BoardEngine, i64)>,
     board: &BoardRecord,
     deps: &BoardRunDeps,
-    slug: &str,
+    state_key: &str,
 ) -> bool {
     let current = match engine {
         Some((_, version)) => *version,
@@ -98,17 +107,19 @@ fn ensure_engine(
         return true;
     }
     // First scan or a republished version: drop the old engine (tearing its
-    // network down) and build a fresh one from the new graph.
-    let access = deps.access_for(&board.graph, board.id);
+    // network down) and build a fresh one from the new graph. The access is
+    // scoped to the board's *stable* key, so node state (a trigger's clock)
+    // carries across the republish rather than resetting.
+    let access = deps.access_for(&board.graph, state_key);
     match board.graph.spawn_engine(access) {
         Ok(fresh) => {
             *engine = Some((fresh, board.version));
-            tracing::debug!(board = %slug, version = board.version, "interval engine (re)built");
+            tracing::debug!(board = %board.slug, version = board.version, "interval engine (re)built");
             true
         }
         Err(e) => {
             *engine = None;
-            tracing::warn!(board = %slug, error = %e, "interval engine build failed");
+            tracing::warn!(board = %board.slug, error = %e, "interval engine build failed");
             false
         }
     }

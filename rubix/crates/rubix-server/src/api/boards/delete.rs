@@ -32,7 +32,7 @@ pub(crate) async fn delete_board(
     let store = state.store.clone();
     blocking(move || Ok(store.delete_board(&scope.org, scope.site_id, &slug)?)).await?;
     if let Some(scheduler) = &state.scheduler {
-        scheduler.unregister(board.id, &board.slug);
+        scheduler.unregister(&board);
     }
     Ok(StatusCode::NO_CONTENT)
 }

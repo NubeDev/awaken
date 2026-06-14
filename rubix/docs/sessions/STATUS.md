@@ -21,7 +21,7 @@ finds its dependencies already committed.
 | WS-06 | Undo/redo reversible change records | ✅ | 2026-06-14T16:35:16Z | 2026-06-14T16:46:18Z | d8b8721a |
 | WS-07 | Event bus: in-process + live-query data-change | ✅ | 2026-06-14T16:55:12Z | 2026-06-14T17:04:33Z | e5f53b47 |
 | WS-08 | Tracing spans on the bus | ✅ | 2026-06-14T17:15:12Z | 2026-06-14T17:32:00Z | d24b0dd4 |
-| WS-09 | DataFusion query surface over SurrealDB + vector search | ⬜ | | | |
+| WS-09 | DataFusion query surface over SurrealDB + vector search | ✅ | 2026-06-14T17:40:15Z | 2026-06-15T01:10:00Z | 93b8abef |
 | WS-10 | Datasource connector framework + Postgres connector | ⬜ | | | |
 | WS-11 | Rhai rules / insights runtime | ⬜ | | | |
 | WS-12 | Zenoh ingestion + pre-processing | ⬜ | | | |
@@ -66,3 +66,5 @@ finds its dependencies already committed.
 - 2026-06-14T17:10:11Z gated WS-07 ✅ (tests green, clippy clean, commit e5f53b47)
 - 2026-06-14T17:15:12Z spawned WS-08
 - 2026-06-14T17:30:13Z gated WS-08 ✅ (tests green, clippy clean, commit d24b0dd4)
+- 2026-06-14T17:40:15Z spawned WS-09
+- 2026-06-14T18:05:11Z gated WS-09 ✅ (tests green, clippy clean, commit 93b8abef)

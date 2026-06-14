@@ -89,6 +89,10 @@ impl PointAccess for ScopedPointAccess {
         &self,
         prefix: &str,
     ) -> Result<BoxStream<'static, WatchSample>, FlowAccessError> {
+        // A watch prefix (keyexpr, possibly wildcard) must fall within the run's
+        // tenant scope, or a scoped board could subscribe to another tenant's
+        // points — the same boundary the read/write/history calls enforce.
+        self.guard(prefix)?;
         self.inner.watch(prefix).await
     }
 }
@@ -96,6 +100,7 @@ impl PointAccess for ScopedPointAccess {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::stream::StreamExt;
     use std::sync::Mutex;
 
     /// Records the keyexprs the inner access was actually asked for, so a test
@@ -129,6 +134,14 @@ mod tests {
         ) -> Result<Vec<HisSample>, FlowAccessError> {
             self.seen.lock().unwrap().push(keyexpr.to_string());
             Ok(Vec::new())
+        }
+
+        async fn watch(
+            &self,
+            prefix: &str,
+        ) -> Result<BoxStream<'static, WatchSample>, FlowAccessError> {
+            self.seen.lock().unwrap().push(prefix.to_string());
+            Ok(futures::stream::empty().boxed())
         }
     }
 
@@ -171,6 +184,20 @@ mod tests {
             );
         }
         // No denied call ever touched the inner store.
+        assert!(inner.seen.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn in_scope_watch_reaches_the_inner_access() {
+        let (inner, access) = scoped();
+        assert!(access.watch("nube/hq/*/temp/cur").await.is_ok());
+        assert_eq!(inner.seen.lock().unwrap().as_slice(), ["nube/hq/*/temp/cur"]);
+    }
+
+    #[tokio::test]
+    async fn out_of_scope_watch_is_refused_before_the_inner_access() {
+        let (inner, access) = scoped();
+        assert!(access.watch("acme/hq/*/temp/cur").await.is_err());
         assert!(inner.seen.lock().unwrap().is_empty());
     }
 }

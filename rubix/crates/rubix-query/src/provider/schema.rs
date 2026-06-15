@@ -3,7 +3,7 @@
 //! DataFusion needs a typed schema to plan against; SurrealDB records are
 //! schemaless documents (`rubix/docs/SCOPE.md`, principle 4). This file maps the
 //! few canonical tables the query surface exposes — records, tags, audit,
-//! insights — to a fixed Arrow schema with the structural columns every record
+//! insights, trace summaries — to a fixed Arrow schema with the structural columns every record
 //! carries (`id`, `namespace`, `created`, `updated`) plus a `content` column
 //! holding the free-form document JSON as a UTF-8 string. The free-form shape is
 //! never flattened into columns: queries that need a field reach into `content`
@@ -30,15 +30,23 @@ pub enum CanonicalTable {
     Audit,
     /// Rule decisions / insights (written by the Rhai runtime, WS-11).
     Insights,
+    /// Per-correlation-id trace rollups (`rubix-trace` `trace_summary`, §5b).
+    ///
+    /// A Tier-B derived rollup, one row per trace, folded by `upsert_summary`
+    /// (`rubix/docs/design/LAMINAR-BORROW.md` §5b/§7). Its fields (`status`,
+    /// `num_spans`, `total_tokens`, …) live in the `content` JSON and are reached
+    /// with `json_get`, the same as the other canonical tables.
+    TraceSummary,
 }
 
 impl CanonicalTable {
     /// Every canonical table the surface exposes, in declaration order.
-    pub const ALL: [CanonicalTable; 4] = [
+    pub const ALL: [CanonicalTable; 5] = [
         CanonicalTable::Records,
         CanonicalTable::Tags,
         CanonicalTable::Audit,
         CanonicalTable::Insights,
+        CanonicalTable::TraceSummary,
     ];
 
     /// The SurrealDB table name scanned for this canonical table.
@@ -49,6 +57,7 @@ impl CanonicalTable {
             CanonicalTable::Tags => "tag",
             CanonicalTable::Audit => "audit",
             CanonicalTable::Insights => "insight",
+            CanonicalTable::TraceSummary => "trace_summary",
         }
     }
 

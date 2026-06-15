@@ -86,6 +86,16 @@ const PRESETS: Preset[] = [
     sql: "SELECT json_get(json_get(content, 'content'), 'group_id') AS grp, count(*) AS n FROM record WHERE json_get(json_get(content, 'content'), 'group_id') IS NOT NULL GROUP BY grp ORDER BY n DESC",
     chart: { type: ChartType.BarChart, x: 'grp', y: 'n' },
   },
+  {
+    name: 'Trace status',
+    sql: "SELECT json_get(content, 'status') AS status, count(*) AS n FROM trace_summary GROUP BY status ORDER BY n DESC",
+    chart: { type: ChartType.BarChart, x: 'status', y: 'n' },
+  },
+  {
+    name: 'Tokens per trace',
+    sql: "SELECT json_get(content, 'trace_id') AS trace, CAST(json_get(content, 'total_tokens') AS BIGINT) AS tokens FROM trace_summary ORDER BY tokens DESC",
+    chart: { type: ChartType.HorizontalBarChart, x: 'tokens', y: 'trace' },
+  },
 ]
 
 export function AdminQuery() {

@@ -1,0 +1,6 @@
+# Evidence bundles (captured by feedback-loop runbooks)
+.evidence/
+
+# Local test artifacts
+*.log
+*.tmp

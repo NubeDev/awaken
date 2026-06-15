@@ -72,6 +72,10 @@ name = "command_correlate"
 path = "tests/command/correlate_test.rs"
 
 [[test]]
+name = "command_validate"
+path = "tests/command/validate_test.rs"
+
+[[test]]
 name = "audit_append"
 path = "tests/audit/append_test.rs"
 

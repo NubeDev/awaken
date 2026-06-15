@@ -28,6 +28,12 @@ pub enum ApiError {
     /// The request body or parameters were invalid.
     #[error("bad request: {0}")]
     BadRequest(String),
+    /// The request was well-formed but its content failed a collection's contract
+    /// (a missing required field, a type mismatch, or an unknown `kind` under a
+    /// strict namespace). Distinct from `BadRequest` so a client can tell a
+    /// malformed request from one that violates the registered schema.
+    #[error("unprocessable: {0}")]
+    Unprocessable(String),
     /// The request conflicts with existing state (e.g. a duplicate datasource id).
     #[error("conflict: {0}")]
     Conflict(String),
@@ -48,6 +54,7 @@ impl ApiError {
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
             ApiError::BadGateway(_) => StatusCode::BAD_GATEWAY,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,

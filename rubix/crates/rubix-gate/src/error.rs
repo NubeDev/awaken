@@ -50,6 +50,13 @@ pub enum GateError {
     #[error("command denied: {0}")]
     CommandDenied(String),
 
+    /// A command's content failed its collection's contract: a missing required
+    /// field, a type mismatch, or an unknown `kind` under a strict namespace
+    /// (`rubix/docs/design/BACKEND-COLLECTIONS.md`). Refused after authorization
+    /// but before any write, so no record and no audit row are produced.
+    #[error("validation failed: {0}")]
+    Validation(String),
+
     /// Applying a command's record mutation through the gate failed, or the
     /// atomic before/after capture could not be decoded.
     #[error("command apply failed: {0}")]

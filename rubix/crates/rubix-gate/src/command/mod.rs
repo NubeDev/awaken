@@ -16,6 +16,7 @@ mod capture;
 mod correlate;
 mod define;
 mod persist;
+mod validate;
 
 pub use action::Change;
 pub use apply::{Applied, apply};

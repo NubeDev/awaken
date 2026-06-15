@@ -50,6 +50,7 @@ pub async fn create_record_route(
 pub(crate) fn map_gate_error(error: rubix_gate::GateError) -> ApiError {
     match error {
         rubix_gate::GateError::CommandDenied(reason) => ApiError::Forbidden(reason),
+        rubix_gate::GateError::Validation(reason) => ApiError::Unprocessable(reason),
         other => ApiError::Internal(other.to_string()),
     }
 }

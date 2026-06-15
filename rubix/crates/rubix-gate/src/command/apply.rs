@@ -1,4 +1,4 @@
-//! Drive a command through the gate: authorize → correlate → capture → audit.
+//! Drive a command through the gate: authorize → validate → correlate → capture → audit.
 //!
 //! Contract #1 (`rubix/STACK-DEISGN.md`): every mutation crosses the gate, which
 //! checks the capability grant, mints/carries the correlation id, captures
@@ -22,6 +22,7 @@ use super::authorize::authorize;
 use super::capture::{CapturedChange, capture};
 use super::correlate::correlate;
 use super::define::Command;
+use super::validate::validate;
 
 /// The result of a command applied through the gate.
 ///
@@ -39,21 +40,25 @@ pub struct Applied {
 /// Apply `command` through the gate, carrying `correlation` if supplied.
 ///
 /// Sequences the gate pipeline: check the capability grant (refuse before any
-/// write), resolve the correlation id, capture before/after atomically with the
-/// write, then append the immutable audit row. Returns the captured change and
-/// correlation id on success.
+/// write), validate the content against its collection contract, resolve the
+/// correlation id, capture before/after atomically with the write, then append
+/// the immutable audit row. Returns the captured change and correlation id on
+/// success.
 ///
 /// # Errors
 /// Returns [`GateError::CommandDenied`](crate::GateError::CommandDenied) if the
-/// principal lacks the grant, [`GateError::CommandApply`](crate::GateError::CommandApply)
-/// if the mutation fails, or [`GateError::AuditWrite`](crate::GateError::AuditWrite)
-/// if the audit append fails.
+/// principal lacks the grant, [`GateError::Validation`](crate::GateError::Validation)
+/// if the content fails its collection contract,
+/// [`GateError::CommandApply`](crate::GateError::CommandApply) if the mutation
+/// fails, or [`GateError::AuditWrite`](crate::GateError::AuditWrite) if the audit
+/// append fails.
 pub async fn apply(
     db: &Surreal<Db>,
     command: &Command,
     correlation: Option<CorrelationId>,
 ) -> Result<Applied> {
     authorize(db, command).await?;
+    validate(db, command).await?;
     let correlation_id = correlate(correlation);
     let captured = capture(db, command.namespace(), &command.target, &command.change).await?;
     let audit = AuditRecord::project(

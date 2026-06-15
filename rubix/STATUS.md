@@ -209,6 +209,36 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   refused at subscribe. Additive workspace change: the `zenoh` dependency
   (`default-features = false`, `transport_tcp`).
 
+- **WS-16 — Transport: axum HTTP + WS live-query bridge + OpenAPI + prefs.**
+  New `rubix-prefs` crate (the Preferences component, SCOPE "Preferences"):
+  per-user **units** (metric↔imperial over tagged physical quantities —
+  temperature/length/mass/speed, conversion math owned by one `Quantity` type so
+  the round-trip cannot drift) and **datetime** formatting (strftime pattern over
+  a canonical RFC 3339 UTC instant), applied to a response DTO by `apply_to`,
+  which rewrites only the declared fields and leaves the rest untouched — storage
+  stays canonical, only the display DTO is transformed. `rubix-server` now wires
+  the committed crates into the axum binary: record CRUD routes where mutations
+  cross the WS-05 gate (capability-checked, captured atomically, correlated,
+  audited — an audit row per write) and reads run on the WS-03 scoped session
+  (contract #1); `POST /query` gating the DataFusion surface on the WS-04
+  `external-query` capability and rendering Arrow batches to JSON rows; `GET
+  /datasources` listing the registry; a **WebSocket bridge** (`/ws/records`)
+  streaming the WS-07 live-query data-change feed to a client on its scoped
+  session (scope set once at subscribe, contract #1); and **OpenAPI 3.1** via
+  utoipa at `/api-docs/openapi.json`. Principal authentication reuses the gate's
+  subject/secret `PrincipalToken` over `x-rubix-subject`/`x-rubix-secret` headers,
+  resolved through `authenticate` + `issue_scoped_session` once per request. A
+  record mutation requires the `IngestPublish` capability (the committed gate enum
+  has no dedicated record-write variant; the single point of choice is
+  `http/records/capability.rs`). Verified on kv-mem: `/health`; a create→get→
+  update→delete round-trip over HTTP with an audit row per mutation carrying the
+  correlation id; a WebSocket client receiving the `created` event on insert; the
+  OpenAPI document listing every registered route; and a record DTO formatted per
+  the user's unit/datetime preference. Deferred (require WS-13/14, logged to
+  `docs/sessions/TODOs.md`): the JSON-RPC extension control endpoint and `POST
+  /datasources` registration (need `rubix-ext`), and profile selection into
+  `AppState` (WS-14). Additive workspace deps: `chrono`, `utoipa`.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -255,8 +285,11 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 ### Platform / deployment
 - [ ] Edge/cloud profiles (single binary, cargo features + runtime config).
 - [ ] Edge↔cloud sync shipper over Zenoh (append-only partition + config LWW).
-- [ ] Preferences (units + datetime).
-- [ ] Transport: axum HTTP + JSON-RPC control + WS live-query bridge + OpenAPI.
+- [x] Preferences (units + datetime).
+- [x] Transport: axum HTTP + WS live-query bridge + OpenAPI (`rubix-server`).
+      JSON-RPC extension control + `POST /datasources` registration deferred with
+      WS-13 (extensions); profile selection deferred with WS-14 — see
+      `docs/sessions/TODOs.md` 2026-06-15T09:50:00Z.
 
 ---
 

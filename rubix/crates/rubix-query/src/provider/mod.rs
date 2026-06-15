@@ -11,6 +11,7 @@
 //! scan already returned.
 
 mod instant;
+mod json_udf;
 mod scan;
 mod schema;
 
@@ -46,6 +47,9 @@ pub(crate) use scan::scan_table;
 /// fails.
 pub async fn build_context(session: &Surreal<Db>) -> Result<SessionContext> {
     let ctx = SessionContext::new();
+    // Register the JSON-reach UDF so queries can read fields out of the `content`
+    // JSON text column (the only way past the structural columns, see json_udf).
+    ctx.register_udf(json_udf::json_get_udf());
     for table in CanonicalTable::ALL {
         let batch = scan_table(session, table).await?;
         let provider = MemTable::try_new(batch.schema(), vec![vec![batch]])

@@ -1,14 +1,19 @@
 // Ask Rubix — the copilot surface: a thread on the left, an impact-ranked
 // attention queue on the right, an ask bar below (PRODUCT-UI "The agent is the
 // front door"). The queue is built from REAL derived attention (zones out of
-// band), not invented moments. The agent runtime isn't wired yet, so the ask bar
-// answers by grounding in the tenant's actual records rather than faking an LLM;
-// actuate-class actions are shown disabled per the documented backend gap.
+// band), not invented moments. The ask bar now calls the agent runtime
+// (POST /agent/ask): the question goes to the brain with the site's live state
+// folded in as grounding, so the answer is conditioned on what the principal may
+// see. When no model is configured the server returns a grounded, model-free
+// fallback (`grounded:false`) which the thread labels honestly rather than
+// passing off as the model's. Actuate-class actions stay disabled per the
+// documented backend gap.
 
 import { useMemo, useState } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { ArrowUp } from 'lucide-react'
 import { useRecords } from '../hooks/useRecords'
+import { useAskAgent } from '../hooks/useAgents'
 import { pointIdFor, readingSeries, toSites, toZones } from '../utils/derive'
 import { TopBar } from '../components/ui/TopBar'
 import { Orb } from '../components/ui/Orb'
@@ -26,6 +31,9 @@ interface Turn {
   text: string
   zone?: Zone
   series?: number[]
+  /** Set on a rubix turn that came from the model-free fallback, so the thread
+   *  can mark it as a degraded answer rather than the brain's. */
+  fallback?: boolean
 }
 
 export function Copilot() {
@@ -45,6 +53,7 @@ export function Copilot() {
 
   const [thread, setThread] = useState<Turn[]>([])
   const [input, setInput] = useState('')
+  const askAgent = useAskAgent(tenant)
 
   const seed: Turn = {
     role: 'rubix',
@@ -75,9 +84,33 @@ export function Copilot() {
 
   function ask() {
     const q = input.trim()
-    if (!q || !records) return
+    if (!q || !records || askAgent.isPending) return
     setInput('')
-    setThread((t) => [...t, { role: 'user', text: q }, { role: 'rubix', text: groundedAnswer(q, records) }])
+    setThread((t) => [...t, { role: 'user', text: q }])
+
+    // Ground the brain in the site's live state the principal is already looking
+    // at, so the answer is conditioned on real data rather than the model's prior.
+    const context = groundingContext(siteName, zones, records)
+    askAgent.mutate(
+      { question: q, context },
+      {
+        onSuccess: (res) =>
+          setThread((t) => [...t, { role: 'rubix', text: res.answer, fallback: !res.grounded }]),
+        onError: (e) =>
+          // The request itself failed (network/auth) — fall back to a local
+          // grounded answer so the user still gets something honest.
+          setThread((t) => [
+            ...t,
+            {
+              role: 'rubix',
+              text: `${groundedAnswer(q, records)}\n\n(Couldn’t reach the agent: ${
+                e instanceof Error ? e.message : 'unknown error'
+              }.)`,
+              fallback: true,
+            },
+          ]),
+      },
+    )
   }
 
   return (
@@ -92,6 +125,12 @@ export function Copilot() {
               {turns.map((t, i) => (
                 <ThreadTurn key={i} turn={t} onOpenBuilding={() => navigate({ to: '/t/$tenant/building', params: { tenant }, search: { site: activeKey } })} />
               ))}
+              {askAgent.isPending && (
+                <div className="flex gap-3 fade">
+                  <Orb size={32} sparkle />
+                  <p className="serif text-[17px] leading-relaxed text-muted pt-1">Thinking…</p>
+                </div>
+              )}
             </main>
             <aside className="min-h-0 flex flex-col pt-4">
               <div className="flex items-center justify-between mb-2.5">
@@ -122,14 +161,16 @@ export function Copilot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && ask()}
+                disabled={askAgent.isPending}
                 placeholder="Ask Rubix about any zone, device or record…"
-                className="w-full h-[52px] rounded-2xl border border-border bg-panel2 pl-12 pr-28 text-[15px] outline-none placeholder:text-muted focus:border-r1/50 focus:ring-4 focus:ring-r1/10 transition"
+                className="w-full h-[52px] rounded-2xl border border-border bg-panel2 pl-12 pr-28 text-[15px] outline-none placeholder:text-muted focus:border-r1/50 focus:ring-4 focus:ring-r1/10 transition disabled:opacity-60"
               />
               <button
                 onClick={ask}
-                className="absolute right-3 top-1/2 -translate-y-1/2 h-9 px-3.5 rounded-xl bg-fg text-bg text-[13px] font-semibold flex items-center gap-1.5 hover:opacity-90 transition"
+                disabled={askAgent.isPending}
+                className="absolute right-3 top-1/2 -translate-y-1/2 h-9 px-3.5 rounded-xl bg-fg text-bg text-[13px] font-semibold flex items-center gap-1.5 hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Ask
+                {askAgent.isPending ? 'Asking…' : 'Ask'}
                 <ArrowUp size={16} />
               </button>
             </div>
@@ -181,7 +222,13 @@ function ThreadTurn({ turn, onOpenBuilding }: { turn: Turn; onOpenBuilding: () =
     <div className="flex gap-3 fade">
       <Orb size={32} sparkle />
       <div className="flex-1 min-w-0 space-y-3">
-        <p className="serif text-[17px] leading-relaxed text-fg/88">{turn.text}</p>
+        <p className="serif text-[17px] leading-relaxed text-fg/88 whitespace-pre-wrap">{turn.text}</p>
+        {turn.fallback && (
+          <div className="text-[11.5px] text-muted inline-flex items-center gap-1.5 rounded-full border border-border bg-panel2 px-2.5 py-1">
+            <span className="size-1.5 rounded-full bg-amber" />
+            No model configured — grounded fallback, not the agent’s reasoning.
+          </div>
+        )}
         {turn.series && turn.series.length > 1 && (
           <div className="rounded-2xl border border-border bg-bg/40 p-4">
             <Line series={[{ data: turn.series, color: turn.zone?.severity ?? 'r1', fill: true }]} height={150} />
@@ -222,4 +269,26 @@ function groundedAnswer(q: string, records: Record[]): string {
     .map((r) => (typeof r.content.name === 'string' ? r.content.name : r.id))
     .join(', ')
   return `Found ${hits.length} record${hits.length === 1 ? '' : 's'} matching “${q}” — including ${names}. Open Admin · Records to inspect them, or ask about a specific zone.`
+}
+
+// Build the grounding the agent reasons over: a compact, factual snapshot of the
+// site the user is looking at (zone temps vs. setpoints, how many records). This
+// is assembled client-side from data the principal already loaded, so the brain
+// answers over what they can see — not a separate, broader fetch. Kept short so
+// it fits comfortably in the preamble.
+function groundingContext(siteName: string | undefined, zones: Zone[], records: Record[]): string {
+  const lines: string[] = []
+  lines.push(`Site: ${siteName ?? 'unknown'} — ${records.length} live records.`)
+  if (zones.length) {
+    lines.push('Zones (temp vs setpoint):')
+    for (const z of zones.slice(0, 24)) {
+      lines.push(
+        `- ${z.name}: ${fmtTemp(z.temp)} vs ${fmtTemp(z.sp)} (${fmtDeviation(z.temp, z.sp)}° off, ${z.severity}).`,
+      )
+    }
+    if (zones.length > 24) lines.push(`…and ${zones.length - 24} more zones.`)
+  } else {
+    lines.push('No zone readings available for this site.')
+  }
+  return lines.join('\n')
 }

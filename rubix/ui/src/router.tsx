@@ -17,7 +17,9 @@ import { Copilot } from './pages/Copilot'
 import { AdminSchema } from './pages/admin/AdminSchema'
 import { AdminRecordsPage } from './pages/admin/AdminRecordsPage'
 import { AdminPrincipals } from './pages/admin/AdminPrincipals'
+import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminQuery } from './pages/admin/AdminQuery'
+import { AdminDashboards } from './pages/admin/AdminDashboards'
 import { GenericPage } from './pages/GenericPage'
 
 interface SiteSearch {
@@ -96,10 +98,22 @@ const adminPrincipalsRoute = createRoute({
   component: AdminPrincipals,
 })
 
+const adminAgentsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'agents',
+  component: AdminAgents,
+})
+
 const adminQueryRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'query',
   component: AdminQuery,
+})
+
+const adminDashboardsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'dashboards',
+  component: AdminDashboards,
 })
 
 // Generic native page (devices/data/rules/reports/settings). Last so the static
@@ -122,7 +136,9 @@ const routeTree = rootRoute.addChildren([
       adminSchemaRoute,
       adminRecordsRoute,
       adminPrincipalsRoute,
+      adminAgentsRoute,
       adminQueryRoute,
+      adminDashboardsRoute,
     ]),
     pageRoute,
   ]),

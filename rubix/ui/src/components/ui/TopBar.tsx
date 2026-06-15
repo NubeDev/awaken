@@ -5,6 +5,7 @@
 import { Link } from '@tanstack/react-router'
 import { Building2, ChevronRight, ChevronsUpDown, Search, SlidersHorizontal } from 'lucide-react'
 import { Orb } from './Orb'
+import { Button } from './button'
 
 interface TopBarProps {
   tenant: string
@@ -59,13 +60,14 @@ export function TopBar({ tenant, site, siteName, crumbs, livePoints }: TopBarPro
         <SlidersHorizontal size={14} />
         Admin
       </Link>
-      <button
+      <Button
         type="button"
-        className="flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border text-[12px] text-muted hover:text-fg hover:bg-panel2 transition"
+        variant="outline"
+        className="h-8 px-2.5 text-[12px] font-normal text-muted hover:text-fg hover:bg-panel2"
       >
         <Search size={14} />
         Search<kbd>⌘K</kbd>
-      </button>
+      </Button>
       <div className="size-8 rounded-full bg-panel2 border border-border grid place-items-center text-xs font-semibold">
         AK
       </div>

@@ -10,11 +10,12 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateTenantRequest,
-    CreatedPrincipalDto, DatasourceDto, DeviceDto, GrantDto, LoginRequest, LoginResponse,
-    MeResponse, PrincipalDto, QueryRequest, QueryResponse, RecordDto, RegisterDatasourceRequest,
-    TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePrincipalRequest,
-    UpdateRecordRequest,
+    AgentDto, AskRequest, AskResponse, CreateDeviceRequest, CreatePrincipalRequest,
+    CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
+    GrantDto, LoginRequest, LoginResponse, MeResponse, PersistRequest, PersistedDto, PrincipalDto,
+    ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse, RecallRequest,
+    RecalledDto, RecordDto, RegisterDatasourceRequest, TenantDto, UpdateDatasourceRequest,
+    UpdateDeviceRequest, UpdatePrincipalRequest, UpdateRecordRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.
@@ -79,7 +80,16 @@ use crate::dto::{
         CreateTenantRequest,
         DeviceDto,
         CreateDeviceRequest,
-        UpdateDeviceRequest
+        UpdateDeviceRequest,
+        AgentDto,
+        ProvisionAgentRequest,
+        ProvisionedAgentDto,
+        RecallRequest,
+        RecalledDto,
+        PersistRequest,
+        PersistedDto,
+        AskRequest,
+        AskResponse
     ))
 )]
 pub struct ApiDoc;

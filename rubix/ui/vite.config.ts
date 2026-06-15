@@ -8,6 +8,22 @@ export default defineConfig({
   // loads inside a Tauri desktop webview (file://) without a host-aware rewrite.
   base: './',
   plugins: [react(), tailwindcss()],
+  // react-grid-layout's bundled draggable guards a debug log on
+  // `process.env.DRAGGABLE_DEBUG`, which throws "process is not defined" in the
+  // browser on drag-start. Vite shims `process` for the production rollup but not
+  // for the dev dependency pre-bundle, so define the flag for both: top-level
+  // `define` covers app source + the production build; `optimizeDeps` covers the
+  // dev esbuild pre-bundle where the dragged code actually runs.
+  define: {
+    'process.env.DRAGGABLE_DEBUG': 'false',
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        'process.env.DRAGGABLE_DEBUG': 'false',
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

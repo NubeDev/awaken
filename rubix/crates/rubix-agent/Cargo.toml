@@ -17,6 +17,15 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
+# Renamed to `rig` (the crate's own internal name and the name every Rig doc/
+# example uses); the published package is `rig-core`.
+rig = { workspace = true, optional = true }
+
+[features]
+# The cloud brain (OpenAI via Rig). Off by default so the edge build carries no
+# cloud provider and fails closed when one is requested but absent (AGENT.md,
+# open question 1). Enabling it pulls in Rig and compiles the `brain` module.
+cloud = ["dep:rig"]
 
 [dev-dependencies]
 rubix-store = { workspace = true }

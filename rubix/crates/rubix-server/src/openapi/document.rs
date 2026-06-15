@@ -10,12 +10,14 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    AgentDto, AskRequest, AskResponse, CreateDeviceRequest, CreatePrincipalRequest,
-    CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    GrantDto, LoginRequest, LoginResponse, MeResponse, PersistRequest, PersistedDto, PrincipalDto,
-    ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse, RecallRequest,
-    RecalledDto, RecordDto, RegisterDatasourceRequest, TenantDto, UpdateDatasourceRequest,
-    UpdateDeviceRequest, UpdatePrincipalRequest, UpdateRecordRequest,
+    AgentDto, AskRequest, AskResponse, BatchQueryItem, BatchQueryRequest, BatchQueryResponse,
+    BatchQueryResult, ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
+    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, GrantDto, LoginRequest,
+    LoginResponse, MeResponse, PersistRequest, PersistedDto, PrincipalDto, ProvisionAgentRequest,
+    PreferencesDto, ProvisionedAgentDto, QueryRequest, QueryResponse, RecallRequest, RecalledDto,
+    RecordDto, RegisterDatasourceRequest, TenantDto, TimeBoundDto, TimeScopeDto,
+    UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest,
+    UpdateRecordRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.
@@ -36,6 +38,9 @@ use crate::dto::{
         crate::openapi::paths::update_record,
         crate::openapi::paths::delete_record,
         crate::openapi::paths::run_query,
+        crate::openapi::paths::run_batch,
+        crate::openapi::paths::get_prefs,
+        crate::openapi::paths::patch_prefs,
         crate::openapi::paths::list_datasources,
         crate::openapi::paths::create_datasource,
         crate::openapi::paths::get_datasource,
@@ -68,6 +73,15 @@ use crate::dto::{
         UpdateRecordRequest,
         QueryRequest,
         QueryResponse,
+        ColumnDto,
+        TimeScopeDto,
+        TimeBoundDto,
+        BatchQueryRequest,
+        BatchQueryItem,
+        BatchQueryResponse,
+        BatchQueryResult,
+        PreferencesDto,
+        UpdatePreferencesRequest,
         DatasourceDto,
         RegisterDatasourceRequest,
         UpdateDatasourceRequest,

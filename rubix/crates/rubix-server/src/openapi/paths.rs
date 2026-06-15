@@ -14,11 +14,11 @@
 #![allow(dead_code)]
 
 use crate::dto::{
-    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateTenantRequest,
-    CreatedPrincipalDto, DatasourceDto, DeviceDto, GrantDto, LoginRequest, LoginResponse,
-    MeResponse, PrincipalDto, QueryRequest, QueryResponse, RecordDto, RegisterDatasourceRequest,
-    TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePrincipalRequest,
-    UpdateRecordRequest,
+    BatchQueryRequest, BatchQueryResponse, CreateDeviceRequest, CreatePrincipalRequest,
+    CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
+    GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto, PrincipalDto, QueryRequest,
+    QueryResponse, RecordDto, RegisterDatasourceRequest, TenantDto, UpdateDatasourceRequest,
+    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
 };
 
 /// `POST /auth/login`.
@@ -136,6 +136,39 @@ pub fn delete_record() {}
     )
 )]
 pub fn run_query() {}
+
+/// `POST /query/batch`.
+#[utoipa::path(
+    post,
+    path = "/query/batch",
+    request_body = BatchQueryRequest,
+    responses(
+        (status = 200, description = "Per-item query results (one bad item does not fail the batch)", body = BatchQueryResponse),
+        (status = 400, description = "Empty batch or too many queries"),
+        (status = 403, description = "Principal lacks the external-query capability")
+    )
+)]
+pub fn run_batch() {}
+
+/// `GET /prefs`.
+#[utoipa::path(
+    get,
+    path = "/prefs",
+    responses((status = 200, description = "The principal's display preferences", body = PreferencesDto))
+)]
+pub fn get_prefs() {}
+
+/// `PATCH /prefs`.
+#[utoipa::path(
+    patch,
+    path = "/prefs",
+    request_body = UpdatePreferencesRequest,
+    responses(
+        (status = 200, description = "The updated preferences", body = PreferencesDto),
+        (status = 400, description = "An unknown unit system")
+    )
+)]
+pub fn patch_prefs() {}
 
 /// `GET /datasources`.
 #[utoipa::path(

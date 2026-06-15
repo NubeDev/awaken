@@ -32,7 +32,7 @@ import {
 import { DashboardGrid } from '../../components/dashboards/DashboardGrid'
 import { BoardTimeRange } from '../../components/dashboards/BoardTimeRange'
 import { CHART_PRESETS, type ChartPreset, type PresetGroup } from '../../components/dashboards/chart-presets'
-import { DEFAULT_RANGE, formatBoardParams, type BoardTimeRange as Range } from '../../components/dashboards/board-params'
+import { DEFAULT_RANGE, boardTimeScope, type BoardTimeRange as Range } from '../../components/dashboards/board-params'
 import { EmptyView } from '../../components/ui/StateView'
 
 const PRESET_GROUPS: PresetGroup[] = ['Records', 'Audit', 'Traces']
@@ -46,11 +46,13 @@ export function AdminDashboards() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
-  // Board-wide time range — substituted into every panel's `{{…}}` placeholders
-  // so one control re-scopes the whole board (§3). Memoised into a params map so
-  // panels only re-run when the formatted window actually changes.
+  // Board-wide time range — sent to every panel as a structured, UTC time scope
+  // so one control re-scopes the whole board (§5). The backend injects the
+  // window/bucket by expanding each chart's time macros; the client no longer
+  // formats a locale datetime into SQL (the old timezone bug). Memoised so panels
+  // only refetch when the window actually changes.
   const [range, setRange] = useState<Range>(DEFAULT_RANGE)
-  const params = useMemo(() => formatBoardParams(range), [range])
+  const time = useMemo(() => boardTimeScope(range), [range])
   // Local working copy of the open board's panels — the grid edits this live; a
   // debounced effect flushes it to the gate so drags don't thrash the backend.
   const [panels, setPanels] = useState<BoardPanel[]>([])
@@ -123,8 +125,8 @@ export function AdminDashboards() {
   }
 
   // One-click preset: materialise the preset as a kind:"chart" record, then place
-  // it on the board. Time-series presets carry `{{start_time}}`/`{{end_time}}`
-  // placeholders, so they immediately track the board range.
+  // it on the board. Time-series presets use the `$__timeBucket`/`$__timeFilter`
+  // macros, so the backend scopes them to the board range the moment they land.
   const addPreset = useMutation({
     mutationFn: (preset: ChartPreset) =>
       createChart(api, { name: preset.name, sql: preset.sql, config: preset.config }),
@@ -276,7 +278,7 @@ export function AdminDashboards() {
             charts={chartMap}
             onLayoutChange={persist}
             onRemovePanel={removePanel}
-            params={params}
+            time={time}
           />
         )}
       </div>

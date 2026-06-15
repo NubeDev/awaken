@@ -74,6 +74,34 @@ impl Grain {
         let floored = micros.div_euclid(width);
         floored * width
     }
+
+    /// Choose the grain whose buckets best approximate `target` points across a
+    /// `span_micros`-wide window — the backend's single source of interval snap.
+    ///
+    /// The client sends a window plus a desired point count (§5, "backend owns the
+    /// snap"); this picks the supported [`Grain`] that yields a bucket count
+    /// closest to `target`, so the chart never recomputes the grain table itself.
+    /// A non-positive span or target falls back to the finest grain. Ties prefer
+    /// the finer grain (more detail), and the result is clamped to the supported
+    /// set — never finer than a minute nor coarser than a week.
+    #[must_use]
+    pub fn for_target_points(span_micros: i64, target: u32) -> Grain {
+        if span_micros <= 0 || target == 0 {
+            return Grain::Minute;
+        }
+        // The ideal bucket width is the window divided into `target` buckets; pick
+        // the supported grain whose width is nearest that ideal in log space, so a
+        // 2× over and a 2× under are weighed evenly.
+        let ideal = span_micros as f64 / f64::from(target);
+        Grain::ALL
+            .into_iter()
+            .min_by(|a, b| {
+                let da = (a.width_micros() as f64 / ideal).ln().abs();
+                let db = (b.width_micros() as f64 / ideal).ln().abs();
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(Grain::Minute)
+    }
 }
 
 #[cfg(test)]
@@ -125,6 +153,25 @@ mod tests {
         // 8 days past the epoch is in the second week bucket.
         let t = 8 * 24 * 60 * 60 * 1_000_000_i64;
         assert_eq!(Grain::Week.bucket_start(t), week);
+    }
+
+    #[test]
+    fn target_points_snaps_to_the_nearest_grain() {
+        let hour = Grain::Hour.width_micros();
+        // A 24-hour window asking for ~24 points wants hour buckets.
+        assert_eq!(Grain::for_target_points(24 * hour, 24), Grain::Hour);
+        // The same window asking for ~1 point wants day buckets.
+        assert_eq!(Grain::for_target_points(24 * hour, 1), Grain::Day);
+        // A one-hour window asking for ~60 points wants minute buckets.
+        assert_eq!(Grain::for_target_points(hour, 60), Grain::Minute);
+        // A 90-day window asking for ~90 points wants day buckets.
+        assert_eq!(Grain::for_target_points(90 * 24 * hour, 90), Grain::Day);
+    }
+
+    #[test]
+    fn degenerate_target_inputs_fall_back_to_minute() {
+        assert_eq!(Grain::for_target_points(0, 100), Grain::Minute);
+        assert_eq!(Grain::for_target_points(60_000_000, 0), Grain::Minute);
     }
 
     #[test]

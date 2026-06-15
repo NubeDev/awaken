@@ -5,6 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { ConnectionProvider, useConnection } from './api/ConnectionContext'
+import { PreferencesProvider } from './context/PreferencesContext'
 import { ThemeProvider } from './context/theme-provider'
 import { ToastProvider } from './components/ui/toast'
 import { Connect } from './pages/Connect'
@@ -17,7 +18,12 @@ const queryClient = new QueryClient({
 function Gate() {
   const { connection } = useConnection()
   if (!connection) return <Connect />
-  return <RouterProvider router={router} />
+  // An active connection exists here, so the preferences provider can fetch.
+  return (
+    <PreferencesProvider>
+      <RouterProvider router={router} />
+    </PreferencesProvider>
+  )
 }
 
 export default function App() {

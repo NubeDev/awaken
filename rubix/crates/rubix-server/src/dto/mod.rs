@@ -9,6 +9,7 @@ pub mod admin;
 pub mod agent;
 pub mod auth;
 pub mod datasource;
+pub mod prefs;
 pub mod query;
 pub mod record;
 
@@ -22,5 +23,9 @@ pub use agent::{
 };
 pub use auth::{LoginRequest, LoginResponse, MeResponse};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};
-pub use query::{QueryRequest, QueryResponse};
+pub use prefs::{PreferencesDto, UpdatePreferencesRequest};
+pub use query::{
+    BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, ColumnDto, QueryRequest,
+    QueryResponse, TimeBoundDto, TimeScopeDto,
+};
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};

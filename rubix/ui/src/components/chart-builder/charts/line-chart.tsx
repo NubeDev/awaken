@@ -12,6 +12,8 @@ import {
 import { type DisplayMode } from "@/components/chart-builder/types";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
+import { usePreferences } from "@/context/PreferencesContext";
+
 import { formatMetricValue } from "./format-value";
 import { calculateDisplayValue, createAxisFormatter } from "./utils";
 
@@ -49,7 +51,9 @@ const LineChart = ({
   syncId,
   drag,
 }: LineChartProps) => {
-  const xAxisFormatter = useMemo(() => createAxisFormatter(data, x), [data, x]);
+  const prefs = usePreferences();
+  // The x-axis carries the datetime instant — format it in the user's tz/pattern.
+  const xAxisFormatter = useMemo(() => createAxisFormatter(data, x, prefs), [data, x, prefs]);
   const yAxisFormatter = useMemo(() => createAxisFormatter(data, keys[0] || ""), [data, keys]);
 
   const { displayValue, totalMax } = useMemo(

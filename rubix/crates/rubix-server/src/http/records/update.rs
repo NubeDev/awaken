@@ -14,7 +14,7 @@ use crate::auth::Authenticated;
 use crate::dto::record::{RecordDto, UpdateRecordRequest};
 use crate::error::{ApiError, ApiResult};
 use crate::http::records::capability::RECORD_WRITE;
-use crate::http::records::create::map_gate_error;
+use crate::http::records::create::{invalidate_scanned_context, map_gate_error};
 use crate::state::AppState;
 
 /// Replace record `id`'s content with the request content, through the gate.
@@ -34,6 +34,7 @@ pub async fn update_record_route(
     apply(state.store.raw(), &command, None)
         .await
         .map_err(map_gate_error)?;
+    invalidate_scanned_context(&state, &auth.principal);
 
     let stored = read_record(state.store.raw(), &id)
         .await

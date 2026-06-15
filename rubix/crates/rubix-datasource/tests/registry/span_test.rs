@@ -12,6 +12,7 @@ mod fixture;
 use rubix_core::{Record, Role, create_record};
 use rubix_datasource::{DatasourceError, Registry, SurrealConnector, register, span};
 use rubix_gate::Capability;
+use rubix_query::ContextCache;
 
 use fixture::open::{NS, grant, open_datasource_store, scoped_session_for};
 

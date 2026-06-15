@@ -5,7 +5,16 @@
 //! WS-04 `external-query` capability on the principal's scoped session
 //! (`rubix-query::run_authorized`), so the rows are already bounded by SurrealDB
 //! row-level permissions (contract #1).
+//!
+//! A request may carry a structured, UTC [`TimeScopeDto`]
+//! (`rubix/docs/design/DASHBOARDS-SCOPE.md` §5): the board path sends absolute
+//! epoch ms (or a relative token) plus a grain or target point count, and the
+//! backend injects the window/bucket — never a locale datetime string spliced
+//! client-side (the timezone bug this fixes).
 
+use std::collections::HashMap;
+
+use rubix_query::{Grain, QueryError, TimeBound, TimeScope};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
@@ -13,13 +22,193 @@ use utoipa::ToSchema;
 /// The body of a query request.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct QueryRequest {
-    /// The read-only `SELECT`/`WITH` statement to run.
+    /// The read-only `SELECT`/`WITH` statement to run. May carry the time macros
+    /// `$__timeFilter(col)`, `$__timeBucket(col)`, and `$__interval`, which the
+    /// backend expands against `time`.
     pub sql: String,
+    /// An optional structured, UTC time scope the backend injects (§5).
+    #[serde(default)]
+    pub time: Option<TimeScopeDto>,
+    /// An optional `column → physical quantity` map (§2). After the rows are read
+    /// (post-cache, per-caller), each named numeric column is converted from its
+    /// canonical metric value to the requesting principal's unit system. A column
+    /// not in the map is left untouched; the cache itself only holds raw values.
+    #[serde(default)]
+    pub quantities: Option<HashMap<String, String>>,
 }
 
-/// The result of a query: the matched rows as JSON objects.
+/// A structured, UTC time scope: window bounds plus an optional bucket grain.
+///
+/// `from`/`to` are absolute UTC epoch milliseconds **or** relative tokens
+/// (`now`, `now-1h`, `now/d`), resolved server-side at request time. `grain` pins
+/// an explicit bucket width; `target_points` asks the backend to snap a grain to
+/// roughly that many buckets (ignored if `grain` is set). The backend owns both
+/// the window injection and the interval snap — the client never recomputes them.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct TimeScopeDto {
+    /// The inclusive lower bound: epoch ms (a JSON number) or a relative token.
+    pub from: TimeBoundDto,
+    /// The inclusive upper bound: epoch ms (a JSON number) or a relative token.
+    pub to: TimeBoundDto,
+    /// An explicit bucket grain.
+    #[serde(default)]
+    pub grain: Option<String>,
+    /// A desired bucket count to snap a grain to (ignored if `grain` is set).
+    #[serde(default)]
+    pub target_points: Option<u32>,
+}
+
+/// One window bound on the wire: a number is epoch ms, a string is a token.
+///
+/// Accepting either keeps the board (relative tokens) and the console (absolute
+/// instants) on the same field without a tagged enum on the wire.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(untagged)]
+pub enum TimeBoundDto {
+    /// An absolute UTC instant in epoch milliseconds.
+    Absolute(i64),
+    /// A relative token (`now`, `now-7d`, `now/d`) resolved server-side.
+    Relative(String),
+}
+
+impl From<TimeBoundDto> for TimeBound {
+    fn from(dto: TimeBoundDto) -> Self {
+        match dto {
+            TimeBoundDto::Absolute(ms) => TimeBound::Absolute(ms),
+            TimeBoundDto::Relative(token) => TimeBound::Relative(token),
+        }
+    }
+}
+
+impl TimeScopeDto {
+    /// Convert the wire scope into the query-layer [`TimeScope`], parsing the
+    /// grain string.
+    ///
+    /// # Errors
+    /// Returns [`QueryError::Rejected`] if `grain` is set but not a known grain.
+    pub fn into_scope(self) -> Result<TimeScope, QueryError> {
+        let grain = match self.grain {
+            Some(ref raw) => Some(
+                Grain::parse(raw)
+                    .ok_or_else(|| QueryError::Rejected(format!("unknown grain: {raw}")))?,
+            ),
+            None => None,
+        };
+        Ok(TimeScope {
+            from: self.from.into(),
+            to: self.to.into(),
+            grain,
+            target_points: self.target_points,
+        })
+    }
+}
+
+/// The result of a query: the matched rows plus their column types.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct QueryResponse {
     /// The result rows, each a JSON object keyed by column name.
     pub rows: Vec<Value>,
+    /// The result columns in order, so a client gets types without sniffing rows
+    /// (feeds FieldConfig matching, §7).
+    pub columns: Vec<ColumnDto>,
+}
+
+/// A result column's name and type, derived from the Arrow result schema.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ColumnDto {
+    /// The column name.
+    pub name: String,
+    /// A coarse type tag (`number`/`string`/`boolean`/`timestamp`/`other`).
+    #[serde(rename = "type")]
+    pub kind: String,
+}
+
+/// The body of a batch query request: run a whole board in one round trip (§3).
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct BatchQueryRequest {
+    /// The statements to run, each keyed so the client matches results to panels
+    /// order-independently. Capped server-side.
+    pub queries: Vec<BatchQueryItem>,
+}
+
+/// One keyed statement in a batch.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct BatchQueryItem {
+    /// The caller's key for this statement (typically a chart id). Echoed back on
+    /// the matching result.
+    pub key: String,
+    /// The read-only SQL, with the same time macros as `POST /query`.
+    pub sql: String,
+    /// An optional structured, UTC time scope injected into this statement.
+    #[serde(default)]
+    pub time: Option<TimeScopeDto>,
+    /// An optional `column → physical quantity` map applied post-read (§2).
+    #[serde(default)]
+    pub quantities: Option<HashMap<String, String>>,
+}
+
+impl BatchQueryItem {
+    /// The single-query request this item resolves to (so both paths share the
+    /// time-macro resolution and the per-caller unit conversion).
+    #[must_use]
+    pub fn into_request(self) -> (String, QueryRequest) {
+        (
+            self.key,
+            QueryRequest {
+                sql: self.sql,
+                time: self.time,
+                quantities: self.quantities,
+            },
+        )
+    }
+}
+
+/// The result of a batch query: one keyed result per statement.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct BatchQueryResponse {
+    /// One result per input statement, matched to the input by `key`.
+    pub results: Vec<BatchQueryResult>,
+}
+
+/// One statement's outcome: its rows + columns, or its error — never both.
+///
+/// A per-item error so one bad panel doesn't blank the board (§3); the HTTP status
+/// stays `200` unless the request itself is malformed.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct BatchQueryResult {
+    /// The caller's key for this statement.
+    pub key: String,
+    /// The rows, when the statement succeeded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<Value>>,
+    /// The columns, when the statement succeeded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub columns: Option<Vec<ColumnDto>>,
+    /// The failure message, when the statement failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl BatchQueryResult {
+    /// A successful result carrying rows + columns.
+    #[must_use]
+    pub fn ok(key: String, rows: Vec<Value>, columns: Vec<ColumnDto>) -> Self {
+        Self {
+            key,
+            rows: Some(rows),
+            columns: Some(columns),
+            error: None,
+        }
+    }
+
+    /// A failed result carrying the error message.
+    #[must_use]
+    pub fn failed(key: String, error: String) -> Self {
+        Self {
+            key,
+            rows: None,
+            columns: None,
+            error: Some(error),
+        }
+    }
 }

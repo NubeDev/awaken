@@ -53,6 +53,14 @@ name = "http_records_collection"
 path = "tests/http/records/collection_test.rs"
 
 [[test]]
+name = "http_query_batch"
+path = "tests/http/query/batch_test.rs"
+
+[[test]]
+name = "http_prefs"
+path = "tests/http/prefs/prefs_test.rs"
+
+[[test]]
 name = "http_admin_crud"
 path = "tests/http/admin/crud_test.rs"
 

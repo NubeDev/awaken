@@ -27,7 +27,7 @@ pub use connector::{Connector, DatasourceConfig, NATIVE_KIND};
 pub use error::{DatasourceError, Result};
 pub use registry::{
     NATIVE_SURREAL_ID, Registry, authorize_register, find, list, register, register_materialized,
-    remove, resolve, span,
+    remove, resolve, span, span_batch,
 };
 pub use surreal::SurrealConnector;
 

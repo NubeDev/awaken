@@ -22,4 +22,4 @@ pub use apply::{FieldSpec, apply_to};
 pub use datetime::{DateTimePattern, format};
 pub use error::{PrefsError, Result};
 pub use preferences::Preferences;
-pub use units::{Quantity, UnitSystem, convert};
+pub use units::{Quantity, UnitSystem, convert, convert_json};

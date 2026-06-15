@@ -5,6 +5,8 @@ import { type ChartDragHandlers } from "@/components/chart-builder/charts/line-c
 import { type DisplayMode } from "@/components/chart-builder/types";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
+import { usePreferences } from "@/context/PreferencesContext";
+
 import { formatMetricValue } from "./format-value";
 import { calculateDisplayValue, createAxisFormatter } from "./utils";
 
@@ -21,7 +23,8 @@ interface BarChartProps {
 }
 
 const BarChart = ({ data, x, keys, chartConfig, displayMode = "none", metricColumn, syncId, drag }: BarChartProps) => {
-  const xAxisFormatter = useMemo(() => createAxisFormatter(data, x), [data, x]);
+  const prefs = usePreferences();
+  const xAxisFormatter = useMemo(() => createAxisFormatter(data, x, prefs), [data, x, prefs]);
   const yAxisFormatter = useMemo(() => createAxisFormatter(data, keys[0] || ""), [data, keys]);
 
   const { displayValue, totalMax } = useMemo(

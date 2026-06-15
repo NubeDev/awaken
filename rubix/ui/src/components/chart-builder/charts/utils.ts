@@ -3,11 +3,46 @@ import { format, isValid } from "date-fns";
 import { isNil, mean } from "lodash";
 
 import { type ChartConfig } from "@/components/ui/chart";
+import type { Preferences } from "@/api/prefs";
 
-export const numberFormatter = new Intl.NumberFormat("en-US", {
+// Retired the hard-coded `en-US` (§2): an undefined locale uses the runtime's
+// locale, so numbers render per the viewer's environment rather than US English.
+export const numberFormatter = new Intl.NumberFormat(undefined, {
   notation: "compact",
   maximumFractionDigits: 3,
 });
+
+// Render a UTC instant in the user's timezone using their strftime pattern (§2).
+// The raw instant is preserved for tick math upstream; this formats only the
+// label. A small strftime subset (the tokens our default pattern uses) is
+// supported, with the IANA timezone applied via Intl so "last 1h" reads in local
+// time. An unknown token is left literal.
+export const formatInstant = (date: Date, prefs: Preferences): string => {
+  const tz = prefs.timezone;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  const map: Record<string, string> = {
+    Y: get("year"),
+    m: get("month"),
+    d: get("day"),
+    H: get("hour") === "24" ? "00" : get("hour"),
+    M: get("minute"),
+    S: get("second"),
+  };
+  return prefs.datetime.replace(/%([YmdHMS%])/g, (_, token: string) =>
+    token === "%" ? "%" : map[token] ?? `%${token}`
+  );
+};
 
 const chartColors = [
   "hsl(var(--chart-1))",
@@ -82,7 +117,11 @@ const getOptimalDateFormat = (data: Record<string, unknown>[], dataKey: string):
   }
 };
 
-export const createAxisFormatter = (data: Record<string, unknown>[], dataKey: string) => {
+export const createAxisFormatter = (
+  data: Record<string, unknown>[],
+  dataKey: string,
+  prefs?: Preferences
+) => {
   const dateFormat = getOptimalDateFormat(data, dataKey);
 
   return (value: string | number | Date) => {
@@ -91,6 +130,13 @@ export const createAxisFormatter = (data: Record<string, unknown>[], dataKey: st
     }
 
     if (typeof value === "string" || value instanceof Date) {
+      // With preferences, render a parsed instant in the user's timezone +
+      // strftime pattern (§2). The raw value still drives tick selection
+      // upstream; only the label is formatted here.
+      if (prefs) {
+        const date = value instanceof Date ? value : parseUtcTimestamp(value);
+        if (isValid(date)) return formatInstant(date, prefs);
+      }
       const dateFormatted = tryFormatAsDate(value, dateFormat);
       if (dateFormatted !== value) {
         return dateFormatted;

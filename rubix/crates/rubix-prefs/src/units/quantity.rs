@@ -32,6 +32,22 @@ const POUNDS_PER_KILOGRAM: f64 = 2.204_622_622;
 const MPH_PER_MPS: f64 = 2.236_936_292;
 
 impl Quantity {
+    /// Resolve a wire string to a quantity, or `None` if unknown.
+    ///
+    /// The strings are the lowercase variant names a chart's per-series
+    /// `quantity` carries (`"temperature"`, `"length"`, `"mass"`, `"speed"`), so
+    /// the query endpoint can map a column to its quantity from the chart config.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Quantity> {
+        match raw {
+            "temperature" => Some(Quantity::Temperature),
+            "length" => Some(Quantity::Length),
+            "mass" => Some(Quantity::Mass),
+            "speed" => Some(Quantity::Speed),
+            _ => None,
+        }
+    }
+
     /// Convert a canonical (metric) value of this quantity to imperial.
     #[must_use]
     pub fn to_imperial(self, metric: f64) -> f64 {

@@ -1,10 +1,13 @@
 // One-click chart presets for boards — the Rubix analogue of Laminar's
 // `chart-presets.ts` (§2). Laminar's are ClickHouse/trace-schema specific; ours
 // target the canonical query surface (record / audit / trace_summary) and reach
-// into `content` JSON with json_get. Time-series presets are parameterised on
-// `{{start_time}}` / `{{end_time}}` / `{{interval_unit}}` so the board time
-// range scopes them (see board-params.ts). Picking a preset creates a
-// `kind:"chart"` record (charts.ts) and places it on the board.
+// into `content` JSON with json_get. Time-series presets use the backend time
+// macros — `$__timeBucket(created)` for the epoch-aligned bucket and
+// `$__timeFilter(created)` for the UTC window — which the backend expands against
+// the board's structured time scope (§5). No `{{…}}` datetime splicing: the
+// window math lives on the backend, so the buckets are timezone-correct and align
+// with rule buckets. Picking a preset creates a `kind:"chart"` record (charts.ts)
+// and places it on the board.
 
 import { ChartType, type ChartConfig } from '../chart-builder/types'
 
@@ -21,9 +24,9 @@ export const CHART_PRESETS: ChartPreset[] = [
   {
     name: 'Records over time',
     group: 'Records',
-    sql: `SELECT date_trunc('{{interval_unit}}', created) AS time, count(*) AS n
+    sql: `SELECT $__timeBucket(created) AS time, count(*) AS n
 FROM record
-WHERE created >= CAST({{start_time}} AS TIMESTAMP) AND created <= CAST({{end_time}} AS TIMESTAMP)
+WHERE $__timeFilter(created)
 GROUP BY time ORDER BY time`,
     config: { type: ChartType.LineChart, x: 'time', y: 'n', displayMode: 'total' },
   },
@@ -43,9 +46,9 @@ FROM record GROUP BY kind ORDER BY n DESC`,
   {
     name: 'Audit volume over time',
     group: 'Audit',
-    sql: `SELECT date_trunc('{{interval_unit}}', created) AS time, count(*) AS n
+    sql: `SELECT $__timeBucket(created) AS time, count(*) AS n
 FROM audit
-WHERE created >= CAST({{start_time}} AS TIMESTAMP) AND created <= CAST({{end_time}} AS TIMESTAMP)
+WHERE $__timeFilter(created)
 GROUP BY time ORDER BY time`,
     config: { type: ChartType.LineChart, x: 'time', y: 'n', displayMode: 'total' },
   },

@@ -74,6 +74,43 @@ async fn a_count_aggregation_runs_in_datafusion() {
 }
 
 #[tokio::test]
+async fn json_get_reaches_into_the_content_document() {
+    let database = "query_json_get";
+    let handle = open_query_store(database).await;
+    for record in [
+        Record::new("rubix", serde_json::json!({ "kind": "reading", "v": 1 })),
+        Record::new("rubix", serde_json::json!({ "kind": "reading", "v": 2 })),
+        Record::new("rubix", serde_json::json!({ "kind": "board", "v": 3 })),
+    ] {
+        create_record(handle.raw(), &record).await.expect("seed");
+    }
+
+    let (_principal, session) =
+        scoped_session_for(&handle, database, "dave", "rubix", Role::Viewer).await;
+
+    // The `content` column is the whole row JSON, so the document payload sits
+    // under `content` — a second json_get descends into it to reach `kind`.
+    let batches = run(
+        session.connection(),
+        "SELECT json_get(json_get(content, 'content'), 'kind') AS kind, count(*) AS n \
+         FROM record GROUP BY kind ORDER BY n DESC",
+    )
+    .await
+    .expect("run json_get aggregation");
+
+    let batch = batches.first().expect("one batch");
+    let kinds = batch
+        .column_by_name("kind")
+        .expect("kind column")
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .expect("utf8 kind");
+    let collected: Vec<&str> = (0..kinds.len()).map(|i| kinds.value(i)).collect();
+    assert!(collected.contains(&"reading"), "json_get extracted the kind field");
+    assert!(collected.contains(&"board"));
+}
+
+#[tokio::test]
 async fn an_empty_canonical_table_returns_no_rows() {
     let database = "query_empty";
     let handle = open_query_store(database).await;

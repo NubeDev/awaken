@@ -26,6 +26,30 @@ pub enum Capability {
     ExternalQuery,
     /// Subscribe to a Zenoh key-space.
     ZenohSubscribe,
+    /// Persist agent working/episodic memory and its embedding through the gate.
+    ///
+    /// Memory persistence is a mutation, so it must cross the gate (contract #1),
+    /// but none of the data-plane capabilities fit: `rule-invoke` records a *rule
+    /// decision*, not arbitrary agent memory. This is the deliberate, fail-closed
+    /// grant the agent's `VectorStoreIndex` write path authorizes
+    /// (`rubix/docs/design/AGENT.md`, "Memory writes cross the gate").
+    AgentMemoryWrite,
+    /// Command a registered physical point (setpoint offset, relay state, mode).
+    ///
+    /// Actuation is a *third plane* the gate did not previously guard: it leaves
+    /// SurrealDB and reaches a device. It is **not** `rule-invoke` (which only
+    /// records an append-only insight) — pre-cooling a floor and recording "the
+    /// floor is warm" must be two grants. The grant writes a desired-effect record
+    /// through the gate; a device-egress worker performs the physical I/O
+    /// (`rubix/docs/design/AGENT.md`, "Actuator").
+    DeviceActuate,
+    /// Create, enable, or schedule a rule definition/binding.
+    ///
+    /// Distinct from `rule-invoke`, which only *evaluates* a rule and records its
+    /// decision. Mutating a rule definition, binding, or schedule (e.g. "roll out
+    /// the night profile to Level 5") is a separate authority
+    /// (`rubix/docs/design/AGENT.md`, demo manifest).
+    RuleDefine,
 }
 
 impl Capability {
@@ -34,12 +58,15 @@ impl Capability {
     /// The registry ([`is_registered`](crate::capability::is_registered)) and the
     /// wire round-trip both derive from this list, so adding a variant here is the
     /// single place a new capability becomes known.
-    pub const ALL: [Capability; 5] = [
+    pub const ALL: [Capability; 8] = [
         Capability::DatasourceRegister,
         Capability::RuleInvoke,
         Capability::IngestPublish,
         Capability::ExternalQuery,
         Capability::ZenohSubscribe,
+        Capability::AgentMemoryWrite,
+        Capability::DeviceActuate,
+        Capability::RuleDefine,
     ];
 
     /// The stable wire/storage string for this capability.
@@ -51,6 +78,9 @@ impl Capability {
             Capability::IngestPublish => "ingest-publish",
             Capability::ExternalQuery => "external-query",
             Capability::ZenohSubscribe => "zenoh-subscribe",
+            Capability::AgentMemoryWrite => "agent-memory-write",
+            Capability::DeviceActuate => "device-actuate",
+            Capability::RuleDefine => "rule-define",
         }
     }
 
@@ -89,5 +119,23 @@ mod tests {
     fn capability_strings_are_kebab_case() {
         assert_eq!(Capability::DatasourceRegister.as_str(), "datasource-register");
         assert_eq!(Capability::ZenohSubscribe.as_str(), "zenoh-subscribe");
+        assert_eq!(Capability::AgentMemoryWrite.as_str(), "agent-memory-write");
+        assert_eq!(Capability::DeviceActuate.as_str(), "device-actuate");
+        assert_eq!(Capability::RuleDefine.as_str(), "rule-define");
+    }
+
+    #[test]
+    fn the_allow_set_lists_every_variant_once() {
+        // `ALL` is the single source of truth the registry and wire round-trip
+        // derive from; its length must track the variant count so a forgotten
+        // entry cannot silently drop a capability out of the fail-closed set.
+        assert_eq!(Capability::ALL.len(), 8);
+        for capability in Capability::ALL {
+            let occurrences = Capability::ALL
+                .into_iter()
+                .filter(|other| *other == capability)
+                .count();
+            assert_eq!(occurrences, 1, "{capability:?} appears more than once");
+        }
     }
 }

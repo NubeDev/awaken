@@ -224,7 +224,10 @@ the same tenant.
    namespace/scope.
 4. **Pin & board persistence per tenant.** The demo persists pins in
    `localStorage`; real boards are tenant-scoped `record`s (a `kind:"board"`
-   collection) so they follow the user across devices and respect isolation.
+   collection) so they follow the user across devices and respect isolation. This
+   is a memory write that must cross the gate, and *how* it crosses is still open —
+   it depends on the agent-memory-write vs. append-only-path decision in
+   [AGENT.md](../AGENT.md) (3b), so the board write path is pending that call.
 5. **Agent surface boundary.** Which copilot answers/actions are agent-runtime
    ([AGENT.md](../AGENT.md)) vs. plain `/query` calls — i.e. where the line sits
    between "ask Rubix" (LLM/agent) and a deterministic dashboard query.

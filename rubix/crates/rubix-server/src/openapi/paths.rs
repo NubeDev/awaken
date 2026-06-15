@@ -15,7 +15,7 @@
 
 use crate::dto::{
     CreateRecordRequest, DatasourceDto, QueryRequest, QueryResponse, RecordDto,
-    UpdateRecordRequest,
+    RegisterDatasourceRequest, UpdateDatasourceRequest, UpdateRecordRequest,
 };
 
 /// `GET /health`.
@@ -102,6 +102,61 @@ pub fn run_query() {}
     responses((status = 200, description = "Declared datasources", body = [DatasourceDto]))
 )]
 pub fn list_datasources() {}
+
+/// `POST /datasources`.
+#[utoipa::path(
+    post,
+    path = "/datasources",
+    request_body = RegisterDatasourceRequest,
+    responses(
+        (status = 200, description = "Registered datasource", body = DatasourceDto),
+        (status = 400, description = "Unsupported connector kind"),
+        (status = 403, description = "Principal lacks the datasource-register capability"),
+        (status = 409, description = "A datasource is already registered under this id"),
+        (status = 502, description = "The connector could not reach its backend")
+    )
+)]
+pub fn create_datasource() {}
+
+/// `GET /datasources/{id}`.
+#[utoipa::path(
+    get,
+    path = "/datasources/{id}",
+    params(("id" = String, Path, description = "Datasource id")),
+    responses(
+        (status = 200, description = "The declared datasource", body = DatasourceDto),
+        (status = 404, description = "No datasource registered under this id")
+    )
+)]
+pub fn get_datasource() {}
+
+/// `PATCH /datasources/{id}`.
+#[utoipa::path(
+    patch,
+    path = "/datasources/{id}",
+    params(("id" = String, Path, description = "Datasource id")),
+    request_body = UpdateDatasourceRequest,
+    responses(
+        (status = 200, description = "Updated datasource", body = DatasourceDto),
+        (status = 403, description = "Principal lacks the datasource-register capability"),
+        (status = 404, description = "No datasource registered under this id"),
+        (status = 502, description = "The connector could not reach its backend")
+    )
+)]
+pub fn update_datasource() {}
+
+/// `DELETE /datasources/{id}`.
+#[utoipa::path(
+    delete,
+    path = "/datasources/{id}",
+    params(("id" = String, Path, description = "Datasource id")),
+    responses(
+        (status = 204, description = "Datasource deregistered"),
+        (status = 403, description = "Principal lacks the capability, or the native id cannot be removed"),
+        (status = 404, description = "No datasource registered under this id")
+    )
+)]
+pub fn delete_datasource() {}
 
 /// `GET /ws/records`.
 #[utoipa::path(

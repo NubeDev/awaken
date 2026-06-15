@@ -25,7 +25,7 @@ finds its dependencies already committed.
 | WS-10 | Datasource connector framework + Postgres connector | ✅ | 2026-06-14T22:29:24Z | 2026-06-15T02:30:00Z | aa9d56a9 |
 | WS-11 | Rhai rules / insights runtime | ✅ | 2026-06-14T23:00:14Z | 2026-06-15T06:20:00Z | 6eeea5be |
 | WS-12 | Zenoh ingestion + pre-processing | ✅ | 2026-06-14T23:30:26Z | 2026-06-15T08:25:00Z | eefe9b71 |
-| WS-13 | Extensions as scoped principals | ⛔ | | | |
+| WS-13 | Extensions as scoped principals | ✅ | 2026-06-15T04:53:48Z | 2026-06-15T11:00:00Z | c6f04cfd |
 | WS-14 | Edge/cloud profiles (features + runtime config) | ⛔ | | | |
 | WS-15 | Edge↔cloud sync shipper over Zenoh | ⛔ | | | |
 | WS-16 | Transport: axum HTTP + JSON-RPC + WS bridge + OpenAPI + prefs | ✅ | 2026-06-15T00:00:32Z | 2026-06-15T10:05:00Z | 05cd3fb5 |
@@ -138,3 +138,4 @@ finds its dependencies already committed.
 - 2026-06-15T05:20:23Z idle — terminal state re-confirmed: WS-01–12 + WS-16 ✅; WS-13/14/15 ⛔ with TODOs.md Resolution lines still conditional placeholders ("Unblock when user is ready…", "Wire … when WS-13 lands") — no strikethrough/dated Resolution, so no human-resolved blocker to reset ⛔→⬜. No ⬜ pending, no 🔵 in-progress, no .loop.STOP. Nothing spawnable or gateable. Run complete, not rescheduled.
 - 2026-06-15T05:25:28Z idle — terminal state re-confirmed: WS-01–12 + WS-16 ✅; WS-13/14/15 ⛔ with TODOs.md Resolution lines still conditional placeholders ("Unblock when user is ready…", "Wire … when WS-13 lands") — no strikethrough/dated Resolution, so no human-resolved blocker to reset ⛔→⬜. No ⬜ pending, no 🔵 in-progress, no .loop.STOP. Nothing spawnable or gateable. Run complete, not rescheduled.
 - 2026-06-15T05:30:22Z idle — terminal state re-confirmed: WS-01–12 + WS-16 ✅; WS-13/14/15 ⛔ with TODOs.md Resolution lines still conditional placeholders ("Unblock when user is ready…", "Wire … when WS-13 lands") — no strikethrough/dated Resolution, so no human-resolved blocker to reset ⛔→⬜. No ⬜ pending, no 🔵 in-progress, no .loop.STOP. Nothing spawnable or gateable. Run complete, not rescheduled.
+- 2026-06-15T05:54:36Z gated WS-13 ✅ — TODOs.md 06:15:00Z blocker now carries a dated Resolution (all three landed out-of-loop); WS-13.md Status: Done, `rubix-ext` crate committed (c6f04cfd). DONE GATE re-verified: `cargo test --workspace` green + `cargo clippy --workspace --all-targets` clean. WS-14/15 also resolved + Done in their docs — gate them on subsequent wakes (one per wake).

@@ -9,6 +9,19 @@ rust-version.workspace = true
 workspace = true
 
 [features]
+default = ["edge"]
+# Deployment profiles compiled into the single binary (WS-14, STACK-DEISGN.md
+# "Edge and cloud profiles"). At least one must be enabled — the `profile` module
+# raises a `compile_error!` if neither is. `RUBIX_PROFILE` then selects among the
+# compiled-in profiles at boot.
+#
+# `edge` (default): single SurrealDB namespace, auth not required, sync off, no
+# multi-tenancy code path.
+edge = []
+# `cloud`: namespace-per-tenant, auth required, sync on. Cloud requires the
+# Postgres backend (WS-10, a cloud-only connector), so it pulls in `postgres`;
+# the boot path fails closed if a cloud-required backend is absent from the build.
+cloud = ["postgres"]
 # Compile the Postgres datasource connector into the control plane so a
 # `POST /datasources` with `"kind":"postgres"` can register a live Postgres
 # source. Off by default — the edge build carries no Postgres backend and the
@@ -39,6 +52,22 @@ path = "tests/ws/bridge_test.rs"
 [[test]]
 name = "openapi_serve"
 path = "tests/openapi/serve_test.rs"
+
+[[test]]
+name = "profile_select"
+path = "tests/profile/select_test.rs"
+
+[[test]]
+name = "profile_edge_boot"
+path = "tests/profile/edge_boot_test.rs"
+
+[[test]]
+name = "profile_cloud_boot"
+path = "tests/profile/cloud_boot_test.rs"
+
+[[test]]
+name = "profile_fail_closed"
+path = "tests/profile/fail_closed_test.rs"
 
 [dependencies]
 rubix-core = { workspace = true }

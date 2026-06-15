@@ -54,4 +54,7 @@ then resets that WS's row to ⬜ and re-picks it in queue order.
   gate's `Capability` enum later gains a record-write capability, the one place to
   change is `crates/rubix-server/src/http/records/capability.rs`.
 - **Resolution:** Wire `rpc/control.rs` + `POST /datasources` when WS-13 lands, and
-  profile selection when WS-14 lands.
+  profile selection when WS-14 lands. (3) Profile selection into `AppState`
+  resolved 2026-06-15T12:00:00Z — `rubix-server` `profile` module selects from
+  `RUBIX_PROFILE` and threads the `Profile` into `AppState::with_profile` in
+  `main.rs`; the edge/cloud cargo features and fail-closed boot landed with WS-14.

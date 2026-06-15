@@ -239,6 +239,35 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   /datasources` registration (need `rubix-ext`), and profile selection into
   `AppState` (WS-14). Additive workspace deps: `chrono`, `utoipa`.
 
+- **WS-14 — Edge/cloud profiles (single binary, features + runtime config).**
+  `rubix-server` `profile` module (SCOPE "Edge and cloud profiles"): the same
+  binary configured two ways, chosen at two layers. Cargo features `edge`
+  (default) / `cloud` decide which profiles compile in — the module barrel's
+  `compile_error!` refuses a build with neither, so a profile is always present;
+  `cloud` pulls in `postgres` (WS-10, a cloud-only backend). At boot
+  `RUBIX_PROFILE` `select`s among the compiled-in profiles fail-closed: an unknown
+  name is `ProfileError::Unknown`, a known-but-unbuilt name (`cloud` on an
+  edge-only binary) is `ProfileError::NotCompiled` — distinct, no silent fallback;
+  unset uses the default (edge when built, else the single compiled-in profile).
+  A `Profile` value (`define`) centralizes the per-profile defaults read once at
+  boot — store `kind`, `NamespaceStrategy` (`Single` vs `PerTenant`),
+  `auth_required`, `sync_enabled` — built by `edge` (single-namespace,
+  auth-not-required, sync-off) or `cloud` (per-tenant, auth-required, sync-on),
+  and threaded into `AppState` via `with_profile` (the binary's path; `new` keeps
+  the edge default for other callers). `resolve_tenant` is where the strategy
+  meets the WS-03 gate: edge resolves every request to the one configured
+  namespace and ignores any tenant hint (no multi-tenancy code path); cloud
+  derives a per-tenant namespace (`tenant_<id>`) and rejects a tenant-less
+  request with `ProfileError::TenantRequired` rather than collapsing onto a
+  shared namespace. `verify_backends` runs once at boot, after `select` and
+  before binding a socket: a cloud profile on a build without `postgres` fails
+  closed (`ProfileError::MissingBackend`) — no degraded fallback. `main` selects
+  → verifies → threads the profile into `RuntimeConfig`/`AppState` before opening
+  the store. Verified on kv-mem under both feature sets: edge boots
+  single-namespace and ignores tenant hints; cloud isolates distinct tenants into
+  distinct namespaces and rejects a tenant-less request; an unknown
+  `RUBIX_PROFILE` is rejected; a cloud profile without its backend fails closed.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -280,10 +309,10 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 - [x] Key-space scope resolved once at subscribe (capability decision).
 
 ### Extensions
-- [ ] Extension principal model + JSON-RPC control plane + Zenoh data plane.
+- [x] Extension principal model + JSON-RPC control plane + Zenoh data plane.
 
 ### Platform / deployment
-- [ ] Edge/cloud profiles (single binary, cargo features + runtime config).
+- [x] Edge/cloud profiles (single binary, cargo features + runtime config).
 - [ ] Edge↔cloud sync shipper over Zenoh (append-only partition + config LWW).
 - [x] Preferences (units + datetime).
 - [x] Transport: axum HTTP + WS live-query bridge + OpenAPI (`rubix-server`).

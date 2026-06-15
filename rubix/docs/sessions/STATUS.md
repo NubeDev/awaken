@@ -77,3 +77,4 @@ finds its dependencies already committed.
 - 2026-06-15T00:00:32Z spawned WS-16
 - 2026-06-15T10:05:00Z gated WS-16 ✅ (tests green, clippy clean; HTTP+WS+OpenAPI+prefs; JSON-RPC control / POST datasources / profile selection deferred to WS-13/14)
 - 2026-06-15T00:26:15Z idle — run complete: WS-01–12 + WS-16 ✅; WS-13/14/15 ⛔ blocked, TODOs unresolved (await user decision to ship edge/extensions/sync). Nothing pending or unblockable — loop stopped, not rescheduled.
+- 2026-06-15T00:32:22Z idle — re-verified terminal state: no ⬜ pending, no WS-13/14/15 blocker resolved in TODOs.md. Run remains complete; no spawn/gate. Not rescheduled (human must remove cron or drop .loop.STOP).

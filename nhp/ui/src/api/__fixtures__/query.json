@@ -1,9 +1,0 @@
-{
-  "rows": [
-    {
-      "display_name": "Supply Air Temp",
-      "kind": "sp",
-      "slug": "sat"
-    }
-  ]
-}

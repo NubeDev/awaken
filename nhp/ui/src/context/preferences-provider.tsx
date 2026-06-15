@@ -14,7 +14,6 @@
  * mirrors the backend `SystemDefaults`, so rendering never blocks on prefs.
  */
 import { createContext, use, type ReactNode } from 'react'
-import { useMyPreferences } from '@/api/hooks'
 import type { ResolvedPreferences } from '@/api/types'
 
 /** The backend `SystemDefaults::starter()` baseline, mirrored for the loading
@@ -45,11 +44,13 @@ interface PreferencesContextValue {
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
+// NHP POC: the rubix prefs HTTP endpoint is not wired (OVERVIEW gap #3), so the
+// shell serves the baseline defaults directly. A later WS can restore the
+// `GET /api/v1/me/preferences` fetch once that endpoint exists.
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const { data, isSuccess } = useMyPreferences()
   const value: PreferencesContextValue = {
-    prefs: data ?? DEFAULT_PREFERENCES,
-    isResolved: isSuccess,
+    prefs: DEFAULT_PREFERENCES,
+    isResolved: false,
   }
   return <PreferencesContext value={value}>{children}</PreferencesContext>
 }

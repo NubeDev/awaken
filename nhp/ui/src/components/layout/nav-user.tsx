@@ -81,7 +81,7 @@ export function NavUser({ user }: NavUserProps) {
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link to='/settings'>
+                  <Link to='/admin'>
                     <Settings />
                     Settings
                   </Link>

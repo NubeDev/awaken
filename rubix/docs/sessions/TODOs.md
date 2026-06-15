@@ -26,7 +26,8 @@ then resets that WS's row to ⬜ and re-picks it in queue order.
 - **What:** WS-13 (extensions), WS-14 (edge/cloud profiles), WS-15 (sync shipper) marked blocked.
 - **Why:** User focus is on core backend transport (WS-16) first; edge/extension/sync infrastructure deferred.
 - **Needs:** User decision when to implement. For now, WS-12 → WS-16 directly (skip 13/14/15).
-- **Resolution:** Unblock when user is ready to ship edge/extensions features.
+- **Resolution:** Resolved 2026-06-15 — all three landed: WS-13 (`rubix-ext`),
+  WS-14 (`rubix-server` `profile` module), and WS-15 (`rubix-sync` shipper).
 
 ## 2026-06-15T09:50:00Z — WS-16 — Transport sub-deliverables that require deferred WSs
 
@@ -54,4 +55,7 @@ then resets that WS's row to ⬜ and re-picks it in queue order.
   gate's `Capability` enum later gains a record-write capability, the one place to
   change is `crates/rubix-server/src/http/records/capability.rs`.
 - **Resolution:** Wire `rpc/control.rs` + `POST /datasources` when WS-13 lands, and
-  profile selection when WS-14 lands.
+  profile selection when WS-14 lands. (3) Profile selection into `AppState`
+  resolved 2026-06-15T12:00:00Z — `rubix-server` `profile` module selects from
+  `RUBIX_PROFILE` and threads the `Profile` into `AppState::with_profile` in
+  `main.rs`; the edge/cloud cargo features and fail-closed boot landed with WS-14.

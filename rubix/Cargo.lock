@@ -527,6 +527,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "serde_urlencoded",
  "sha1",
  "sync_wrapper",
  "tokio",
@@ -5470,6 +5471,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-sync"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
+ "tokio",
+ "zenoh",
+]
+
+[[package]]
 name = "rubix-trace"
 version = "0.1.0"
 dependencies = [
@@ -5811,6 +5826,18 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ four, with two honest caveats:
 
 | Agent need | Rubix provides | Caveat |
 | --- | --- | --- |
-| Identity + permissioning | Scoped principal + capability grants (`rubix-gate`) | the `extension` identity kind exists (WS-03); the full `rubix-ext` subsystem (JSON-RPC control, lifecycle) is **not started** (WS-13 ⛔) |
+| Identity + permissioning | Scoped principal + capability grants (`rubix-gate`) | the `extension` identity kind exists; the full `rubix-ext` subsystem (JSON-RPC control, lifecycle) is **absent**, and agent-principal provisioning depends on it |
 | Memory / semantic recall | SurrealDB vectors beside the data, queried via `rubix-query` | retrieval **and** persistence must run on the gate's seams (below), not an upstream side-connection |
 | Provenance ("why did it act") | Audit + undo + trace, one correlation id | **commands only** — SCOPE audits mutations "(and opt-in sensitive reads)"; a read-only analyst is largely *not* audited unless reads are opted in |
 | Data access | DataFusion unified surface (`rubix-query`) + scoped-session SurrealDB reads | native record reads are **not** a capability — they are row-perm scoped |
@@ -78,12 +78,12 @@ the other two are thin.
 
 ### Seam mapping
 
-| Rig seam | Backed by | Build cost |
+| Rig seam | Backed by | Nature |
 | --- | --- | --- |
-| `Provider` | Rig's provider set; profile-driven (edge local / cloud remote) | config only |
+| `Provider` | Rig's provider set; profile-driven (edge local / cloud remote) | config wiring |
 | `Channel` | `rubix-bus` **live-query** plane (row-perm scoped) | thin adapter |
-| `Memory` (`VectorStoreIndex`) | **implemented in `rubix-agent`** over `rubix-query::search` on the scoped session (reads) and a gate command (writes) | **rubix-specific** |
-| `Tool` | **capability bridge → `rubix-gate`** | **rubix-specific** |
+| `Memory` (`VectorStoreIndex`) | **implemented in `rubix-agent`** over `rubix-query::search` on the scoped session (reads) and a gate command (writes) | **rubix-specific seam** |
+| `Tool` | **capability bridge → `rubix-gate`** | **rubix-specific seam** |
 
 Both substantial seams are ours because both must honor the gate. `rig-surrealdb`
 is **not adopted wholesale**: it opens its own SurrealDB connection, which would
@@ -99,14 +99,17 @@ remains a reference for the SurrealQL vector-search shape only.
 Storing working/episodic memory and its embeddings is a **mutation**, so contract
 #1 requires it to cross the gate — the same rule insights already follow
 ([evaluate/record.rs](../../crates/rubix-rules/src/evaluate/record.rs) builds a
-`Command` and drives `apply`). A gate `Command` is constructed *with a capability*;
-none of the five existing variants names "write agent memory" (`rule-invoke` is
-for rule evaluation, not arbitrary memory persistence). So memory-write needs a
-**deliberate decision** (open question below): either add an `agent-memory-write`
-`Capability` variant (a fail-closed registry change, honest and explicit), or
-classify agent memory as an append-only data-plane record the gate already admits
-under an existing path. **"Import nothing" therefore understates it** — the memory
-*schema* is borrowed, but the write path is real, gated code.
+`Command` and drives `apply`). A gate `Command` is always constructed *with a capability*, and `apply` authorizes
+that grant before any write — there is **no generic "write any record" path**
+([authorize.rs](../../crates/rubix-gate/src/command/authorize.rs) runs first, fail
+closed). None of the five existing variants names "write agent memory" (`rule-invoke`
+is for recording a rule decision, not arbitrary memory persistence). So memory-write
+has exactly **one honest answer: add a fail-closed `agent-memory-write` `Capability`
+variant.** "Classify it as an existing data-plane path" is not implementable as
+written — every write must name a capability, and none of the five fits, so that
+branch collapses into "invent a capability" anyway. **"Import nothing" therefore
+understates it** — the memory *schema* is borrowed, but the write path is real,
+gated code behind a new grant.
 
 ### Analyst vs. operator, in the real two-layer model
 
@@ -167,12 +170,28 @@ memory-write (open question 3b):
   "the floor is warm" must be **two grants**.
 - **Why a new variant, not a data-plane write.** Actuation is *cross-plane* by
   definition — it leaves SurrealDB and reaches a device — which is exactly the
-  test for the second authz layer (contract #2). A `device-actuate` command is the
-  honest model: the gate checks the grant, mints the correlation id, captures
-  before/after (the *intended* and *commanded* setpoint as the audited record), and
-  the actuation egress is driven from the command's apply step. This keeps
-  actuation **audited, undoable where the device supports a reverse setpoint, and
-  trace-correlated** — the provenance the demo's "why did Rubix act" panels imply.
+  test for the second authz layer (contract #2). But the egress is **not** driven
+  from the gate's `apply` step: `apply` is a closed pipeline (authorize → validate →
+  correlate → capture → audit, [apply.rs](../../crates/rubix-gate/src/command/apply.rs))
+  whose only side effect is a SurrealDB record write plus an immutable audit row. It
+  has **no device I/O hook**, and adding one would bury Modbus/BACnet inside the
+  record-write path or audit *intent* as if the device had obeyed. The honest model
+  is an **effect-record + egress-worker + ack**, reusing the live-query plane this
+  doc already mandates for wakeups:
+  1. `device-actuate` writes a **desired-effect record** through the gate — grant
+     checked, correlation id minted, before/after of the *effect record* captured,
+     audit row appended. This is exactly what the gate does well today.
+  2. A **device-egress worker** subscribes to effect records via the live-query
+     plane ([livequery/subscribe.rs](../../crates/rubix-bus/src/livequery/subscribe.rs)),
+     performs the physical I/O (Modbus/BACnet/Zenoh), and writes an **ack/result
+     record** carrying the same correlation id.
+  3. The ack closes the provenance loop the demo's "why did Rubix act" panels imply:
+     intent, command, and device outcome are three correlated rows, not one optimistic write.
+- **Undo is record-undo, not device-undo.** The gate captures before/after of the
+  *record* ([capture.rs](../../crates/rubix-gate/src/command/capture.rs)); reverting
+  it does **not** move a setpoint back. Physical reversal (a reverse setpoint where
+  the device supports it) is the egress worker's job, issued as a *new* effect, not a
+  gate rollback. Keep the two undos distinct in any wiring.
 - **Tiering, restated.** **Analyst** = scoped reads (+ `external-query` for the
   Postgres/DataFusion plane). **Operator** = analyst + `rule-invoke` (record
   insights). **Actuator** = operator + **`device-actuate`** (command points). The
@@ -192,28 +211,38 @@ memory-write (open question 3b):
 Every interactive surface in the demo, mapped to the gate path that must back it.
 This is the agent's **tool manifest**: each Rig `Tool` the agent exposes is one row
 here, fronted by the capability bridge so the LLM can never reach a plane the
-principal was not granted. Rows marked **NEW** require a deliberate, fail-closed
-registry change before they are buildable.
+principal was not granted. Rows marked **capability absent** require a deliberate,
+fail-closed registry change before they are buildable.
 
-| Demo action (source) | Plane | Backing path | Capability | Status |
+| Demo action (source) | Plane | Backing path | Capability | Capability state |
 | --- | --- | --- | --- | --- |
-| "Why is demand high?", "worst zones", "this week vs last" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `demand`/`zones`/`compare`) | read | `rubix-query` + scoped session | none (row perms) · `external-query` only if it crosses to Postgres/DataFusion | substrate exists |
-| Attention queue / "2 things need you" wake ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `RX.moments`) | read | `rubix-bus` **live-query** plane (row-perm scoped) | none (scoped session) | substrate exists |
-| "Why did Rubix act" / insight provenance | read | audit + correlation id over the gate | none (the command already wrote it) | substrate exists |
-| Record an insight / "log this" (the `moments` themselves are rule firings) | command | `record_insight` → gate `Command` | `rule-invoke` | **built** ([record.rs](../../crates/rubix-rules/src/evaluate/record.rs)) |
-| "Pin to Overview", "Watch the chillers for an hour" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `compose`/`pin`) — persist a board + its embedding | command (memory-write) | `VectorStoreIndex` write → gate `Command` | **`agent-memory-write`** (open question 3b) | **NEW** — variant undecided |
-| "Apply pre-cool to L4 West" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `precool`) — setpoint offset | actuate | `device-actuate` command → device egress | **`device-actuate`** | **NEW** (above) |
-| "Fail over to backup CRAC" (`failover`) — mode/relay select | actuate | `device-actuate` command → device egress | **`device-actuate`** | **NEW** |
-| "Restart gateway GW-02", "Arm battery to discharge" ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `ahu`/solar answer) | actuate | `device-actuate` command → device egress | **`device-actuate`** | **NEW** |
-| "Roll out night profile to Level 5", "schedule" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `savings`) — write/enable a rule binding | command | gate `Command` over the rule registry record | `rule-invoke` (define/bind) — confirm bind is gated | substrate exists; verify |
-| "Draft this week's report", "Send to board" (`report`) — outbound export/email | outbound | **not `rubix-agent`** — `rubix-server`/`rubix-ext` transport | n/a here | **deferred** (`rubix-ext` WS-13 ⛔) |
-| ⌘K palette → "ask Rubix" (free-form) ([app.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/app.js) `RX.openPal`) | read | routes into the read/command tools above | per resolved intent | substrate exists |
+| "Why is demand high?", "worst zones", "this week vs last" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `demand`/`zones`/`compare`) | read | `rubix-query` + scoped session | none (row perms) · `external-query` only if it crosses to Postgres/DataFusion | present |
+| Attention queue / "2 things need you" wake ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `RX.moments`) | read | `rubix-bus` **live-query** plane (row-perm scoped) | none (scoped session) | present |
+| "Why did Rubix act" / insight provenance | read | audit + correlation id over the gate | none (the command already wrote it) | present |
+| Record an insight / "log this" (the `moments` themselves are rule firings) | command | `record_insight` → gate `Command` | `rule-invoke` | present ([record.rs](../../crates/rubix-rules/src/evaluate/record.rs)) — but see free-form caveat below |
+| "Pin to Overview", "Watch the chillers for an hour" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `compose`/`pin`) — persist a board + its embedding | command (memory-write) | `VectorStoreIndex` write → gate `Command` | **`agent-memory-write`** | **capability absent** |
+| "Apply pre-cool to L4 West" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `precool`) — setpoint offset | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
+| "Fail over to backup CRAC" (`failover`) — mode/relay select | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
+| "Restart gateway GW-02", "Arm battery to discharge" ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `ahu`/solar answer) | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
+| "Roll out night profile to Level 5", "schedule" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `savings`) — write/enable a rule binding | command (rule config) | gate `Command` over the rule registry record | **`rule-define`** (NOT `rule-invoke`) | **capability absent** |
+| "Draft this week's report", "Send to board" (`report`) — outbound export/email | outbound | **not `rubix-agent`** — `rubix-server`/`rubix-ext` transport | n/a here | out of scope here — `rubix-ext` transport absent |
+| ⌘K palette → "ask Rubix" (free-form) ([app.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/app.js) `RX.openPal`) | read | routes into the read/command tools above | per resolved intent | present |
 
-Reading the manifest top to bottom: the demo's **analyst spine is ready**, its
-**insight-recording is built**, and its **wow-factor — watch/pin and actuate — is
-exactly the two NEW grants** (`agent-memory-write`, `device-actuate`), plus the
-unbuilt Rig brain and the deferred outbound transport. Nothing in the actuate rows
-ships until `device-actuate` exists and a device-egress path is named.
+Reading the manifest top to bottom: the demo's **analyst spine is present** in the
+substrate, its **insight-recording path exists**, and its **wow-factor — watch/pin
+and actuate — needs three deliberate grants** (`agent-memory-write`, `device-actuate`,
+`rule-define`), plus the Rig brain crate and the out-of-scope outbound transport.
+Nothing in the actuate rows is buildable until `device-actuate` exists *and* a
+device-egress path (effect record → worker → ack) is named.
+
+**Free-form insight caveat.** `record_insight`
+([record.rs](../../crates/rubix-rules/src/evaluate/record.rs)) takes a *rule* and a
+`Decision` (`fired`/`value`/`reason`) and writes the decision as the insight. A
+free-form agent "log this" has no rule and no `Decision` to supply, so the
+"record an insight" row only maps to `rule-invoke` if the agent invokes a real rule.
+A free-form agent note is a *different* shape and likely belongs under
+`agent-memory-write` (or a dedicated note record), not `rule-invoke`. Resolve before
+treating the row as ready.
 
 ### Two wake paths (the Channel seam must pick the scoped one)
 
@@ -251,8 +280,11 @@ retrieval patterns are **schema references** from SurrealDB's `agent-memory` dem
 (Python) and the Spectron memory model (closed-source) — design input only, no
 dependency. The retrieval seam is the `rubix-agent` `VectorStoreIndex` impl over
 `rubix-query`, which today searches with `vector::distance::euclidean`
-([search/nearest.rs](../../crates/rubix-query/src/search/nearest.rs)) — so the
-embedding model's metric must match euclidean (there is no cosine path yet).
+([search/nearest.rs](../../crates/rubix-query/src/search/nearest.rs)). There is no
+cosine path, but this is **not** a model-choice constraint: on **L2-normalized**
+vectors euclidean ranking is monotonic with cosine (identical nearest-neighbour
+order), so the only requirement is to normalize embeddings before insert — which
+works with OpenAI/Claude/most models.
 
 ### Load-bearing contracts honored
 
@@ -292,7 +324,7 @@ owns a better-integrated one.
 | Channels | Telegram/Discord/… | `rubix-bus` live-query plane |
 
 **When to reach for it.** If the Tool-bridge + Memory-seam work proves larger than
-budgeted, IronClaw is a same-brain (Rig) head start whose patterns drop in with the
+expected, IronClaw is a same-brain (Rig) head start whose patterns drop in with the
 storage and sandbox swapped out. **Why not adopt wholesale:** it brings pgvector
 (collides with "SurrealDB is the only store") and a code-exec sandbox (out of scope
 here), and it is an *assistant OS*, not a data-platform component — its identity and
@@ -340,28 +372,37 @@ behind the `cloud` feature and fail closed when absent.
    - **3a** — Can the `VectorStoreIndex` impl be driven entirely on the gate's
      scoped session for reads (confirmed feasible via `rubix-query`), and what is
      the exact write path?
-   - **3b** — Is memory-write a new `agent-memory-write` `Capability` variant, or an
-     existing append-only data-plane path? It is a mutation either way and must
-     cross the gate — pick one explicitly.
-   - **3c** — Distance metric: `rubix-query` uses `vector::distance::euclidean`
-     today; the chosen embedding model's metric must match (no cosine path exists).
-4. **Tool capability surface.** Mostly resolved by the demo manifest above: the
-   actuate rows need a new fail-closed **`device-actuate`** variant, and the
-   watch/pin rows need **`agent-memory-write`** (3b). Still open: does any *inbound
-   MCP* tool need a per-tool grant beyond these, or do they all fold into
-   `external-query`? Propose any addition as a deliberate registry change.
-5. **Auditing read-only analysis.** Analyst activity is largely un-audited by
-   default (audit is command-scoped). If "why did the agent conclude X" must be
-   answerable, decide whether to opt analyst reads into sensitive-read auditing.
-6. **`rubix-ext` dependency.** The agent leans on the extensions-as-principals model
-   for service-account provisioning, but `rubix-ext` (WS-13) is not started. Decide
-   what the agent needs from it now (principal kind exists) vs. what waits.
+   - **3b** — *Decided:* memory-write is a new `agent-memory-write` `Capability`
+     variant. There is no generic record-write path — every gate command authorizes a
+     named capability first ([authorize.rs](../../crates/rubix-gate/src/command/authorize.rs)),
+     and none of the five fits — so "reuse an existing path" is not implementable.
+     The only open part is the exact write payload (memory record + embedding schema).
+   - **3c** — *Resolved:* `rubix-query` uses `vector::distance::euclidean`. This is
+     not a model constraint — L2-normalize embeddings before insert and euclidean
+     ranking equals cosine ranking. Action: normalize on write; document it.
+4. **Tool capability surface.** Three new fail-closed variants fall out of the demo
+   manifest: **`device-actuate`** (actuate rows), **`agent-memory-write`** (watch/pin
+   rows, 3b), and **`rule-define`** (write/enable a rule binding — `rule-invoke` only
+   *records a decision*, it cannot mutate a rule definition/binding/schedule). Still
+   open: does any *inbound MCP* tool need a per-tool grant beyond these, or do they
+   all fold into `external-query`? Propose any addition as a deliberate registry change.
+5. **Auditing read-only analysis.** Audit is command-scoped, so an analyst agent's
+   reads leave no trail. For an *AI* analyst this is closer to a requirement than an
+   option: "why did the agent conclude X" is unanswerable without recording what it
+   read. Decide whether to opt analyst reads into sensitive-read auditing — lean yes.
+6. **`rubix-ext` dependency — a build blocker, not just a question.** The agent is
+   provisioned as a service-account principal, which leans on the
+   extensions-as-principals model; `rubix-ext` is absent. The `extension` principal
+   *kind* exists, but how the agent principal is created and granted capabilities
+   today is unresolved — and it gates *every* line of agent code, not a later tier.
+   Decide the minimum provisioning path before starting `rubix-agent`.
 7. **Spectron upstreaming.** Track which memory primitives SurrealDB upstreams into
    the open engine over time, to avoid building what becomes native.
-8. **Device-actuation egress (the demo's wow-factor).** `device-actuate` (decided
-   above) gives the *grant + audit*; it still needs a *wire* — a registered-point
-   effect (setpoint offset / relay / mode) driven from the command's apply step out
-   to Modbus/BACnet or a Zenoh control key. `STACK-DEISGN.md` names no device/
-   actuation crate yet (ingest is subscribe-only). Decide where the egress lives
-   and whether a reverse-setpoint makes the actuation undoable, before the demo's
-   pre-cool/failover/restart actions are buildable.
+8. **Device-actuation egress (the demo's wow-factor).** `device-actuate` gives the
+   *grant + audit*; it still needs a *wire*, and that wire is **not** the gate's
+   `apply` step (a closed write+audit pipeline with no device hook). The model is an
+   **effect record → egress worker (subscribes via the live-query plane) → ack
+   record**, all sharing one correlation id (see Actuator section). `STACK-DEISGN.md`
+   names no device/actuation crate yet (ingest is subscribe-only). Decide where the
+   egress worker lives and whether physical reversal (a new reverse-setpoint effect,
+   *not* a gate undo) is in scope, before the pre-cool/failover/restart actions ship.

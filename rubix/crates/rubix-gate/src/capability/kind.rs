@@ -50,6 +50,14 @@ pub enum Capability {
     /// the night profile to Level 5") is a separate authority
     /// (`rubix/docs/design/AGENT.md`, demo manifest).
     RuleDefine,
+    /// Create, update, or delete a device *registry* entry.
+    ///
+    /// Governs the control-plane registration of a device, **not** commanding the
+    /// hardware — that is [`DeviceActuate`](Capability::DeviceActuate), a distinct
+    /// authority over a distinct plane. Managing the registry (who is a device,
+    /// its label/class/metadata) and actuating a registered device must be two
+    /// grants (`rubix/docs/design/ADMIN-API.md`, Surface 4).
+    DeviceManage,
 }
 
 impl Capability {
@@ -58,7 +66,7 @@ impl Capability {
     /// The registry ([`is_registered`](crate::capability::is_registered)) and the
     /// wire round-trip both derive from this list, so adding a variant here is the
     /// single place a new capability becomes known.
-    pub const ALL: [Capability; 8] = [
+    pub const ALL: [Capability; 9] = [
         Capability::DatasourceRegister,
         Capability::RuleInvoke,
         Capability::IngestPublish,
@@ -67,6 +75,7 @@ impl Capability {
         Capability::AgentMemoryWrite,
         Capability::DeviceActuate,
         Capability::RuleDefine,
+        Capability::DeviceManage,
     ];
 
     /// The stable wire/storage string for this capability.
@@ -81,6 +90,7 @@ impl Capability {
             Capability::AgentMemoryWrite => "agent-memory-write",
             Capability::DeviceActuate => "device-actuate",
             Capability::RuleDefine => "rule-define",
+            Capability::DeviceManage => "device-manage",
         }
     }
 
@@ -122,6 +132,7 @@ mod tests {
         assert_eq!(Capability::AgentMemoryWrite.as_str(), "agent-memory-write");
         assert_eq!(Capability::DeviceActuate.as_str(), "device-actuate");
         assert_eq!(Capability::RuleDefine.as_str(), "rule-define");
+        assert_eq!(Capability::DeviceManage.as_str(), "device-manage");
     }
 
     #[test]
@@ -129,7 +140,7 @@ mod tests {
         // `ALL` is the single source of truth the registry and wire round-trip
         // derive from; its length must track the variant count so a forgotten
         // entry cannot silently drop a capability out of the fail-closed set.
-        assert_eq!(Capability::ALL.len(), 8);
+        assert_eq!(Capability::ALL.len(), 9);
         for capability in Capability::ALL {
             let occurrences = Capability::ALL
                 .into_iter()

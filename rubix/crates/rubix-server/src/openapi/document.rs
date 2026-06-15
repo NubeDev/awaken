@@ -10,8 +10,10 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    CreateRecordRequest, DatasourceDto, LoginRequest, LoginResponse, MeResponse, QueryRequest,
-    QueryResponse, RecordDto, RegisterDatasourceRequest, UpdateDatasourceRequest,
+    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateTenantRequest,
+    CreatedPrincipalDto, DatasourceDto, DeviceDto, GrantDto, LoginRequest, LoginResponse,
+    MeResponse, PrincipalDto, QueryRequest, QueryResponse, RecordDto, RegisterDatasourceRequest,
+    TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePrincipalRequest,
     UpdateRecordRequest,
 };
 
@@ -38,7 +40,23 @@ use crate::dto::{
         crate::openapi::paths::get_datasource,
         crate::openapi::paths::update_datasource,
         crate::openapi::paths::delete_datasource,
-        crate::openapi::paths::subscribe_records
+        crate::openapi::paths::subscribe_records,
+        crate::openapi::paths::create_principal,
+        crate::openapi::paths::list_principals,
+        crate::openapi::paths::get_principal,
+        crate::openapi::paths::update_principal,
+        crate::openapi::paths::delete_principal,
+        crate::openapi::paths::list_grants,
+        crate::openapi::paths::put_grant,
+        crate::openapi::paths::delete_grant,
+        crate::openapi::paths::create_tenant,
+        crate::openapi::paths::list_tenants,
+        crate::openapi::paths::delete_tenant,
+        crate::openapi::paths::create_device,
+        crate::openapi::paths::list_devices,
+        crate::openapi::paths::get_device,
+        crate::openapi::paths::update_device,
+        crate::openapi::paths::delete_device
     ),
     components(schemas(
         LoginRequest,
@@ -51,7 +69,17 @@ use crate::dto::{
         QueryResponse,
         DatasourceDto,
         RegisterDatasourceRequest,
-        UpdateDatasourceRequest
+        UpdateDatasourceRequest,
+        PrincipalDto,
+        CreatePrincipalRequest,
+        CreatedPrincipalDto,
+        UpdatePrincipalRequest,
+        GrantDto,
+        TenantDto,
+        CreateTenantRequest,
+        DeviceDto,
+        CreateDeviceRequest,
+        UpdateDeviceRequest
     ))
 )]
 pub struct ApiDoc;

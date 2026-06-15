@@ -9,11 +9,13 @@
 mod authority;
 mod create;
 mod list;
+mod manage;
 mod model;
 mod revoke;
 pub(crate) mod row;
 
 pub use create::create_grant;
 pub use list::list_grants;
+pub use manage::{create_grant_audited, revoke_grant_audited};
 pub use model::Grant;
 pub use revoke::revoke_grant;

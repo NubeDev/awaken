@@ -13,6 +13,8 @@ mod kind;
 mod register;
 
 pub use check::check_capability;
-pub use grant::{Grant, create_grant, list_grants, revoke_grant};
+pub use grant::{
+    Grant, create_grant, create_grant_audited, list_grants, revoke_grant, revoke_grant_audited,
+};
 pub use kind::Capability;
 pub use register::is_registered;

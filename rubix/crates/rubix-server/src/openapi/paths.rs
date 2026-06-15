@@ -14,8 +14,10 @@
 #![allow(dead_code)]
 
 use crate::dto::{
-    CreateRecordRequest, DatasourceDto, LoginRequest, LoginResponse, MeResponse, QueryRequest,
-    QueryResponse, RecordDto, RegisterDatasourceRequest, UpdateDatasourceRequest,
+    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateTenantRequest,
+    CreatedPrincipalDto, DatasourceDto, DeviceDto, GrantDto, LoginRequest, LoginResponse,
+    MeResponse, PrincipalDto, QueryRequest, QueryResponse, RecordDto, RegisterDatasourceRequest,
+    TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePrincipalRequest,
     UpdateRecordRequest,
 };
 
@@ -205,3 +207,227 @@ pub fn delete_datasource() {}
     responses((status = 101, description = "WebSocket upgrade to the live-query feed"))
 )]
 pub fn subscribe_records() {}
+
+// --- Admin & management surface (ADMIN-API.md) ---
+
+/// `POST /principals`.
+#[utoipa::path(
+    post,
+    path = "/principals",
+    request_body = CreatePrincipalRequest,
+    responses(
+        (status = 201, description = "The created principal (with a generated secret if none was supplied)", body = CreatedPrincipalDto),
+        (status = 400, description = "Unknown kind or role"),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 409, description = "A principal already exists under this subject")
+    )
+)]
+pub fn create_principal() {}
+
+/// `GET /principals`.
+#[utoipa::path(
+    get,
+    path = "/principals",
+    responses(
+        (status = 200, description = "Principals in the caller's namespace", body = [PrincipalDto]),
+        (status = 403, description = "Caller is not an admin in this namespace")
+    )
+)]
+pub fn list_principals() {}
+
+/// `GET /principals/{subject}`.
+#[utoipa::path(
+    get,
+    path = "/principals/{subject}",
+    params(("subject" = String, Path, description = "API-local principal subject")),
+    responses(
+        (status = 200, description = "The principal", body = PrincipalDto),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 404, description = "No such principal in this namespace")
+    )
+)]
+pub fn get_principal() {}
+
+/// `PATCH /principals/{subject}`.
+#[utoipa::path(
+    patch,
+    path = "/principals/{subject}",
+    params(("subject" = String, Path, description = "API-local principal subject")),
+    request_body = UpdatePrincipalRequest,
+    responses(
+        (status = 200, description = "The updated principal", body = PrincipalDto),
+        (status = 400, description = "Unknown role"),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 404, description = "No such principal in this namespace"),
+        (status = 409, description = "Refused: would remove the last admin")
+    )
+)]
+pub fn update_principal() {}
+
+/// `DELETE /principals/{subject}`.
+#[utoipa::path(
+    delete,
+    path = "/principals/{subject}",
+    params(("subject" = String, Path, description = "API-local principal subject")),
+    responses(
+        (status = 204, description = "Principal deleted"),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 404, description = "No such principal in this namespace"),
+        (status = 409, description = "Refused: would remove the last admin")
+    )
+)]
+pub fn delete_principal() {}
+
+/// `GET /principals/{subject}/grants`.
+#[utoipa::path(
+    get,
+    path = "/principals/{subject}/grants",
+    params(("subject" = String, Path, description = "API-local principal subject")),
+    responses(
+        (status = 200, description = "The principal's capability grants", body = [GrantDto]),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 404, description = "No such principal in this namespace")
+    )
+)]
+pub fn list_grants() {}
+
+/// `PUT /principals/{subject}/grants/{capability}`.
+#[utoipa::path(
+    put,
+    path = "/principals/{subject}/grants/{capability}",
+    params(
+        ("subject" = String, Path, description = "API-local principal subject"),
+        ("capability" = String, Path, description = "Capability wire string")
+    ),
+    responses(
+        (status = 200, description = "The grant (idempotent)", body = GrantDto),
+        (status = 400, description = "Unknown capability"),
+        (status = 403, description = "Caller may not administer this grant"),
+        (status = 404, description = "No such principal in this namespace")
+    )
+)]
+pub fn put_grant() {}
+
+/// `DELETE /principals/{subject}/grants/{capability}`.
+#[utoipa::path(
+    delete,
+    path = "/principals/{subject}/grants/{capability}",
+    params(
+        ("subject" = String, Path, description = "API-local principal subject"),
+        ("capability" = String, Path, description = "Capability wire string")
+    ),
+    responses(
+        (status = 204, description = "Grant revoked (idempotent)"),
+        (status = 400, description = "Unknown capability"),
+        (status = 403, description = "Caller may not administer this grant"),
+        (status = 404, description = "No such principal in this namespace")
+    )
+)]
+pub fn delete_grant() {}
+
+/// `POST /tenants`.
+#[utoipa::path(
+    post,
+    path = "/tenants",
+    request_body = CreateTenantRequest,
+    responses(
+        (status = 201, description = "The onboarded tenant", body = TenantDto),
+        (status = 400, description = "Invalid tenant id"),
+        (status = 403, description = "Caller is not a root/system principal"),
+        (status = 409, description = "Edge node, or a tenant already exists under this id")
+    )
+)]
+pub fn create_tenant() {}
+
+/// `GET /tenants`.
+#[utoipa::path(
+    get,
+    path = "/tenants",
+    responses(
+        (status = 200, description = "Onboarded tenants (cloud) or the single namespace (edge)", body = [TenantDto]),
+        (status = 403, description = "Caller is not a root/system principal")
+    )
+)]
+pub fn list_tenants() {}
+
+/// `DELETE /tenants/{id}`.
+#[utoipa::path(
+    delete,
+    path = "/tenants/{id}",
+    params(
+        ("id" = String, Path, description = "Tenant id"),
+        ("confirm" = Option<String>, Query, description = "Must echo the tenant id to confirm the irreversible delete")
+    ),
+    responses(
+        (status = 204, description = "Tenant namespace purged and deregistered"),
+        (status = 400, description = "Missing or mismatched confirmation"),
+        (status = 403, description = "Caller is not a root/system principal"),
+        (status = 404, description = "No tenant onboarded under this id"),
+        (status = 409, description = "Edge node: tenant deletion is a cloud action")
+    )
+)]
+pub fn delete_tenant() {}
+
+/// `POST /devices`.
+#[utoipa::path(
+    post,
+    path = "/devices",
+    request_body = CreateDeviceRequest,
+    responses(
+        (status = 201, description = "The registered device", body = DeviceDto),
+        (status = 403, description = "Caller is not an admin / lacks device-manage"),
+        (status = 409, description = "A device already exists under this id")
+    )
+)]
+pub fn create_device() {}
+
+/// `GET /devices`.
+#[utoipa::path(
+    get,
+    path = "/devices",
+    responses(
+        (status = 200, description = "Devices in the caller's namespace", body = [DeviceDto]),
+        (status = 403, description = "Caller is not an admin in this namespace")
+    )
+)]
+pub fn list_devices() {}
+
+/// `GET /devices/{id}`.
+#[utoipa::path(
+    get,
+    path = "/devices/{id}",
+    params(("id" = String, Path, description = "API-local device id")),
+    responses(
+        (status = 200, description = "The device", body = DeviceDto),
+        (status = 403, description = "Caller is not an admin in this namespace"),
+        (status = 404, description = "No such device in this namespace")
+    )
+)]
+pub fn get_device() {}
+
+/// `PATCH /devices/{id}`.
+#[utoipa::path(
+    patch,
+    path = "/devices/{id}",
+    params(("id" = String, Path, description = "API-local device id")),
+    request_body = UpdateDeviceRequest,
+    responses(
+        (status = 200, description = "The updated device", body = DeviceDto),
+        (status = 403, description = "Caller is not an admin / lacks device-manage"),
+        (status = 404, description = "No such device in this namespace")
+    )
+)]
+pub fn update_device() {}
+
+/// `DELETE /devices/{id}`.
+#[utoipa::path(
+    delete,
+    path = "/devices/{id}",
+    params(("id" = String, Path, description = "API-local device id")),
+    responses(
+        (status = 204, description = "Device deregistered"),
+        (status = 403, description = "Caller is not an admin / lacks device-manage"),
+        (status = 404, description = "No such device in this namespace")
+    )
+)]
+pub fn delete_device() {}

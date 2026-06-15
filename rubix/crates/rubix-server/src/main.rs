@@ -10,7 +10,8 @@
 use rubix_core::{Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection};
 use rubix_gate::{define_audit_schema, define_gate_schema};
 use rubix_server::{
-    AppState, define_datasource_schema, profile as server_profile, rehydrate, router, seed_dev,
+    AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
+    router, seed_dev,
 };
 use rubix_store::StoreHandle;
 
@@ -51,6 +52,12 @@ async fn main() -> Result<()> {
     define_datasource_schema(store.raw())
         .await
         .map_err(|e| Error::Config(format!("defining datasource schema: {e}")))?;
+
+    // The tenant registry (onboarded-namespace bookkeeping) is server config too,
+    // mounted on every build so the route table is identical edge-to-cloud.
+    define_tenant_schema(store.raw())
+        .await
+        .map_err(|e| Error::Config(format!("defining tenant schema: {e}")))?;
 
     // Seed the bootstrap meta-collection (the collection-defining-collection) for
     // the default namespace so collection records are discoverable and, under

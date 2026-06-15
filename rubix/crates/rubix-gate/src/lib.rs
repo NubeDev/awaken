@@ -23,6 +23,7 @@ mod permission;
 mod principal;
 mod read;
 mod session;
+mod tenant;
 mod token;
 mod undo;
 
@@ -33,15 +34,20 @@ pub use auth_token::{
 };
 pub use authenticate::authenticate;
 pub use capability::{
-    Capability, Grant, check_capability, create_grant, is_registered, list_grants, revoke_grant,
+    Capability, Grant, check_capability, create_grant, create_grant_audited, is_registered,
+    list_grants, revoke_grant, revoke_grant_audited,
 };
 pub use command::{Applied, CapturedChange, Change, Command, apply};
 pub use error::{GateError, Result};
 pub use permission::define_gate_schema;
-pub use principal::provision_principal;
+pub use principal::{
+    create_principal, delete_principal, get_principal, list_principals, provision_principal,
+    set_principal_role,
+};
 pub use read::{
     read_record_on_session, read_records_on_session, read_records_on_session_filtered,
 };
 pub use session::{ScopedSession, issue_scoped_session};
+pub use tenant::purge_namespace;
 pub use token::PrincipalToken;
 pub use undo::{ChangeRecord, RecordKind, UndoEntry, UndoStore, is_undoable, push_change, redo, undo};

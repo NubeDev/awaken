@@ -50,6 +50,14 @@ name = "http_records_collection"
 path = "tests/http/records/collection_test.rs"
 
 [[test]]
+name = "http_admin_crud"
+path = "tests/http/admin/crud_test.rs"
+
+[[test]]
+name = "http_admin_tenant_cloud"
+path = "tests/http/admin/tenant_cloud_test.rs"
+
+[[test]]
 name = "ws_bridge"
 path = "tests/ws/bridge_test.rs"
 

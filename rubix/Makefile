@@ -23,15 +23,21 @@ UI_DIR := ui
 
 # Dev ports — kept in sync with the code. rubix-server binds RUBIX_BIND
 # (default 127.0.0.1:8080 in crates/rubix-server/src/main.rs); the UI's vite
-# dev server listens on 5180 and proxies the API to VITE_API_PROXY (default
-# http://127.0.0.1:8088 in ui/vite.config.ts). We point the backend at :8088
-# below so the UI proxy reaches it out of the box. Override on the CLI to remap.
-BE_PORT ?= 8088
-UI_PORT ?= 5180
+# dev server listens on UI_PORT and proxies the API to VITE_API_PROXY (defaults
+# in ui/vite.config.ts mirror the values below). We point the backend at BE_PORT
+# and pin VITE_API_PROXY/UI_PORT to it so the proxy reaches the backend out of
+# the box. 8092/5192 avoid the common 8088/5180 clashes. Override to remap.
+BE_PORT ?= 8092
+UI_PORT ?= 5192
 # The binary reads RUBIX_BIND (crates/rubix-server/src/main.rs); keep this name
 # in sync or the backend silently falls back to its default port and the UI proxy
 # can't reach it.
 export RUBIX_BIND ?= 127.0.0.1:$(BE_PORT)
+# Pin the UI proxy + UI port to the Makefile's values so the dev server always
+# follows the backend — overriding BE_PORT/UI_PORT alone is enough and the UI
+# can never silently proxy to a stale port. vite.config.ts reads both.
+export VITE_API_PROXY ?= http://127.0.0.1:$(BE_PORT)
+export VITE_UI_PORT ?= $(UI_PORT)
 
 # Backend cargo feature profile. Empty = the default `edge` build (SQLite,
 # on-box drivers, no auth). Set FEATURES=cloud to compile the Postgres store
@@ -86,10 +92,10 @@ build-ui:
 # Run both in one foreground process group; Ctrl-C (or `make kill`) stops both.
 # The trap reaps the children on exit so no orphan server keeps a port held.
 dev:
-	@echo "backend → http://$(RUBIX_ADDR)   ui → http://127.0.0.1:$(UI_PORT)"
+	@echo "backend → http://$(RUBIX_BIND)   ui → http://127.0.0.1:$(UI_PORT)"
 	@trap 'kill 0' EXIT INT TERM; \
 	( cargo run --bin rubix-server $(CARGO_FEATURES) $(SEED_FLAG) ) & \
-	( cd $(UI_DIR) && pnpm dev ) & \
+	( cd $(UI_DIR) && pnpm dev --port $(UI_PORT) ) & \
 	wait
 
 dev-be:

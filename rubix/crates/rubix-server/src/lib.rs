@@ -17,6 +17,7 @@ mod openapi;
 pub mod profile;
 pub mod seed;
 mod state;
+pub mod tenants;
 mod ws;
 
 use axum::Router;
@@ -27,6 +28,7 @@ pub use openapi::document as openapi_document;
 pub use profile::{NamespaceStrategy, Profile, ProfileError};
 pub use seed::seed_dev;
 pub use state::AppState;
+pub use tenants::define_tenant_schema;
 
 /// Assemble the full transport router over the given state.
 ///

@@ -268,6 +268,34 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
   distinct namespaces and rejects a tenant-less request; an unknown
   `RUBIX_PROFILE` is rejected; a cloud profile without its backend fails closed.
 
+- **WS-15 — Edge↔cloud sync shipper over Zenoh.** New `rubix-sync` crate (SCOPE
+  "Sync and conflict model"). SurrealDB has no mature multi-master replication, so
+  sync is an **application-level shipper over Zenoh**, not DB replication, with an
+  explicit conflict model split across two planes. **Data plane** (`data`):
+  append-only, edge-owned records partitioned by edge identity (contract #5) — two
+  edges never mint the same id, so reconciliation is **ordering + dedup by id, not
+  merge**, with no multi-master conflict by construction. `ship` is the Zenoh wire
+  (a `WireRecord` codec + `publish_record` onto `rubix/sync/data/<edge>/<id>`) and
+  the receiver `apply_record`/`apply_batch` that lands records under their own id;
+  `order` applies arrivals by `created`-then-id so out-of-order/replayed batches
+  converge to the same applied sequence; `dedup` (`SeenSet`) drops re-sent ids and
+  the apply also checks the store, so a replay is idempotent across a receiver
+  restart; `replay` (`Outbox`) tracks unacked records so a reconnect re-ships
+  exactly the still-pending set. **Config plane** (`config`): dashboards/rules/
+  tags/datasource defs, the only surface that reconciles. `own` decides ownership
+  first (cloud owns `Shared`/`Tenant`, edge owns `LocalOnly`); `reconcile` returns
+  the owner's version outright, and only an unavoidable overlap
+  (`reconcile_ambiguous`) falls back to `last_write_wins`, breaking a write-instant
+  tie on the WS-05 audit timestamp (`tiebreak`), with a deterministic cloud-wins
+  final fallback so receivers converge. No CRDT (deferred per SCOPE open question).
+  Verified on two in-memory stores simulating edge/cloud: a batch ships edge→cloud
+  and lands once, a replay of the same batch applies nothing new and mutates
+  nothing (idempotent), a fresh receiver skips records already in the store, a
+  shuffled batch lands every record in deterministic order, shared/tenant config
+  resolves to cloud and local-only to edge by ownership even when the other side
+  wrote later, and an ambiguous overlap resolves by LWW + the audit tiebreak.
+  Additive: `rubix-sync` joins the workspace.
+
 ## Not started / remaining (per STACK-DEISGN.md)
 
 ### Foundation
@@ -313,7 +341,7 @@ queue) per [docs/sessions/_ORCHESTRATION.md](docs/sessions/_ORCHESTRATION.md).
 
 ### Platform / deployment
 - [x] Edge/cloud profiles (single binary, cargo features + runtime config).
-- [ ] Edge↔cloud sync shipper over Zenoh (append-only partition + config LWW).
+- [x] Edge↔cloud sync shipper over Zenoh (append-only partition + config LWW).
 - [x] Preferences (units + datetime).
 - [x] Transport: axum HTTP + WS live-query bridge + OpenAPI (`rubix-server`).
       JSON-RPC extension control + `POST /datasources` registration deferred with

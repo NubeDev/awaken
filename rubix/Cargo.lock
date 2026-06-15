@@ -5471,6 +5471,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-sync"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
+ "tokio",
+ "zenoh",
+]
+
+[[package]]
 name = "rubix-trace"
 version = "0.1.0"
 dependencies = [

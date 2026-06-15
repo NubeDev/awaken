@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Badge } from '../../components/ui/badge'
+import { Checkbox } from '../../components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -363,12 +364,10 @@ function GrantsDialog({
                   className="flex cursor-pointer items-center justify-between rounded-lg border border-border bg-card/40 px-3 py-2 text-sm"
                 >
                   <span className="mono text-xs">{cap}</span>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={on}
                     disabled={grant.isPending || revoke.isPending}
-                    onChange={(e) => toggle(cap, e.target.checked)}
-                    className="size-4 accent-[hsl(var(--r1))]"
+                    onCheckedChange={(c) => toggle(cap, c === true)}
                   />
                 </label>
               )

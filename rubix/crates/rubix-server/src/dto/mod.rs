@@ -6,6 +6,7 @@
 //! engine shapes onto the wire.
 
 pub mod admin;
+pub mod agent;
 pub mod auth;
 pub mod datasource;
 pub mod query;
@@ -14,6 +15,10 @@ pub mod record;
 pub use admin::{
     CreateDeviceRequest, CreatePrincipalRequest, CreateTenantRequest, CreatedPrincipalDto,
     DeviceDto, GrantDto, PrincipalDto, TenantDto, UpdateDeviceRequest, UpdatePrincipalRequest,
+};
+pub use agent::{
+    AgentDto, AskRequest, AskResponse, PersistRequest, PersistedDto, ProvisionAgentRequest,
+    ProvisionedAgentDto, RecallRequest, RecalledDto,
 };
 pub use auth::{LoginRequest, LoginResponse, MeResponse};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};

@@ -9,7 +9,7 @@
 
 mod devices;
 mod grants;
-mod guard;
+pub(crate) mod guard;
 mod principals;
 mod tenants;
 

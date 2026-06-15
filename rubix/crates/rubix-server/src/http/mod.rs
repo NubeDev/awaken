@@ -7,6 +7,7 @@
 //! the OpenAPI document are merged at the crate root (`lib.rs`).
 
 mod admin;
+mod agent;
 mod auth;
 mod datasources;
 mod health;
@@ -29,4 +30,5 @@ pub fn router() -> Router<AppState> {
         .merge(query::router())
         .merge(datasources::router())
         .merge(admin::router())
+        .merge(agent::router())
 }

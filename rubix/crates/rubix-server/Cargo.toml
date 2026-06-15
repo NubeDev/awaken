@@ -21,7 +21,10 @@ edge = []
 # `cloud`: namespace-per-tenant, auth required, sync on. Cloud requires the
 # Postgres backend (WS-10, a cloud-only connector), so it pulls in `postgres`;
 # the boot path fails closed if a cloud-required backend is absent from the build.
-cloud = ["postgres"]
+# It also turns on the agent's cloud brain (Rig/OpenAI) so `POST /agent/ask`
+# answers with the LLM; the edge build carries no cloud provider and that route
+# falls back to a grounded, model-free answer (AGENT.md, open question 1).
+cloud = ["postgres", "rubix-agent/cloud"]
 # Compile the Postgres datasource connector into the control plane so a
 # `POST /datasources` with `"kind":"postgres"` can register a live Postgres
 # source. Off by default — the edge build carries no Postgres backend and the
@@ -89,6 +92,7 @@ rubix-bus = { workspace = true }
 rubix-query = { workspace = true }
 rubix-datasource = { workspace = true }
 rubix-prefs = { workspace = true }
+rubix-agent = { workspace = true }
 arrow-json = "58"
 async-trait = "0.1"
 axum = { workspace = true, features = ["ws", "query"] }

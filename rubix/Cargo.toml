@@ -40,6 +40,10 @@ rubix-agent = { version = "0.1.0", path = "crates/rubix-agent" }
 
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# The agent brain (AGENT.md primary design). MIT-licensed (confirmed against the
+# pinned source); the agent loop, `Tool`, and `VectorStoreIndex` seams are Rig's.
+# Cloud providers (OpenAI) sit behind rubix-agent's `cloud` feature.
+rig = { package = "rig-core", version = "0.38.2", default-features = false, features = ["derive", "reqwest", "rustls"] }
 utoipa = { version = "5", default-features = false, features = ["macros"] }
 zenoh = { version = "1.9", default-features = false, features = ["transport_tcp"] }
 rhai = { version = "1", default-features = false, features = ["std", "sync"] }

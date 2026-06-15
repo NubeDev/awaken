@@ -5423,6 +5423,7 @@ dependencies = [
  "rubix-core",
  "rubix-gate",
  "rubix-store",
+ "rubix-trace",
  "serde_json",
  "surrealdb",
  "thiserror 2.0.18",

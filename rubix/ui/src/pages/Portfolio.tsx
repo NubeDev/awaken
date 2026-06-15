@@ -11,8 +11,16 @@ import { toSites } from '../utils/derive'
 import { fmtNum } from '../utils/format'
 import { siteGradient } from '../utils/gradient'
 import { Orb } from '../components/ui/Orb'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 import { ErrorView, LoadingView, EmptyView } from '../components/ui/StateView'
 import type { Site } from '../types/Domain'
+
+// The portfolio header's pill buttons sit at 8px tall / 12px text — a touch
+// tighter than shadcn's default `sm`. We pass this className to the vendored
+// Button so it inherits the primitive's focus-ring/hover semantics while keeping
+// the demo's exact chrome dimensions.
+const headerBtn = 'h-8 px-2.5 text-[12px] font-normal text-muted hover:text-fg hover:bg-panel2'
 
 export function Portfolio() {
   const { connection, disconnect } = useConnection()
@@ -28,18 +36,14 @@ export function Portfolio() {
           <span className="font-semibold tracking-tight">Rubix</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button className="flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border text-[12px] text-muted hover:text-fg hover:bg-panel2 transition">
+          <Button variant="outline" className={headerBtn}>
             <Search size={14} />
             Search<kbd>⌘K</kbd>
-          </button>
-          <button
-            onClick={disconnect}
-            title="Disconnect"
-            className="flex items-center gap-2 h-8 px-2.5 rounded-lg border border-border text-[12px] text-muted hover:text-fg hover:bg-panel2 transition"
-          >
+          </Button>
+          <Button variant="outline" onClick={disconnect} title="Disconnect" className={headerBtn}>
             <LogOut size={14} />
             {connection!.subject}
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -92,10 +96,10 @@ function SiteCard({ site, tenant, grad }: { site: Site; tenant: string; grad: st
           <div className="text-[11.5px] opacity-85 mt-1">{site.equips} equipment · tenant {tenant}</div>
         </div>
         {site.alerts > 0 && (
-          <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-black/35 backdrop-blur px-2 py-0.5 text-[11px] text-white font-medium">
+          <Badge className="absolute top-2.5 right-2.5 gap-1 rounded-full bg-black/35 backdrop-blur px-2 py-0.5 text-[11px] text-white">
             <span className="size-1.5 rounded-full bg-crit" />
             {site.alerts}
-          </span>
+          </Badge>
         )}
       </div>
       <div className="p-3.5">

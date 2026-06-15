@@ -7,8 +7,15 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Orb } from '../components/ui/Orb'
+import { Input } from '../components/ui/input'
+import { Button } from '../components/ui/button'
 import { useConnection } from '../api/ConnectionContext'
 import type { Connection } from '../api/connection'
+
+// The connect form runs slightly larger than shadcn's defaults — 40px-tall
+// inputs / 14px text — so the card reads as a focused sign-in panel. We pass
+// these as className overrides; the vendored Input keeps its themed focus ring.
+const inputCls = 'h-10 rounded-lg text-[14px]'
 
 export function Connect() {
   const { connect } = useConnection()
@@ -36,7 +43,7 @@ export function Connect() {
 
         <div className="mt-6 space-y-3.5">
           <Field label="Endpoint" hint="blank = same origin">
-            <input
+            <Input
               value={form.endpoint}
               onChange={set('endpoint')}
               placeholder="http://127.0.0.1:8088"
@@ -45,10 +52,10 @@ export function Connect() {
             />
           </Field>
           <Field label="Tenant">
-            <input value={form.tenant} onChange={set('tenant')} placeholder="acme" className={inputCls} autoComplete="off" />
+            <Input value={form.tenant} onChange={set('tenant')} placeholder="acme" className={inputCls} autoComplete="off" />
           </Field>
           <Field label="Subject">
-            <input
+            <Input
               value={form.subject}
               onChange={set('subject')}
               placeholder="acme_operator"
@@ -57,7 +64,7 @@ export function Connect() {
             />
           </Field>
           <Field label="Secret">
-            <input
+            <Input
               value={form.secret}
               onChange={set('secret')}
               type="password"
@@ -68,13 +75,13 @@ export function Connect() {
           </Field>
         </div>
 
-        <button
+        <Button
           type="submit"
-          className="mt-6 w-full h-11 rounded-xl bg-fg text-bg text-[14px] font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition"
+          className="mt-6 w-full h-11 rounded-xl bg-fg text-bg text-[14px] font-semibold hover:bg-fg hover:opacity-90"
         >
           Connect
           <ArrowRight size={16} />
-        </button>
+        </Button>
         <p className="text-[11.5px] text-muted mt-3 leading-snug">
           The credential is the gate’s native header pair (x-rubix-subject / x-rubix-secret). Run the backend with
           <span className="mono"> SEED=1 </span> to provision the demo cast.
@@ -83,9 +90,6 @@ export function Connect() {
     </div>
   )
 }
-
-const inputCls =
-  'w-full h-10 rounded-lg border border-border bg-bg/50 px-3 text-[14px] outline-none placeholder:text-muted focus:border-r1/50 focus:ring-4 focus:ring-r1/10 transition'
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (

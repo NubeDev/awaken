@@ -21,6 +21,19 @@ marked **⚠ adapt** with the friction noted.
 > rollups, which SCOPE's scale path puts in explicit rollup surfaces (§7).
 > Frontend is **reference**-portable (a port/refactor), not copy-paste.
 
+> **Second review pass — emphasis, not facts (2026-06-15).** The catalogue below
+> is accurate but answers *"is each item portable?"* The harder question is
+> *"which items move the stack?"* — a different axis. See **§0.5** for the
+> commodity-vs-differentiating split that drives the revised take-order (§9).
+> Three concrete reversals from that pass: (a) the **structured query builder +
+> catalog/virtual-table/function-translation layer (§1c)** is the scope iceberg —
+> deferred, not cut, but explicitly *not* on the spine; ship raw-SQL charts on
+> today's surface instead. (b) Templates (§4) are **cut from committed scope**
+> until the sandbox is a funded security project, not merely sequenced last.
+> (c) Span typing (§5a) should be a **reserved-attribute-key schema, not a closed
+> `span_kind` enum** — same rollup payoff, no breaking contract change, doesn't
+> fight our generic-by-construction spans.
+
 **Source authority for us stays** [SCOPE.md](../SCOPE.md) /
 [STACK-DEISGN.md](../../STACK-DEISGN.md). Laminar is a reference implementation,
 not a target architecture — we borrow *frontend code* freely and *backend ideas*
@@ -48,6 +61,48 @@ re-implement the
 *data model* as the thing worth copying on the backend. Persist every new
 artifact (query, chart, board, template, evaluation) as a **record** so it rides
 the gate, audit, scoped-session, and live-query machinery we already built.
+
+---
+
+## 0.5. Commodity vs. differentiating — the axis that drives the take-order
+
+Portability (can we lift it?) is not the same as leverage (does it move the
+stack?). On the leverage axis the menu splits cleanly, and the split is what
+reorders §9:
+
+**Commodity — table stakes; porting it is just labour.** SQL console, chart
+builder, dashboard grid, structured query builder, render templates. A
+competitor's product has dashboards too; building ours faster by borrowing
+Laminar's frontend is a real win, but none of it is a moat.
+
+**Differentiating — ours *because* of architecture nobody else has.** The
+**trace → evaluation model mapped onto `rubix-rules`** (§5c), **typed span
+metrics** (§5a), and the **trace rollup** (§5b). This is the part of Laminar that
+gives an *idea* we can't buy off the shelf, because we fuse it with machinery
+Laminar lacks: gate audit, scoped sessions, correlation-id spans, and an agent
+that is already tier-scoped (`analyst⊂operator⊂actuator`). §5c is the single
+highest-leverage item in this document.
+
+**Consequence for sequencing:** the obvious order front-loads the commodity
+analytics (a console + charts you can demo) and leaves the eval/observability
+work for last. For *long-term stack value* that is backwards — the trace/eval
+pieces tied to the gate are the compounding ones. §9 is revised to land a thin
+commodity slice (recharts + raw-SQL console, near-zero new backend) and then
+pivot straight to the differentiating spine, deferring the expensive commodity
+middle (catalog, structured builder, datasets, templates) **indefinitely** until
+a voiced user need pulls it in.
+
+**The spine (commit to this; everything else is a menu):**
+1. Recharts swap (§3) — contained UX win, closest to drop-in.
+2. Raw SQL console + saved queries/charts as records (§1a, §2) — zero new backend.
+3. Span attribute-metric schema (§5a, as reserved keys) — the contract foundation.
+4. `trace_summary` rollup (§5b) — also pays down `rubix-sync` late-arrival debt.
+5. Evaluation-on-`rubix-rules` (§5c) — the moat; one model serves rules *and*
+   agent-run QA when the brain lands.
+
+Land 1–2 → a real analytics product on infra we already own. Land 3–5 → an
+observability+eval platform for rules and the agent that can't be copied without
+our gate.
 
 ---
 
@@ -126,6 +181,19 @@ interface ChartConfig {
     UTC timestamp parsing.
 
 ### 1c. Structured query builder (no SQL) — `frontend/components/dashboards/editor/fields/`
+
+> **⛔ Deferred — this is the scope iceberg, not on the spine.** 1c's *entire*
+> payoff is "operators don't type SQL," and its cost is a whole new DataFusion
+> layer: per-`kind` virtual tables, typed projections, **and** a hand-written
+> translation table (DataFusion has no `WITH FILL`, so gap-fill is a
+> calendar-spine join). That is weeks of backend work. Raw SQL + saved charts +
+> a few presets (§1a, §2) covers ~90% of the value at ~10% of the cost, and
+> `rubix-query` already has epoch-aligned bucketing today
+> (`rollup_window()` / `BucketRollup` in
+> [aggregate/mod.rs](../../crates/rubix-query/src/aggregate/mod.rs)). Build 1c only
+> if a no-SQL builder becomes a *voiced* need — do not pre-build it. The spec
+> shape below is captured so it's ready if that day comes.
+
 Visual builder over a persisted JSON spec (verified `QueryStructure`, zod):
 ```ts
 QueryStructure = {
@@ -248,6 +316,17 @@ for per-sensor-over-time), gauge/stat (we have `StatCard`), and a geo/map layer
 ---
 
 ## 4. Render templates / custom widgets (explicitly requested)
+
+> **⛔ Cut from committed scope — not merely sequenced last.** Hardening this is a
+> *funded security project*, not a port, and a half-built version is worse than
+> none because it invites someone to ship the unsafe one. Confirmed live posture
+> (`jsx-renderer.tsx`): CSP `unsafe-eval` + `esm.sh` egress + `new Function()` on
+> Babel-compiled user code, in an iframe with `sandbox="allow-scripts
+> allow-same-origin"` — the last pair is the exfil hole (frame reaches the parent
+> origin). Leave templates **out of scope** so they can't accrete; the §4 menu
+> below stays for the day someone is paid to make the sandbox real (self-bundle,
+> null-origin, network-stripped, no `unsafe-eval`).
+
 - `components/ui/template-renderer/jsx-renderer.tsx` — user-authored **JSX/Preact
   rendered in an iframe**, Tailwind via `@twind/core`. This is exactly "custom
   widgets authored from the frontend" — but see the security note below; their
@@ -302,12 +381,24 @@ trees, sampled append-only `trace` table, `assemble_trace`/`SpanNode` read-back.
 
 What to borrow from Laminar's model:
 
-### 5a. Span typing as a first-class enum
+### 5a. Span typing as a reserved-attribute-key schema (not a closed enum)
 Laminar spans carry a type: `DEFAULT / LLM / TOOL / EVALUATOR / EVALUATION /
 HUMAN_EVALUATOR / PIPELINE / EXECUTOR`. Our spans carry a `work` step name.
-**Promote `work` → a typed `span_kind`** so we can render/filter per type (LLM
-calls vs. tool calls vs. rule evals) and compute per-type cost/latency. ⚠ adapt:
-ours is generic, so keep an open `Other(String)` arm.
+
+> **Reversed from the first draft.** The draft said "promote `work` → a typed
+> closed `span_kind` enum (with `Other(String)`)." That fights our model: today
+> [`Span`](../../crates/rubix-trace/src/span.rs) is deliberately just `name` +
+> free-form `attributes` (generic by construction), and a closed taxonomy is a
+> breaking contract change we'd grow to regret. **Don't introduce an enum.**
+> Instead define a **well-known attribute-key schema** — reserved keys
+> `span.kind`, `span.status`, `span.tokens`, `span.cost` inside the existing
+> `attributes` map. This gets the rollup (§5b) everything it needs (fold typed
+> metrics out of `attributes` at persist time) with **no schema break and no
+> closed enum to fight**. Getting the *shape* of these keys right matters more
+> than getting them statically typed — that's the actual deliverable of §5a.
+
+Net: we still render/filter per type (LLM vs. tool vs. rule eval) and compute
+per-type cost/latency — we just read it from reserved keys, not a Rust enum.
 
 ### 5b. Trace-level rollup at ingest
 `app-server/src/db/trace.rs::upsert_trace_statistics_batch`: as child spans land,
@@ -445,38 +536,49 @@ Already present (low-friction reuse): TanStack Table/Query/Router, Radix/shadcn.
 
 ---
 
-## 9. Suggested take-order (revised after review)
-Reordered so backend prerequisites land before the UI that depends on them, and
-the unhardened sandbox goes last.
+## 9. Suggested take-order (revised after second review)
+Reordered around **leverage, not portability** (§0.5): land a thin commodity
+slice with near-zero new backend, then pivot straight to the differentiating
+spine. The expensive commodity middle (catalog, structured builder, datasets) and
+the unsafe sandbox are pushed off the committed path entirely.
 
-1. **Recharts wrapper port** (§3) — replaces SVG; drag-zoom/sync/drill. Adapt the
+**Committed spine (do these, in order):**
+
+1. **Recharts wrapper port** (§3) — replaces SVG; drag-zoom/sync/drill. The
+   chart-builder folder is closer to drop-in than first credited (`charts/utils.ts`
+   ≈240 lines, self-contained; only needs our `--chart-1..5` CSS vars). Adapt the
    formatters to Rubix datetime/unit **prefs** (`rubix-prefs`), not Laminar's
-   hard-coded locale. The one genuinely near-drop-in win.
-2. **Raw SQL editor panel + saved queries as records** (§1a) — `<QueryConsole>`,
-   Tier-A records. Works against the existing `content`-JSON surface today.
-3. **Query catalog endpoint** (§1 prereq) — `GET /query/schema` backed by
-   collection definitions; drives autocomplete and the structured builder.
-4. **Collection virtual tables / typed projections in `rubix-query`** (§1 prereq)
-   — one DataFusion table/view per `content.kind`; + the function-translation
-   table (quantile/bucket/gap-fill).
-5. **Structured chart builder over the catalog** (§1b/1c) — `from-spec`/`to-spec`,
-   spec-as-source-of-truth.
-6. **Dashboards as records** (§2) — live events as **debounced query
-   invalidation**, *not* a re-query per reading. (Correction to the earlier
-   "stream per DataChange" framing — debounce, don't thrash.)
-7. **Span metric schema + typed spans** (§5a) — the contract change that unblocks
-   rollups.
-8. **Trace rollup surface** (§5b) — Tier-B `trace_summary`, versioned for late
-   arrivals.
-9. **Evaluation model on `rubix-rules`** (§5c) — rule-insights → comparable,
-   chartable evaluations; positions agent-run QA for when the brain lands.
-10. **Datasets + labeling queues** (§5d) — regression sets + attention queue.
-11. **Hardened template renderer** (§4) — **last**, only after the sandbox is real
-    (self-bundled, null-origin, network-stripped, no `unsafe-eval`).
+   hard-coded locale. The cheapest momentum win.
+2. **Raw SQL console + saved queries/charts as records** (§1a, §2) —
+   `<QueryConsole>` + pinned boards as Tier-A records. Works against the existing
+   `content`-JSON surface and today's `rollup_window()` bucketing — **zero new
+   backend.** Dashboards use live events as **debounced query invalidation**, not
+   a re-query per reading (don't thrash).
+3. **Span attribute-metric schema** (§5a, *reserved keys* — no enum) — the
+   contract foundation; non-breaking. Define `span.kind/status/tokens/cost`.
+4. **Trace rollup surface** (§5b) — Tier-B `trace_summary`, versioned for late
+   arrivals (the version column also pays down `rubix-sync`'s late-arrival debt).
+5. **Evaluation model on `rubix-rules`** (§5c) — rule-insights + `scores` +
+   `group_id` → comparable, chartable evaluations; one model that also covers
+   agent-run QA when the Rig brain lands. **The moat.**
 
-Land 1–6 and Rubix has a real analytics product; 7–10 turn it into an
-observability+eval platform for rules *and* the agent; 11 adds custom widgets once
-it's safe to.
+Land 1–2 → a real analytics product on infra we already own. Land 3–5 → an
+observability+eval platform for rules *and* the agent that can't be copied
+without our gate.
+
+**Deferred — pull in only on a voiced need, not by default:**
+
+- **Query catalog endpoint + collection virtual tables / typed projections**
+  (§1 prereq) and the **structured (no-SQL) chart builder** (§1b/1c) — the scope
+  iceberg (weeks of DataFusion work; see §1c banner). Raw SQL covers ~90%.
+- **Datasets + labeling queues** (§5d) — only valuable once §5c exists and there
+  are runs worth labeling; strictly downstream.
+
+**Cut from committed scope (see §4):**
+
+- **Template renderer** (§4) — out until the sandbox is a funded security project
+  (self-bundled, null-origin, network-stripped, no `unsafe-eval`). Not "last in
+  the queue" — not in the queue.
 
 ---
 

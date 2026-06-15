@@ -40,6 +40,14 @@ pub enum AgentError {
     /// memory.
     #[error("invalid embedding: {0}")]
     Embedding(String),
+
+    /// The cloud brain (Rig/OpenAI) could not be reached or returned an error:
+    /// a missing/invalid API key, a provider transport failure, or a completion
+    /// the provider refused. The brain is behind the `cloud` feature and fails
+    /// closed when absent (AGENT.md, open question 1) — a degraded caller falls
+    /// back to a grounded, model-free answer rather than fabricating one.
+    #[error("agent brain failed: {0}")]
+    Brain(String),
 }
 
 impl From<AgentError> for CoreError {

@@ -28,7 +28,7 @@ finds its dependencies already committed.
 | WS-13 | Extensions as scoped principals | ⛔ | | | |
 | WS-14 | Edge/cloud profiles (features + runtime config) | ⛔ | | | |
 | WS-15 | Edge↔cloud sync shipper over Zenoh | ⛔ | | | |
-| WS-16 | Transport: axum HTTP + JSON-RPC + WS bridge + OpenAPI + prefs | ✅ | 2026-06-15T00:00:32Z | 2026-06-15T10:05:00Z | (pending) |
+| WS-16 | Transport: axum HTTP + JSON-RPC + WS bridge + OpenAPI + prefs | ✅ | 2026-06-15T00:00:32Z | 2026-06-15T10:05:00Z | 05cd3fb5 |
 
 ## Dependency notes
 - **WS-01** is the root: workspace, `rubix-core` error enum + ids, `rubix-store` SurrealDB boundary,

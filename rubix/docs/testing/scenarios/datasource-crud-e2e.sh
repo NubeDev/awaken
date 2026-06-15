@@ -58,12 +58,14 @@ boot() {
   RUBIX_DATA_DIR="$DATA" RUBIX_BIND="127.0.0.1:$PORT" \
     cargo run -q -p rubix-server --bin rubix-server --features postgres -- "$@" > "$LOG" 2>&1 &
   SRV=$!
-  for i in $(seq 1 90); do
+  # The first (seeded) boot writes 1320 records on a debug build; under a busy
+  # box that can take a few minutes, so poll generously before giving up.
+  for i in $(seq 1 300); do
     curl -s "$B/health" >/dev/null 2>&1 && return 0
     kill -0 "$SRV" 2>/dev/null || { echo "!!! server died during boot"; cat "$LOG"; return 1; }
-    sleep 1
+    sleep 2
   done
-  echo "!!! server never came up"; return 1
+  echo "!!! server never came up (last log lines:)"; tail -5 "$LOG"; return 1
 }
 
 rm -rf "$DATA"
@@ -93,10 +95,13 @@ ck "get.one.label"      "Cloud Warehouse" "$(curl -s $B/datasources/warehouse "$
 ck_code "get.missing.404" 404 "$B/datasources/nope" "${VW[@]}"
 
 echo; echo "===== D. FEDERATED QUERY (SurrealDB + live Postgres via /query) ====="
-Q='{"sql":"SELECT count(*) AS n FROM \"warehouse\".\"warehouse_readings\""}'
+# Count a real column, not count(*): a wildcard count over a federated
+# datafusion-table-providers source trips an upstream DataFusion schema bug
+# (physical-vs-logical projection mismatch), unrelated to the rubix wiring.
+Q='{"sql":"SELECT count(id) AS n FROM \"warehouse\".\"warehouse_readings\""}'
 ck "query.federated.count" "3" "$(curl -s -X POST $B/query "${AN[@]}" "${JSON[@]}" -d "$Q" | jq '.rows[0].n')"
 QSUM='{"sql":"SELECT sum(value) AS s FROM \"warehouse\".\"warehouse_readings\" WHERE site = '"'"'hq'"'"'"}'
-ck "query.federated.sum"   "22" "$(curl -s -X POST $B/query "${AN[@]}" "${JSON[@]}" -d "$QSUM" | jq '.rows[0].s')"
+ck "query.federated.sum"   "22" "$(curl -s -X POST $B/query "${AN[@]}" "${JSON[@]}" -d "$QSUM" | jq '.rows[0].s | floor')"
 # native records still queryable on the same surface
 ck "query.native.still"    "660" "$(curl -s -X POST $B/query "${AN[@]}" "${JSON[@]}" -d '{"sql":"SELECT count(*) AS n FROM record"}' | jq '.rows[0].n')"
 

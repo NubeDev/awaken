@@ -70,6 +70,11 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
 
     for namespace in TENANTS {
         let (operator, credentials) = provision_cast(db, namespace).await?;
+        // Each tenant namespace gets the bootstrap meta-collection so the demo
+        // store exposes a collection registry from the first read.
+        rubix_core::bootstrap_meta_collection(db, namespace)
+            .await
+            .map_err(|e| SeedError::new("seeding meta-collection", e))?;
         for cred in &credentials {
             let grants = cred
                 .grants

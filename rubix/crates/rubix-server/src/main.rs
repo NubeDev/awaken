@@ -6,7 +6,7 @@
 //! deferred (see `rubix/docs/sessions/TODOs.md`); the binary uses the default
 //! edge profile until that lands.
 
-use rubix_core::{Error, Result, ResultExt, RuntimeConfig};
+use rubix_core::{Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection};
 use rubix_gate::{define_audit_schema, define_gate_schema};
 use rubix_server::{AppState, define_datasource_schema, rehydrate, router, seed_dev};
 use rubix_store::StoreHandle;
@@ -38,6 +38,13 @@ async fn main() -> Result<()> {
     define_datasource_schema(store.raw())
         .await
         .map_err(|e| Error::Config(format!("defining datasource schema: {e}")))?;
+
+    // Seed the bootstrap meta-collection (the collection-defining-collection) for
+    // the default namespace so collection records are discoverable and, under
+    // strict mode, validated against it. Idempotent — a no-op on a non-fresh store.
+    bootstrap_meta_collection(store.raw(), &config.namespace)
+        .await
+        .map_err(|e| Error::Config(format!("seeding meta-collection: {e}")))?;
 
     if std::env::args().any(|arg| arg == "--seed-dev") {
         seed_dev(store.raw())

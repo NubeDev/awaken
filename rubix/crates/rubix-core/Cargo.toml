@@ -31,6 +31,10 @@ name = "record_delete"
 path = "tests/record/delete_test.rs"
 
 [[test]]
+name = "collection_load"
+path = "tests/collection/load_test.rs"
+
+[[test]]
 name = "tag_attach"
 path = "tests/tag/attach_test.rs"
 

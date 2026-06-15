@@ -18,7 +18,7 @@ use surrealdb::engine::local::Db;
 
 use rubix_bus::ControlBus;
 use rubix_core::{CorrelationId, Id};
-use rubix_trace::{SampleRate, Span, emit_span, persist_span};
+use rubix_trace::{MetricsBuilder, SampleRate, Span, SpanStatus, emit_span, persist_span};
 
 use crate::engine::Decision;
 use crate::error::{Result, RuleError};
@@ -61,7 +61,7 @@ pub fn build_span(
     child_values: &HashMap<String, f64>,
     decision: &Decision,
 ) -> Span {
-    let attributes = serde_json::json!({
+    let mut attributes = serde_json::json!({
         "rule": rule.id.as_str(),
         "output": rule.output,
         "inputs": inputs,
@@ -72,6 +72,14 @@ pub fn build_span(
             "reason": decision.reason,
         },
     });
+    // Populate the §5a reserved metric keys the trace rollup folds out: a rule
+    // evaluation is a `rule`-kind span, and reaching `build_span` means it
+    // completed (an evaluation error never produces a decision), so its status is
+    // `Ok`. Tokens/cost are left unset — rule evaluation has neither.
+    MetricsBuilder::new()
+        .kind("rule")
+        .status(SpanStatus::Ok)
+        .apply(&mut attributes);
     Span {
         span_id: frame.span_id,
         trace_id: frame.trace_id,
@@ -152,6 +160,9 @@ mod tests {
         assert_eq!(span.attributes["rule"], "r");
         assert_eq!(span.attributes["decision"]["fired"], true);
         assert_eq!(span.attributes["inputs"]["temp"], 30.0);
+        // The §5a reserved metric keys are populated for the rollup.
+        assert_eq!(span.attributes["span.kind"], "rule");
+        assert_eq!(span.attributes["span.status"], "ok");
     }
 
     #[test]

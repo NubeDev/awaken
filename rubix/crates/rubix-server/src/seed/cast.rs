@@ -4,10 +4,10 @@
 //! the dev seed does it through the gate library directly — the same calls the
 //! WS-16 test fixture uses (`provision_principal` + `create_grant`). Each tenant
 //! gets the four-principal cast that exercises both authz layers: an operator
-//! that may write (the `IngestPublish` grant a record mutation routes through),
-//! a read-only viewer, an analyst that may run DataFusion queries
-//! (`ExternalQuery`), and an extension service account for the agent design
-//! (`ExternalQuery` + `RuleInvoke`).
+//! that may write (the `IngestPublish` grant a record mutation routes through)
+//! and run the query console (`ExternalQuery`), a read-only viewer, an analyst
+//! that may run DataFusion queries (`ExternalQuery`), and an extension service
+//! account for the agent design (`ExternalQuery` + `RuleInvoke`).
 
 use rubix_core::{Id, Principal, PrincipalKind, Role};
 use rubix_gate::{Capability, create_grant, provision_principal};
@@ -45,7 +45,13 @@ const CAST: &[DemoPrincipal] = &[
         secret: "operator-demo",
         kind: PrincipalKind::User,
         role: Role::Operator,
-        grants: &[Capability::IngestPublish, Capability::DatasourceRegister],
+        grants: &[
+            Capability::IngestPublish,
+            Capability::DatasourceRegister,
+            // The query console is an operator-facing tool; without this the
+            // default operator login 403s on POST /query (external-query gate).
+            Capability::ExternalQuery,
+        ],
     },
     DemoPrincipal {
         subject: "viewer",

@@ -13,6 +13,7 @@ members = [
     "crates/rubix-prefs",
     "crates/rubix-ext",
     "crates/rubix-sync",
+    "crates/rubix-agent",
     "crates/rubix-server",
 ]
 
@@ -35,6 +36,7 @@ rubix-ingest = { version = "0.1.0", path = "crates/rubix-ingest" }
 rubix-prefs = { version = "0.1.0", path = "crates/rubix-prefs" }
 rubix-ext = { version = "0.1.0", path = "crates/rubix-ext" }
 rubix-sync = { version = "0.1.0", path = "crates/rubix-sync" }
+rubix-agent = { version = "0.1.0", path = "crates/rubix-agent" }
 
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

@@ -1,0 +1,31 @@
+[package]
+name = "rubix-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-gate = { workspace = true }
+rubix-query = { workspace = true }
+rubix-ext = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rubix-store = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "provision_agent"
+path = "tests/provision/agent_test.rs"
+
+[[test]]
+name = "memory_recall"
+path = "tests/memory/recall_test.rs"

@@ -40,11 +40,16 @@ import { ChartType, type ChartConfig, type DisplayMode } from '../../components/
 const route = getRouteApi('/t/$tenant/admin/query')
 
 // The query surface exposes structural columns (id, namespace, created, updated)
-// plus `content` as a JSON *string* — there are no JSON UDFs registered, so
-// `content.kind`-style field access fails. These presets use only structural
-// columns, so each runs as-is and charts directly.
+// plus `content` as JSON text. The json_get(json, key) UDF reaches into it —
+// composably, so json_get(json_get(content,'content'),'kind') descends to the
+// document payload's `kind` (see the "Records by kind" preset). The starter uses
+// only structural columns so it runs on any backend; json_get needs the rebuilt
+// rubix-query.
 const STARTER =
   "SELECT date_trunc('day', created) AS day, count(*) AS n FROM record GROUP BY day ORDER BY day"
+
+const BY_KIND =
+  "SELECT json_get(json_get(content, 'content'), 'kind') AS kind, count(*) AS n FROM record GROUP BY kind ORDER BY n DESC"
 
 const NONE = '__none__'
 const NEW = '__new__'
@@ -56,16 +61,30 @@ interface Preset {
 }
 
 const PRESETS: Preset[] = [
-  { name: 'Records per day', sql: STARTER, chart: { type: ChartType.LineChart, x: 'day', y: 'n' } },
+  {
+    name: 'Records by kind',
+    sql: BY_KIND,
+    chart: { type: ChartType.HorizontalBarChart, x: 'n', y: 'kind' },
+  },
+  {
+    name: 'Records per day',
+    sql: STARTER,
+    chart: { type: ChartType.LineChart, x: 'day', y: 'n' },
+  },
   {
     name: 'Records per namespace',
     sql: 'SELECT namespace, count(*) AS n FROM record GROUP BY namespace ORDER BY n DESC',
     chart: { type: ChartType.BarChart, x: 'namespace', y: 'n' },
   },
   {
-    name: 'Audit volume per day',
-    sql: "SELECT date_trunc('day', created) AS day, count(*) AS n FROM audit GROUP BY day ORDER BY day",
-    chart: { type: ChartType.LineChart, x: 'day', y: 'n' },
+    name: 'Audit by action',
+    sql: "SELECT json_get(content, 'action') AS action, count(*) AS n FROM audit GROUP BY action ORDER BY n DESC",
+    chart: { type: ChartType.BarChart, x: 'action', y: 'n' },
+  },
+  {
+    name: 'Evaluations by group',
+    sql: "SELECT json_get(json_get(content, 'content'), 'group_id') AS grp, count(*) AS n FROM record WHERE json_get(json_get(content, 'content'), 'group_id') IS NOT NULL GROUP BY grp ORDER BY n DESC",
+    chart: { type: ChartType.BarChart, x: 'grp', y: 'n' },
   },
 ]
 

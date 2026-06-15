@@ -4,30 +4,39 @@
 // principals, query) and knows NO domain type. Nav links are tenant-scoped.
 
 import { Link, getRouteApi } from '@tanstack/react-router'
-import { Database, KeyRound, Table2, TerminalSquare, type LucideIcon } from 'lucide-react'
+import { Bot, Database, KeyRound, LayoutDashboard, Table2, TerminalSquare, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { TopBar } from '../ui/TopBar'
 import { cn } from '@/lib/cn'
 
 const route = getRouteApi('/t/$tenant/admin')
 
-type AdminTab = 'schema' | 'records' | 'principals' | 'query'
+type AdminTab = 'schema' | 'records' | 'principals' | 'agents' | 'query' | 'dashboards'
 
 interface NavItem {
   to: AdminTab
-  path: '/t/$tenant/admin/schema' | '/t/$tenant/admin/records' | '/t/$tenant/admin/principals' | '/t/$tenant/admin/query'
+  path:
+    | '/t/$tenant/admin/schema'
+    | '/t/$tenant/admin/records'
+    | '/t/$tenant/admin/principals'
+    | '/t/$tenant/admin/agents'
+    | '/t/$tenant/admin/query'
+    | '/t/$tenant/admin/dashboards'
   label: string
   icon: LucideIcon
   sub: string
 }
 
 // Substrate surfaces only — no domain vocabulary. "Schema" inspects how the
-// backend is shaped; the rest are generic CRUD/query over the gate.
+// backend is shaped; the rest are generic CRUD/query over the gate. "Agents"
+// provisions AI agents as scoped principals (AGENT.md).
 const NAV: NavItem[] = [
   { to: 'schema', path: '/t/$tenant/admin/schema', label: 'Schema', icon: Database, sub: 'Kinds, fields & tags' },
   { to: 'records', path: '/t/$tenant/admin/records', label: 'Records', icon: Table2, sub: 'Browse & edit any record' },
   { to: 'principals', path: '/t/$tenant/admin/principals', label: 'Principals', icon: KeyRound, sub: 'Identities & grants' },
+  { to: 'agents', path: '/t/$tenant/admin/agents', label: 'Agents', icon: Bot, sub: 'AI agents & tiers' },
   { to: 'query', path: '/t/$tenant/admin/query', label: 'Query', icon: TerminalSquare, sub: 'Run a query' },
+  { to: 'dashboards', path: '/t/$tenant/admin/dashboards', label: 'Dashboards', icon: LayoutDashboard, sub: 'Pinned chart boards' },
 ]
 
 export function AdminLayout({ active, children }: { active: string; children: ReactNode }) {

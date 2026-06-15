@@ -7,9 +7,10 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Save, Sparkles, TerminalSquare, Trash2, ZoomOut } from 'lucide-react'
+import { LineChart as LineChartIcon, Play, Save, Sparkles, TerminalSquare, Trash2, ZoomOut } from 'lucide-react'
 import { useApi } from '../../api/ConnectionContext'
 import { runQuery, type QueryResponse } from '../../api/query'
+import { createChart } from '../../api/charts'
 import {
   createSavedQuery,
   deleteSavedQuery,
@@ -105,6 +106,14 @@ export function AdminQuery() {
       setSelectedId(q.id)
       void qc.invalidateQueries({ queryKey: ['saved-queries', tenant] })
     },
+  })
+
+  // Persist the current query + chart config as a kind:"chart" record, so it can
+  // be pinned to a dashboard board (§2).
+  const saveChart = useMutation({
+    mutationFn: () =>
+      createChart(api, { name: name.trim() || 'Untitled chart', sql, config: chart }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['charts', tenant] }),
   })
 
   const remove = useMutation<void, Error, string>({
@@ -210,6 +219,15 @@ export function AdminQuery() {
           />
           <Button variant="outline" onClick={() => persist.mutate()} disabled={persist.isPending} className="gap-1.5">
             <Save size={15} /> {persist.isPending ? 'Saving…' : 'Save'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => saveChart.mutate()}
+            disabled={saveChart.isPending}
+            className="gap-1.5"
+            title="Save as a chart you can pin to a dashboard"
+          >
+            <LineChartIcon size={15} /> {saveChart.isPending ? 'Saving…' : 'Save as chart'}
           </Button>
           {selectedId !== NEW && (
             <Button

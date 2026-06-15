@@ -39,6 +39,10 @@ name = "record_list_filtered"
 path = "tests/record/list_filtered_test.rs"
 
 [[test]]
+name = "record_list_tags"
+path = "tests/record/list_tags_test.rs"
+
+[[test]]
 name = "tag_attach"
 path = "tests/tag/attach_test.rs"
 

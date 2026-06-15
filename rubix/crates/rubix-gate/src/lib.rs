@@ -45,7 +45,8 @@ pub use principal::{
     set_principal_role,
 };
 pub use read::{
-    read_record_on_session, read_records_on_session, read_records_on_session_filtered,
+    read_record_on_session, read_record_tags_on_session, read_records_on_session,
+    read_records_on_session_filtered,
 };
 pub use session::{ScopedSession, issue_scoped_session};
 pub use tenant::purge_namespace;

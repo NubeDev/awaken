@@ -7,7 +7,11 @@
 //! Reads are not proxied per message; they run directly on the session the gate
 //! issued once (contract #1).
 
-use rubix_core::{Id, Record, list_records, list_records_filtered, read_record};
+use std::collections::HashMap;
+
+use rubix_core::{
+    Id, Record, list_record_tags, list_records, list_records_filtered, read_record,
+};
 
 use crate::error::{GateError, Result};
 use crate::session::ScopedSession;
@@ -41,6 +45,23 @@ pub async fn read_records_on_session_filtered(
     tags: &[String],
 ) -> Result<Vec<Record>> {
     list_records_filtered(session.connection(), kind, tags)
+        .await
+        .map_err(GateError::Read)
+}
+
+/// Project the tag names of the records visible to `session`'s principal, keyed
+/// by record id.
+///
+/// Tags are graph edges, not record fields, so this is a read-only projection a
+/// caller joins onto a record listing (e.g. to surface tags on the wire). It runs
+/// on the scoped session, so it sees exactly the principal's readable records.
+///
+/// # Errors
+/// Returns [`GateError::Read`] if the underlying scoped query fails.
+pub async fn read_record_tags_on_session(
+    session: &ScopedSession,
+) -> Result<HashMap<String, Vec<String>>> {
+    list_record_tags(session.connection())
         .await
         .map_err(GateError::Read)
 }

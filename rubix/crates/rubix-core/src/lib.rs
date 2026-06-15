@@ -25,8 +25,8 @@ pub use hook::{HOOK_KIND, Hook, HookEvent, HookParseError, find_hooks};
 pub use id::Id;
 pub use principal::{Principal, PrincipalKind, Role};
 pub use record::{
-    Record, create_record, decode_record, delete_record, list_records, list_records_filtered,
-    read_record, update_record,
+    Record, RecordTags, create_record, decode_record, delete_record, list_record_tags,
+    list_records, list_records_filtered, read_record, update_record,
 };
 pub use tag::{
     Tag, attach_tag, create_tag, delete_tag, detach_tag, find_records_by_tags,

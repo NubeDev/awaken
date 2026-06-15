@@ -39,6 +39,33 @@
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader', Georgia, serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* shadcn/ui semantic tokens, mapped onto the Rubix palette above so vendored
+   * primitives (Button, Dialog, Table, …) inherit this dark theme rather than
+   * shadcn's defaults. Admin screens are built on these; the existing operator
+   * pages keep using the raw bg-panel2/text-r1 utilities. One source of truth. */
+  --color-background: hsl(234 18% 6%);
+  --color-foreground: hsl(220 16% 93%);
+  --color-card: hsl(232 15% 9%);
+  --color-card-foreground: hsl(220 16% 93%);
+  --color-popover: hsl(230 14% 12%);
+  --color-popover-foreground: hsl(220 16% 93%);
+  --color-primary: hsl(258 84% 74%);
+  --color-primary-foreground: hsl(234 18% 6%);
+  --color-secondary: hsl(230 14% 12%);
+  --color-secondary-foreground: hsl(220 16% 93%);
+  --color-muted: hsl(230 13% 15%);
+  --color-muted-foreground: hsl(220 8% 56%);
+  --color-accent: hsl(230 13% 15%);
+  --color-accent-foreground: hsl(220 16% 93%);
+  --color-destructive: hsl(357 84% 66%);
+  --color-destructive-foreground: hsl(220 16% 93%);
+  --color-input: hsl(230 10% 18%);
+  --color-ring: hsl(258 84% 74%);
+
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.375rem;
 }
 
 * {

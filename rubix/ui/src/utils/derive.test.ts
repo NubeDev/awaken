@@ -5,7 +5,7 @@ import type { Record } from '../types/Record'
 // Fake records shaped like the seed (crates/rubix-server/src/seed/portfolio.rs):
 // a site, an hvac equip, its temp + setpoint points, and a few readings.
 function rec(id: string, content: Record['content']): Record {
-  return { id, namespace: 'acme', content, created: '2026-06-15T00:00:00Z', updated: '2026-06-15T00:00:00Z' }
+  return { id, namespace: 'acme', content, tags: [], created: '2026-06-15T00:00:00Z', updated: '2026-06-15T00:00:00Z' }
 }
 
 const records: Record[] = [

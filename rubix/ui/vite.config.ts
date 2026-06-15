@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { fileURLToPath, URL } from 'node:url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -7,6 +8,11 @@ export default defineConfig({
   // loads inside a Tauri desktop webview (file://) without a host-aware rewrite.
   base: './',
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   server: {
     port: Number(process.env.VITE_UI_PORT) || 5192,
     // The backend serves flat, unprefixed routes (/records, /query, /auth/...,
@@ -17,7 +23,7 @@ export default defineConfig({
     // what produced the "Unexpected token '<'" JSON parse error. `/api` is kept
     // for the future versioned surface (client.ts TENANT_ROUTES_LIVE).
     proxy: {
-      '^/(api|records|query|auth|datasources|health|api-docs)(/|$)': {
+      '^/(api|records|query|auth|datasources|principals|tenants|devices|health|api-docs)(/|$)': {
         target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8092',
         changeOrigin: true,
       },

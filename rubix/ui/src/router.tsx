@@ -8,12 +8,16 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  redirect,
 } from '@tanstack/react-router'
 import { Portfolio } from './pages/Portfolio'
 import { Home } from './pages/Home'
 import { Building } from './pages/Building'
 import { Copilot } from './pages/Copilot'
-import { AdminRecords } from './pages/AdminRecords'
+import { AdminSchema } from './pages/admin/AdminSchema'
+import { AdminRecordsPage } from './pages/admin/AdminRecordsPage'
+import { AdminPrincipals } from './pages/admin/AdminPrincipals'
+import { AdminQuery } from './pages/admin/AdminQuery'
 import { GenericPage } from './pages/GenericPage'
 
 interface SiteSearch {
@@ -57,11 +61,45 @@ const copilotRoute = createRoute({
   component: Copilot,
 })
 
-const adminRecordsRoute = createRoute({
+// /t/$tenant/admin — the admin console. A pass-through layout route; each child
+// screen renders inside <AdminLayout>. The bare /admin path redirects to the
+// schema inspector (the developer's natural entry: "how is this backend shaped?").
+const adminRoute = createRoute({
   getParentRoute: () => tenantRoute,
-  path: 'admin/records',
-  validateSearch: validateSite,
-  component: AdminRecords,
+  path: 'admin',
+  component: () => <Outlet />,
+})
+
+const adminIndexRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: '/',
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/t/$tenant/admin/schema', params: { tenant: params.tenant } })
+  },
+})
+
+const adminSchemaRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'schema',
+  component: AdminSchema,
+})
+
+const adminRecordsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'records',
+  component: AdminRecordsPage,
+})
+
+const adminPrincipalsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'principals',
+  component: AdminPrincipals,
+})
+
+const adminQueryRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'query',
+  component: AdminQuery,
 })
 
 // Generic native page (devices/data/rules/reports/settings). Last so the static
@@ -75,7 +113,19 @@ const pageRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  tenantRoute.addChildren([homeRoute, buildingRoute, copilotRoute, adminRecordsRoute, pageRoute]),
+  tenantRoute.addChildren([
+    homeRoute,
+    buildingRoute,
+    copilotRoute,
+    adminRoute.addChildren([
+      adminIndexRoute,
+      adminSchemaRoute,
+      adminRecordsRoute,
+      adminPrincipalsRoute,
+      adminQueryRoute,
+    ]),
+    pageRoute,
+  ]),
 ])
 
 export const router = createRouter({ routeTree })

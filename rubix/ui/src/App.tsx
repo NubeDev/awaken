@@ -5,6 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { ConnectionProvider, useConnection } from './api/ConnectionContext'
+import { ToastProvider } from './components/ui/toast'
 import { Connect } from './pages/Connect'
 import { router } from './router'
 
@@ -21,9 +22,11 @@ function Gate() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConnectionProvider>
-        <Gate />
-      </ConnectionProvider>
+      <ToastProvider>
+        <ConnectionProvider>
+          <Gate />
+        </ConnectionProvider>
+      </ToastProvider>
     </QueryClientProvider>
   )
 }

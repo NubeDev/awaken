@@ -60,6 +60,10 @@ export class ApiClient {
     return this.request<T>('PATCH', resource, body)
   }
 
+  async put<T>(resource: string, body: unknown): Promise<T> {
+    return this.request<T>('PUT', resource, body)
+  }
+
   async del(resource: string): Promise<void> {
     await this.request<unknown>('DELETE', resource)
   }

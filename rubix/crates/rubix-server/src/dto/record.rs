@@ -21,6 +21,14 @@ pub struct RecordDto {
     pub namespace: String,
     /// Free-form document content.
     pub content: Value,
+    /// The names of the tags this record carries (`record→tagged→tag`).
+    ///
+    /// Tags are graph edges, not content — they are projected onto the listing
+    /// read so a client can see a record's classification without a second call.
+    /// Single-record reads (get/create/update) return an empty set; only the list
+    /// read joins the tag graph.
+    #[serde(default)]
+    pub tags: Vec<String>,
     /// When the record was created (RFC 3339, UTC).
     pub created: String,
     /// When the record's content was last updated (RFC 3339, UTC).
@@ -33,8 +41,23 @@ impl From<Record> for RecordDto {
             id: record.id.to_string(),
             namespace: record.namespace,
             content: record.content,
+            tags: Vec::new(),
             created: record.created.to_string(),
             updated: record.updated.to_string(),
+        }
+    }
+}
+
+impl RecordDto {
+    /// Project a record into its DTO with its tag names attached.
+    ///
+    /// Used by the list read, which joins the tag-graph projection
+    /// (`rubix_gate::read_record_tags_on_session`) onto each record.
+    #[must_use]
+    pub fn with_tags(record: Record, tags: Vec<String>) -> Self {
+        Self {
+            tags,
+            ..Self::from(record)
         }
     }
 }

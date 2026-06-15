@@ -28,7 +28,7 @@ const route = getRouteApi('/t/$tenant/')
 type Dest =
   | { to: '/t/$tenant/building' }
   | { to: '/t/$tenant/copilot' }
-  | { to: '/t/$tenant/admin/records' }
+  | { to: '/t/$tenant/admin' }
   | { to: '/t/$tenant/$page'; page: string }
 
 interface MenuItem {
@@ -64,7 +64,7 @@ export function Home() {
   const menu: MenuItem[] = [
     { label: 'Building & Zones', sub: `${zones.length} zones`, icon: Building2, dest: { to: '/t/$tenant/building' } },
     { label: 'Ask Rubix', sub: alerts ? `${alerts} need you` : 'all calm', icon: Sparkles, dest: { to: '/t/$tenant/copilot' }, accent: true },
-    { label: 'Admin · Records', sub: `${records?.length ?? 0} records`, icon: Table2, dest: { to: '/t/$tenant/admin/records' } },
+    { label: 'Admin Console', sub: `${records?.length ?? 0} records`, icon: Table2, dest: { to: '/t/$tenant/admin' } },
     { label: 'Devices', sub: `${active?.equips ?? 0} equipment`, icon: Cpu, dest: { to: '/t/$tenant/$page', page: 'devices' } },
     { label: 'Data Sources', sub: 'connectors', icon: Database, dest: { to: '/t/$tenant/$page', page: 'data' } },
     { label: 'Rules', sub: 'automations', icon: GitBranch, dest: { to: '/t/$tenant/$page', page: 'rules' } },

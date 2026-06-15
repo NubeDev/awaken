@@ -12,7 +12,7 @@
 
 use axum::Json;
 use axum::extract::Query;
-use rubix_gate::read_records_on_session_filtered;
+use rubix_gate::{read_record_tags_on_session, read_records_on_session_filtered};
 use serde::Deserialize;
 
 use crate::auth::Authenticated;
@@ -41,7 +41,20 @@ pub async fn list_records_route(
     let records = read_records_on_session_filtered(&auth.session, query.kind.as_deref(), &tags)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
-    Ok(Json(records.into_iter().map(RecordDto::from).collect()))
+
+    // Join each record's tag names from the graph projection (same scoped
+    // session), so the listing carries classification without a second round-trip.
+    let mut tags_by_id = read_record_tags_on_session(&auth.session)
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+    let dtos = records
+        .into_iter()
+        .map(|record| {
+            let record_tags = tags_by_id.remove(record.id.as_str()).unwrap_or_default();
+            RecordDto::with_tags(record, record_tags)
+        })
+        .collect();
+    Ok(Json(dtos))
 }
 
 /// Split a comma-separated `tag` value into trimmed, non-empty tag names.

@@ -6,6 +6,9 @@ export interface Record {
   id: string
   namespace: string
   content: RecordContent
+  /** Tag names this record carries (record→tagged→tag). Populated on the list
+   *  read; single-record reads return an empty set. */
+  tags: string[]
   created: string
   updated: string
 }

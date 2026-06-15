@@ -18,7 +18,15 @@
 //!   resolves a token to a principal record and binds it to `$auth`;
 //! - the `record` table's `PERMISSIONS FOR select` clause keys on
 //!   `$auth.namespace`, so the engine returns only the session principal's
-//!   namespace data.
+//!   namespace data;
+//! - the `tag` and `tagged` tables carry scoped-session `select` permissions so a
+//!   principal can traverse the classification graph (`record→tagged→tag`) it owns:
+//!   `tag` nodes are shared, non-sensitive names (`FOR select FULL`), while a
+//!   `tagged` edge is readable only when the record it leaves (`in`) is in the
+//!   session's namespace — so the graph walk narrows with the record scope and
+//!   never reveals another tenant's edges. Without these, a scoped read of
+//!   `->tagged->tag` returns empty (the tag filter and the wire tag projection both
+//!   depend on this).
 //!
 //! Run once against the root store handle at bootstrap. Idempotent via
 //! `IF NOT EXISTS` / `OVERWRITE`-free `DEFINE` re-application.
@@ -51,6 +59,14 @@ DEFINE ACCESS IF NOT EXISTS principal ON DATABASE TYPE RECORD\n\
 DEFINE TABLE OVERWRITE record SCHEMALESS\n\
   PERMISSIONS\n\
     FOR select WHERE namespace = $auth.namespace\n\
+    FOR create, update, delete NONE;\n\
+DEFINE TABLE OVERWRITE tag SCHEMALESS\n\
+  PERMISSIONS\n\
+    FOR select FULL\n\
+    FOR create, update, delete NONE;\n\
+DEFINE TABLE OVERWRITE tagged SCHEMALESS\n\
+  PERMISSIONS\n\
+    FOR select WHERE in.namespace = $auth.namespace\n\
     FOR create, update, delete NONE;";
 
 /// Apply the gate's access method and record permissions on the root handle.

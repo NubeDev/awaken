@@ -1,8 +1,10 @@
-//! Minimal rubix server binary: open the store, build state, serve HTTP.
+//! Rubix server binary: open the store, build state, serve the transport.
 //!
-//! Edge/cloud profile selection and the full transport surface (JSON-RPC, WS
-//! live-query bridge, OpenAPI) land in WS-16; this binary establishes the
-//! `AppState` wiring and the `/health` route every later route hangs off.
+//! Boots on the committed `RuntimeConfig` edge default and serves the full WS-16
+//! transport (HTTP routes, the WebSocket live-query bridge, and the OpenAPI
+//! document). Edge/cloud **profile selection** into `AppState` is WS-14 and is
+//! deferred (see `rubix/docs/sessions/TODOs.md`); the binary uses the default
+//! edge profile until that lands.
 
 use rubix_core::{Result, ResultExt, RuntimeConfig};
 use rubix_server::{AppState, router};
@@ -19,7 +21,7 @@ async fn main() -> Result<()> {
     let store = StoreHandle::open(&config)
         .await
         .context("opening store on startup")?;
-    let state = AppState::new(store);
+    let state = AppState::new(store, config.namespace.clone(), config.database.clone());
 
     let bind = std::env::var("RUBIX_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_owned());
     let listener = tokio::net::TcpListener::bind(&bind)

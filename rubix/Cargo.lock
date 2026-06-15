@@ -41,7 +41,7 @@ dependencies = [
  "libc",
  "num_cpus",
  "parking_lot",
- "thiserror",
+ "thiserror 2.0.18",
  "winapi",
 ]
 
@@ -509,6 +509,7 @@ checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
  "axum-core 0.4.5",
+ "base64",
  "bytes",
  "futures-util",
  "http",
@@ -526,8 +527,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "sha1",
  "sync_wrapper",
  "tokio",
+ "tokio-tungstenite 0.24.0",
  "tower",
  "tower-layer",
  "tower-service",
@@ -2124,7 +2127,7 @@ dependencies = [
  "hashbrown 0.16.1",
  "num-traits",
  "rand 0.9.4",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -2142,7 +2145,7 @@ dependencies = [
  "rand 0.9.4",
  "rand_distr",
  "rayon",
- "thiserror",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3012,7 +3015,7 @@ dependencies = [
  "once_cell",
  "rand 0.9.4",
  "ring",
- "thiserror",
+ "thiserror 2.0.18",
  "tinyvec",
  "tokio",
  "tracing",
@@ -3035,7 +3038,7 @@ dependencies = [
  "rand 0.9.4",
  "resolv-conf",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -4152,7 +4155,7 @@ dependencies = [
  "itertools 0.14.0",
  "parking_lot",
  "percent-encoding",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "url",
@@ -4981,7 +4984,7 @@ checksum = "a4e608c6638b9c18977b00b475ac1f28d14e84b27d8d42f70e0bf1e3dec127ac"
 dependencies = [
  "getrandom 0.2.17",
  "libredox",
- "thiserror",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5308,7 +5311,7 @@ dependencies = [
  "rubix-store",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5319,7 +5322,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
  "uuid",
 ]
@@ -5337,7 +5340,7 @@ dependencies = [
  "secrecy 0.10.3",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5350,7 +5353,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5364,7 +5367,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
  "zenoh",
 ]
@@ -5376,7 +5379,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5389,7 +5392,7 @@ dependencies = [
  "rubix-store",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5407,7 +5410,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5415,14 +5418,27 @@ dependencies = [
 name = "rubix-server"
 version = "0.1.0"
 dependencies = [
+ "arrow-json",
+ "async-trait",
  "axum 0.7.9",
+ "datafusion",
+ "futures",
  "http-body-util",
+ "rubix-bus",
  "rubix-core",
+ "rubix-datasource",
+ "rubix-gate",
+ "rubix-prefs",
+ "rubix-query",
  "rubix-store",
  "serde",
  "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
  "tokio",
+ "tokio-tungstenite 0.24.0",
  "tower",
+ "utoipa",
 ]
 
 [[package]]
@@ -5432,7 +5448,7 @@ dependencies = [
  "rubix-core",
  "serde",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5446,7 +5462,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surrealdb",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -5630,7 +5646,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
- "thiserror",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5934,7 +5950,7 @@ checksum = "0d585997b0ac10be3c5ee635f1bab02d512760d14b7c468801ac8a01d9ae5f1d"
 dependencies = [
  "num-bigint",
  "num-traits",
- "thiserror",
+ "thiserror 2.0.18",
  "time",
 ]
 
@@ -6326,7 +6342,7 @@ dependencies = [
  "surrealmx",
  "sysinfo",
  "tempfile",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-util",
  "tracing",
@@ -6463,7 +6479,7 @@ dependencies = [
  "parking_lot",
  "serde",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.18",
  "tracing",
  "web-time",
 ]
@@ -6565,11 +6581,31 @@ checksum = "b0f7e269b48f0a7dd0146680fa24b50cc67fc0373f086a5b2f99bd084639b482"
 
 [[package]]
 name = "thiserror"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
+dependencies = [
+ "thiserror-impl 1.0.69",
+]
+
+[[package]]
+name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 2.0.18",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -6744,6 +6780,18 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.24.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25a406cddcc431a75d3d9afc6a7c0f7428d4891dd973e4d54c56b46127bf857"
@@ -6751,7 +6799,7 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite",
+ "tungstenite 0.28.0",
 ]
 
 [[package]]
@@ -6766,9 +6814,9 @@ dependencies = [
  "http",
  "httparse",
  "js-sys",
- "thiserror",
+ "thiserror 2.0.18",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.28.0",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -6982,6 +7030,24 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tungstenite"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18e5b8366ee7a95b16d32197d0b2604b43a0be89dc5fac9f8e96ccafbaedda8a"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.8.6",
+ "sha1",
+ "thiserror 1.0.69",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8628dcc84e5a09eb3d8423d6cb682965dea9133204e8fb3efee74c2a0c259442"
@@ -6993,7 +7059,7 @@ dependencies = [
  "log",
  "rand 0.9.4",
  "sha1",
- "thiserror",
+ "thiserror 2.0.18",
  "utf-8",
 ]
 
@@ -7171,6 +7237,29 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "utoipa"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bde15df68e80b16c7d16b9616e80770ad158988daa56a27dccd1e55558b0160"
+dependencies = [
+ "indexmap 2.14.0",
+ "serde",
+ "serde_json",
+ "utoipa-gen",
+]
+
+[[package]]
+name = "utoipa-gen"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba0b99ee52df3028635d93840c797102da61f8a7bb3cf751032455895b52ef8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "uuid"

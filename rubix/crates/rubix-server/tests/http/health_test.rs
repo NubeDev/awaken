@@ -1,19 +1,18 @@
-//! Integration: `GET /health` returns 200 with an ok status over the router.
+//! Integration: `GET /health` reports ok over the assembled transport.
+
+#[path = "../fixture/mod.rs"]
+mod fixture;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use rubix_core::RuntimeConfig;
-use rubix_server::{AppState, router};
-use rubix_store::StoreHandle;
 use tower::ServiceExt;
+
+use fixture::app::boot;
 
 #[tokio::test]
 async fn health_route_reports_ok() {
-    let store = StoreHandle::open(&RuntimeConfig::in_memory("rubix", "server_health"))
-        .await
-        .expect("open store");
-    let app = router(AppState::new(store));
+    let app = boot("server_health", &[]).await.app;
 
     let response = app
         .oneshot(

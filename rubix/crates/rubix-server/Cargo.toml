@@ -12,14 +12,44 @@ workspace = true
 name = "rubix-server"
 path = "src/main.rs"
 
+[[test]]
+name = "http_health"
+path = "tests/http/health_test.rs"
+
+[[test]]
+name = "http_records_crud"
+path = "tests/http/records/crud_test.rs"
+
+[[test]]
+name = "ws_bridge"
+path = "tests/ws/bridge_test.rs"
+
+[[test]]
+name = "openapi_serve"
+path = "tests/openapi/serve_test.rs"
+
 [dependencies]
 rubix-core = { workspace = true }
 rubix-store = { workspace = true }
-axum = { workspace = true }
+rubix-gate = { workspace = true }
+rubix-bus = { workspace = true }
+rubix-query = { workspace = true }
+rubix-datasource = { workspace = true }
+rubix-prefs = { workspace = true }
+arrow-json = "58"
+async-trait = "0.1"
+axum = { workspace = true, features = ["ws"] }
+datafusion = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
+utoipa = { workspace = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+surrealdb = { workspace = true }
+tokio-tungstenite = "0.24"
+futures = { workspace = true }

@@ -15,15 +15,19 @@
 
 mod authorize;
 mod entry;
+mod find;
 mod list;
 mod register;
+mod remove;
 mod resolve;
 mod span;
 mod store;
 
 pub use authorize::authorize_register;
+pub use find::find;
 pub use list::list;
-pub use register::register;
+pub use register::{register, register_materialized};
+pub use remove::remove;
 pub use resolve::resolve;
 pub use span::span;
 pub use store::{NATIVE_SURREAL_ID, Registry};

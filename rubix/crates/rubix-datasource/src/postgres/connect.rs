@@ -30,10 +30,13 @@ pub struct PostgresConnector {
 impl PostgresConnector {
     /// Connect to Postgres and declare the `tables` this datasource exposes.
     ///
-    /// `connection_string` is a libpq-style string (`host=… user=… dbname=…`, or
-    /// a `postgres://` URL). The pool is established now, so a register that
-    /// reaches this far has a live backend; a query later just materialises a
-    /// provider per table.
+    /// `connection_string` is either a `postgres://`/`postgresql://` URL (the form
+    /// the compose file and Makefile advertise) or a libpq `key=value` string. A
+    /// URL is decomposed into the discrete pool parameters, honoring an `?sslmode=`
+    /// query (the pool defaults to `verify-full` when absent, so a non-TLS local
+    /// database needs `?sslmode=disable`). The pool is established now, so a
+    /// register that reaches this far has a live backend; a query later just
+    /// materialises a provider per table.
     ///
     /// # Errors
     /// Returns [`DatasourceError::Connect`] if the connection pool cannot be built
@@ -44,11 +47,8 @@ impl PostgresConnector {
         connection_string: &str,
         tables: Vec<String>,
     ) -> Result<Self> {
-        let config = DatasourceConfig::new(id, label);
-        let params = HashMap::from([(
-            "connection_string".to_owned(),
-            connection_string.to_owned(),
-        )]);
+        let config = DatasourceConfig::new(id, label).with_kind("postgres");
+        let params = pool_params(connection_string);
         let pool = PostgresConnectionPool::new(to_secret_map(params))
             .await
             .map_err(|e| DatasourceError::Connect {
@@ -81,4 +81,51 @@ impl Connector for PostgresConnector {
                 reason: e.to_string(),
             })
     }
+}
+
+/// Build the connection-pool parameter map from `connection_string`.
+///
+/// `datafusion-table-providers` only parses libpq `key=value` strings out of its
+/// `connection_string` parameter, so a `postgres://` URL handed to it whole is
+/// rejected as an invalid configuration. This decomposes a URL into the discrete
+/// `host`/`port`/`user`/`pass`/`db` parameters the pool understands, carrying
+/// through any recognised SSL query parameters; a non-URL string is passed
+/// through unchanged as a libpq `connection_string`.
+fn pool_params(connection_string: &str) -> HashMap<String, String> {
+    let Ok(url) = url::Url::parse(connection_string) else {
+        return HashMap::from([("connection_string".to_owned(), connection_string.to_owned())]);
+    };
+    if !matches!(url.scheme(), "postgres" | "postgresql") {
+        return HashMap::from([("connection_string".to_owned(), connection_string.to_owned())]);
+    }
+
+    let mut params = HashMap::new();
+    if let Some(host) = url.host_str() {
+        params.insert("host".to_owned(), host.to_owned());
+    }
+    if let Some(port) = url.port() {
+        params.insert("port".to_owned(), port.to_string());
+    }
+    // Userinfo is used verbatim; credentials containing reserved characters
+    // should be supplied via the libpq `key=value` form instead.
+    if !url.username().is_empty() {
+        params.insert("user".to_owned(), url.username().to_owned());
+    }
+    if let Some(pass) = url.password() {
+        params.insert("pass".to_owned(), pass.to_owned());
+    }
+    let db = url.path().trim_start_matches('/');
+    if !db.is_empty() {
+        params.insert("db".to_owned(), db.to_owned());
+    }
+    // Carry through the SSL / application-name query parameters the pool reads.
+    for (key, value) in url.query_pairs() {
+        match key.as_ref() {
+            "sslmode" | "sslrootcert" | "application_name" => {
+                params.insert(key.into_owned(), value.into_owned());
+            }
+            _ => {}
+        }
+    }
+    params
 }

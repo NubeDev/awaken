@@ -42,6 +42,69 @@
 
 ---
 
+## Live End-to-End Verification (2026-06-15)
+
+Booted the real `rubix-server` binary against a file-backed store seeded with
+`--seed-dev` (`make dev-be SEED=1`) and exercised every HTTP/WS surface with a
+live client. **35/35 functional checks passed.**
+
+Seed: 2 tenants (`acme`, `globex`) × 2 sites × HVAC/energy/water = **1320 records**.
+Credentials are `{tenant}_{role}` (e.g. `acme_analyst` / `analyst-demo`).
+
+| Area | Checks | Result |
+|------|--------|--------|
+| Health | status ok | ✅ |
+| Auth | valid (user + extension), missing headers, unknown subject, bad secret → 401 | ✅ |
+| Records read | scoped GET, list count (660/tenant), missing → 404 | ✅ |
+| **Tenant isolation** | cross-tenant GET → 404; each tenant sees only its 660 | ✅ |
+| Records write (gate) | create/update/delete as operator; viewer → 403; unauth → 401 | ✅ |
+| Query (DataFusion) | count + content scan scoped per tenant; no `external-query` → 403; bad/non-SELECT SQL → 400 | ✅ |
+| Datasources / OpenAPI | `GET /datasources` 200; `openapi.json` lists `/records` | ✅ |
+| WS live-query bridge | `/ws/records` (header auth) receives `created` event on insert | ✅ |
+| Durability | restart without `--seed-dev` re-reads the seeded store and authenticates | ✅ |
+
+Fixes landed while verifying:
+- Server now defines the gate + audit schema at boot (was missing outside the
+  test fixture — auth and audit appends would have failed on a real run).
+- Seed subjects use `_` not `-`: the access-method `SIGNIN` builds the id by
+  string concat, which a hyphen breaks.
+- `QUICKSTART.md` corrected (port 8080, real headers, table name `record`,
+  removed non-existent `/api/principals` & `/api/grants`).
+
+Known gap (not a regression): `/ws/records` authenticates via HTTP **headers**,
+which the browser `WebSocket` API cannot set — a browser UI cannot connect to it
+as-is. Needs a query-param/subprotocol token path before the UI can use live
+queries.
+
+### Datasource connector (live Postgres/TimescaleDB)
+
+Brought up the connector's TimescaleDB via the compose file, seeded demo
+telemetry (a 72-row `sensor_readings` hypertable + a probe table), and exercised
+the Postgres connector against the live DB with `--features postgres`. **All
+datasource tests pass** (18 total, incl. 2 live federated):
+
+| Check | Result |
+|-------|--------|
+| Connector connects + builds a `TableProvider` over a live table | ✅ |
+| Gated `register` (needs `datasource-register`) | ✅ |
+| Federated `span`: `SELECT count(measure) FROM "warehouse"."sensor_readings"` → 72 | ✅ |
+| Federated `GROUP BY measure` over Postgres returns temp/kw/flow | ✅ |
+| `span` fails closed without `external-query` | ✅ |
+
+Reusable runner: `docs/testing/scenarios/datasource-e2e.sh` (up DB → seed → test).
+
+Fix landed: `PostgresConnector::connect` now accepts the `postgres://` URL its own
+docs / the compose file / the Makefile advertise — previously the underlying pool
+only parsed libpq `key=value`, so the advertised URL failed with "invalid
+configuration". URLs are decomposed into the pool's discrete params, honoring
+`?sslmode=` (local non-TLS needs `?sslmode=disable`).
+
+Known limitation: `count(*)` over an external table trips a DataFusion ↔
+table-providers schema mismatch (zero-column projection). Use a column aggregate
+(`count(<col>)`) — what real queries do anyway.
+
+---
+
 ## Test Results Summary
 
 ```

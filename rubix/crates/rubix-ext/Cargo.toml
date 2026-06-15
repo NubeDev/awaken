@@ -1,0 +1,38 @@
+[package]
+name = "rubix-ext"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+rubix-core = { workspace = true }
+rubix-gate = { workspace = true }
+rubix-ingest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+surrealdb = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rubix-store = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "provision_register"
+path = "tests/provision/register_test.rs"
+
+[[test]]
+name = "control_invoke"
+path = "tests/control/invoke_test.rs"
+
+[[test]]
+name = "control_deny"
+path = "tests/control/deny_test.rs"
+
+[[test]]
+name = "data_scope"
+path = "tests/data/scope_test.rs"

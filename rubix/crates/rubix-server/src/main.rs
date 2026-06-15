@@ -6,8 +6,9 @@
 //! deferred (see `rubix/docs/sessions/TODOs.md`); the binary uses the default
 //! edge profile until that lands.
 
-use rubix_core::{Result, ResultExt, RuntimeConfig};
-use rubix_server::{AppState, router};
+use rubix_core::{Error, Result, ResultExt, RuntimeConfig};
+use rubix_gate::{define_audit_schema, define_gate_schema};
+use rubix_server::{AppState, define_datasource_schema, rehydrate, router, seed_dev};
 use rubix_store::StoreHandle;
 
 const DEFAULT_NAMESPACE: &str = "rubix";
@@ -21,7 +22,43 @@ async fn main() -> Result<()> {
     let store = StoreHandle::open(&config)
         .await
         .context("opening store on startup")?;
+
+    // The gate's identity/grant/audit tables are not part of the store's base
+    // schema, so define them at boot (idempotent) — without this no principal
+    // can authenticate and every mutation's audit append would fail.
+    define_gate_schema(store.raw())
+        .await
+        .map_err(|e| Error::Config(format!("defining gate schema: {e}")))?;
+    define_audit_schema(store.raw())
+        .await
+        .map_err(|e| Error::Config(format!("defining audit schema: {e}")))?;
+
+    // The datasource control plane persists registered connectors in its own
+    // config table (server config, not tenant data), so define it at boot too.
+    define_datasource_schema(store.raw())
+        .await
+        .map_err(|e| Error::Config(format!("defining datasource schema: {e}")))?;
+
+    if std::env::args().any(|arg| arg == "--seed-dev") {
+        seed_dev(store.raw())
+            .await
+            .map_err(|e| Error::Config(e.to_string()))?;
+    }
+
     let state = AppState::new(store, config.namespace.clone(), config.database.clone());
+
+    // Rebuild any datasource connectors registered in a prior run into the shared
+    // registry before serving, so the registry reflects persisted state. A
+    // connector whose backend is unreachable is logged and skipped, not fatal.
+    {
+        let mut registry = state.datasources.write().await;
+        let restored = rehydrate(&mut registry, state.store.raw())
+            .await
+            .map_err(|e| Error::Config(format!("rehydrating datasources: {e}")))?;
+        if restored > 0 {
+            println!("rehydrated {restored} datasource connector(s)");
+        }
+    }
 
     let bind = std::env::var("RUBIX_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_owned());
     let listener = tokio::net::TcpListener::bind(&bind)

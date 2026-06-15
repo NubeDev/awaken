@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use datafusion::datasource::TableProvider;
 
-pub use config::DatasourceConfig;
+pub use config::{DatasourceConfig, NATIVE_KIND};
 
 use crate::error::Result;
 

@@ -41,7 +41,35 @@ pub async fn register<C: Connector>(
     connector: C,
 ) -> Result<()> {
     authorize_register(grant_reader, principal).await?;
+    materialize_into(registry, connector).await
+}
 
+/// Register a connector **without** the capability check, for a trusted replay of
+/// already-authorized state.
+///
+/// Boot rehydration ([`crate`] callers) rebuilds connectors from rows that were
+/// only ever persisted *after* [`register`] passed its `datasource-register`
+/// check, so re-authorizing at replay time is redundant — and fragile, since the
+/// principal that registered may no longer exist. This path keeps the duplicate
+/// and connect checks but skips the grant lookup. It is **not** reachable from the
+/// wire: no HTTP route calls it, only the in-process boot path.
+///
+/// # Errors
+/// - [`DatasourceError::Duplicate`] if the id is already registered (or native).
+/// - [`DatasourceError::Connect`] if a connector table fails to build its provider.
+pub async fn register_materialized<C: Connector>(
+    registry: &mut Registry,
+    connector: C,
+) -> Result<()> {
+    materialize_into(registry, connector).await
+}
+
+/// Build every table provider once and insert the entry under the connector's id.
+///
+/// Shared by [`register`] (after its capability check) and
+/// [`register_materialized`] (trusted replay): the duplicate/native-id guard and
+/// the provider materialisation are identical, so only the authorization differs.
+async fn materialize_into<C: Connector>(registry: &mut Registry, connector: C) -> Result<()> {
     let id = connector.config().id().to_owned();
     if id == NATIVE_SURREAL_ID || registry.contains(&id) {
         return Err(DatasourceError::Duplicate(id));

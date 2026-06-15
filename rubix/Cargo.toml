@@ -11,6 +11,7 @@ members = [
     "crates/rubix-rules",
     "crates/rubix-ingest",
     "crates/rubix-prefs",
+    "crates/rubix-ext",
     "crates/rubix-server",
 ]
 
@@ -31,6 +32,7 @@ rubix-datasource = { version = "0.1.0", path = "crates/rubix-datasource" }
 rubix-rules = { version = "0.1.0", path = "crates/rubix-rules" }
 rubix-ingest = { version = "0.1.0", path = "crates/rubix-ingest" }
 rubix-prefs = { version = "0.1.0", path = "crates/rubix-prefs" }
+rubix-ext = { version = "0.1.0", path = "crates/rubix-ext" }
 
 anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

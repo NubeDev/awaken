@@ -7,8 +7,8 @@ set -euo pipefail
 # Cron runs with a stripped PATH that lacks claude/cargo/git — without this the tick dies with
 # "claude: command not found" and the whole loop silently no-ops. Pin the real tool dirs so the
 # tick and every subagent (which shell out to cargo/git) find their binaries.
-export PATH="/home/user/snap/code/226/.local/share/pnpm:/home/user/.cargo/bin:/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-CLAUDE_BIN="/home/user/snap/code/226/.local/share/pnpm/claude"
+export PATH="/home/user/.nvm/versions/node/v24.15.0/bin:/home/user/.cargo/bin:/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+CLAUDE_BIN="/home/user/.nvm/versions/node/v24.15.0/bin/claude"
 
 REPO="/home/user/code/rust/awaken"
 SESS="$REPO/rubix/docs/sessions"

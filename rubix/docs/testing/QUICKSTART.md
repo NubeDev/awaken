@@ -1,4 +1,4 @@
-# QUICKSTART — Boot the server and first API call
+# QUICKSTART — Boot the server, seed demo data, first API call
 
 > Verified: WS-16 (2026-06-15)
 > Run this once the HTTP transport layer (WS-16) lands and tests are green.
@@ -9,35 +9,56 @@
 
 - ✅ `cargo test --workspace` passes
 - ✅ `cargo clippy --workspace --all-targets` passes
-- ✅ Port 8088 is free (or override `RUBIX_ADDR`)
-- ✅ `rubix.db` doesn't exist (fresh start) or can be deleted
+- ✅ Port 8080 is free (or override `RUBIX_BIND`)
+- ✅ The data dir (`rubix-data/`) doesn't exist (fresh start) or can be deleted
+
+There is **no HTTP endpoint to create principals or grants** — identity precedes
+any scoped session, so it is provisioned in-process. Use the `--seed-dev` flag
+(below) to populate a demo portfolio plus a ready-to-use cast of principals.
 
 ---
 
-## 1. Start the server
+## 1. Start the server with the demo seed
 
 ```bash
 cd rubix
 
-# Clean up old database (if any)
-rm -f rubix.db
+# Clean up old data (deterministic ids assume a fresh store)
+rm -rf rubix-data
 
-# Boot the server
-cargo run --bin rubix
-# or
-make dev-be
+# Boot the server and seed the demo portfolio
+make dev-be SEED=1
+# or directly:
+cargo run --bin rubix-server -- --seed-dev
 ```
 
-Expected output:
+The seed prints a login table and per-tenant tallies, then the server serves:
 
 ```
-2026-06-15T00:30:00Z INFO rubix_server: starting rubix backend
-2026-06-15T00:30:00Z INFO rubix_store: initializing SurrealDB (embedded kv-mem)
-2026-06-15T00:30:00Z INFO rubix_server: listening on 127.0.0.1:8088
-2026-06-15T00:30:00Z INFO rubix_server: health check: OK
+seeding demo portfolio (2 tenants)
+subject              secret         grants
+acme_operator        operator-demo  ingest-publish
+acme_viewer          viewer-demo    —
+acme_analyst         analyst-demo   external-query
+acme_agent           agent-demo     external-query,rule-invoke
+globex_operator      operator-demo  ingest-publish
+...
+seed complete: 1320 records across 2 tenants
 ```
 
-The server is ready when you see `listening on 127.0.0.1:8088`.
+### What gets seeded
+
+Two **tenants** (`acme`, `globex`), each with two **sites**, each site carrying
+**HVAC, energy, and water** equipment as Project-Haystack-style records connected
+by the tag graph (`site → equip → point → reading`), plus 24h of hourly
+readings per point. The "tenant" is the principal's `namespace`; reads are
+confined to it by SurrealDB row-level permissions (no cloud profile needed).
+
+Per tenant the cast covers both authz layers: `operator` (writes, holds
+`ingest-publish`), `viewer` (read-only), `analyst` (`external-query` for SQL),
+and `agent` (an extension service account with `external-query` + `rule-invoke`).
+
+The server boots empty without `SEED=1` / `--seed-dev`.
 
 ---
 
@@ -46,222 +67,122 @@ The server is ready when you see `listening on 127.0.0.1:8088`.
 In another terminal:
 
 ```bash
-curl http://127.0.0.1:8088/health
+curl http://127.0.0.1:8080/health
 ```
 
 Expected:
 
 ```json
-{
-  "status": "ok",
-  "timestamp": "2026-06-15T00:30:00Z",
-  "version": "0.1.0"
-}
+{ "status": "ok" }
 ```
 
-✅ **Server is running.**
+✅ **Server is running.** Set `BASE=http://127.0.0.1:8080` for the calls below.
 
 ---
 
-## 3. Create a principal (identity)
+## 3. Authenticate
 
-Records are scoped by namespace. Create one:
+Every authenticated route reads two credential headers — the principal's subject
+and secret (no JWT/cookie layer; the gate's record access method verifies the
+pair natively):
 
-```bash
-curl -X POST http://127.0.0.1:8088/api/principals \
-  -H "Content-Type: application/json" \
-  -d '{
-    "subject": "alice",
-    "namespace": "acme",
-    "kind": "user",
-    "role": "admin"
-  }'
+```
+-H "x-rubix-subject: acme_operator" -H "x-rubix-secret: operator-demo"
 ```
 
-Expected:
+A missing/wrong credential is `401`; a present principal lacking the required
+capability grant is `403`.
+
+---
+
+## 4. Read a record (scoped session)
+
+Reads run on the principal's scoped session, so they only ever return the
+principal's own namespace:
+
+```bash
+curl "$BASE/records/acme--hq" \
+  -H "x-rubix-subject: acme_viewer" -H "x-rubix-secret: viewer-demo"
+```
+
+Expected (a seeded site record):
 
 ```json
 {
-  "id": "...",
-  "subject": "alice",
+  "id": "acme--hq",
   "namespace": "acme",
-  "kind": "user",
-  "role": "admin"
+  "content": { "kind": "site", "key": "hq", "name": "Acme HQ" },
+  "created": "...",
+  "updated": "..."
 }
 ```
 
-Copy the `id` for later; call it `$PRINCIPAL_ID`.
+A `globex` principal fetching this `acme` id gets `404` — tenant isolation is
+enforced by the engine, not the app.
 
 ---
 
-## 4. Grant a capability
+## 5. Create a record (through the command gate)
 
-Alice needs the `ingest-publish` capability to write records:
+A write is a mutation, so it crosses the WS-05 gate and needs the
+`ingest-publish` grant — the `operator` has it:
 
 ```bash
-curl -X POST http://127.0.0.1:8088/api/grants \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"principal_id\": \"$PRINCIPAL_ID\",
-    \"capability\": \"ingest-publish\",
-    \"namespace\": \"acme\"
-  }"
+curl -X POST "$BASE/records" \
+  -H "content-type: application/json" \
+  -H "x-rubix-subject: acme_operator" -H "x-rubix-secret: operator-demo" \
+  -d '{ "content": { "kind": "note", "name": "manual entry" } }'
+```
+
+The id is minted server-side; the gate writes it under the principal's namespace,
+captures before/after, mints a correlation id, and appends an audit row.
+
+Trying the same call as `acme_viewer` (no grant) returns `403`.
+
+---
+
+## 6. Query records (DataFusion)
+
+The unified SQL surface is gated on the `external-query` capability (the
+`analyst` holds it) and runs on the scoped session. The table is named
+**`record`** (singular, matching the store table); its columns are
+`id, namespace, created, updated, content` — `content` is the JSON document as a
+string, reached into for field access:
+
+```bash
+curl -X POST "$BASE/query" \
+  -H "content-type: application/json" \
+  -H "x-rubix-subject: acme_analyst" -H "x-rubix-secret: analyst-demo" \
+  -d '{ "sql": "SELECT count(*) AS readings FROM record WHERE content LIKE '\''%\"kind\":\"reading\"%'\''" }'
 ```
 
 Expected:
 
 ```json
-{
-  "id": "...",
-  "principal_id": "$PRINCIPAL_ID",
-  "capability": "ingest-publish",
-  "namespace": "acme"
-}
+{ "rows": [ { "readings": 624 } ] }
 ```
 
-✅ **Alice can now write records in the acme namespace.**
+Running `/query` as `acme_viewer` (no `external-query` grant) returns `403`.
+
+✅ **Query surface working, scoped to the tenant.**
 
 ---
 
-## 5. Create a record
+## 7. Stop the server
 
-Write a record (this goes through the command gate, WS-05):
-
-```bash
-curl -X POST http://127.0.0.1:8088/api/records \
-  -H "Content-Type: application/json" \
-  -H "X-Principal: $PRINCIPAL_ID" \
-  -d '{
-    "namespace": "acme",
-    "content": {
-      "name": "Equipment-01",
-      "type": "AHU",
-      "location": "Building-A"
-    }
-  }'
-```
-
-Expected:
-
-```json
-{
-  "id": "...",
-  "namespace": "acme",
-  "content": {
-    "name": "Equipment-01",
-    "type": "AHU",
-    "location": "Building-A"
-  },
-  "created_at": "2026-06-15T00:30:00Z",
-  "updated_at": "2026-06-15T00:30:00Z"
-}
-```
-
-Copy the `id`; call it `$RECORD_ID`.
-
----
-
-## 6. Read the record
-
-```bash
-curl http://127.0.0.1:8088/api/records/$RECORD_ID \
-  -H "X-Principal: $PRINCIPAL_ID"
-```
-
-Expected:
-
-```json
-{
-  "id": "$RECORD_ID",
-  "namespace": "acme",
-  "content": { ... },
-  "created_at": "...",
-  "updated_at": "..."
-}
-```
-
-✅ **Read/write gate working.**
-
----
-
-## 7. Query records
-
-Run a DataFusion SQL query over the records:
-
-```bash
-curl -X POST http://127.0.0.1:8088/api/query \
-  -H "Content-Type: application/json" \
-  -H "X-Principal: $PRINCIPAL_ID" \
-  -d '{
-    "sql": "SELECT id, namespace FROM records WHERE namespace = '\''acme'\''"
-  }'
-```
-
-Expected:
-
-```json
-{
-  "rows": [
-    {
-      "id": "$RECORD_ID",
-      "namespace": "acme"
-    }
-  ]
-}
-```
-
-✅ **Query surface working.**
-
----
-
-## 8. Verify the database
-
-Check the SurrealDB store:
-
-```bash
-# List all records in the acme namespace
-curl -X POST http://127.0.0.1:8088/api/query \
-  -H "Content-Type: application/json" \
-  -H "X-Principal: $PRINCIPAL_ID" \
-  -d '{
-    "sql": "SELECT COUNT(*) as count FROM records"
-  }'
-```
-
-Expected:
-
-```json
-{
-  "rows": [{ "count": 1 }]
-}
-```
-
----
-
-## 9. Stop the server
-
-Press `Ctrl-C` in the terminal where the server is running.
-
-Expected:
-
-```
-^C
-2026-06-15T00:32:00Z INFO rubix_server: shutting down gracefully
-2026-06-15T00:32:00Z INFO rubix_server: stopped
-```
+Press `Ctrl-C` (or `make kill` to free the ports).
 
 ---
 
 ## ✅ Checklist: Server is ready
 
 - [x] Server boots without errors
+- [x] `--seed-dev` populates the demo portfolio (1320 records, 2 tenants)
 - [x] Health endpoint responds
-- [x] Principal creation works
-- [x] Grant assignment works
-- [x] Record write works (through the gate)
-- [x] Record read works (scoped session)
-- [x] Query works (DataFusion)
-- [x] Database has data (SurrealDB)
+- [x] Auth resolves the seeded credentials (`401` on bad secret)
+- [x] Record read works and is tenant-scoped (`404` cross-tenant)
+- [x] Record write works through the gate (`403` without the grant)
+- [x] Query works (DataFusion over `record`, gated on `external-query`)
 
 **Next:** Pick a feature runbook and exercise the end-to-end flow.
 
@@ -271,51 +192,38 @@ Expected:
 
 ### ❌ "Address already in use"
 
-Port 8088 is taken.
+Port 8080 is taken.
 
-**Fix:** Kill the old process or override the port:
+**Fix:** Free it or override the bind address:
 
 ```bash
 make kill
 # or
-RUBIX_ADDR=127.0.0.1:9999 cargo run --bin rubix
+RUBIX_BIND=127.0.0.1:9999 cargo run --bin rubix-server
 ```
 
-### ❌ "Database error: cannot write to rubix.db"
+### ❌ "unauthenticated: ... No record was returned"
 
-SurrealDB file is locked or read-only.
+The subject/secret pair doesn't resolve — check the headers against the login
+table the seed printed (subjects are `{tenant}_{role}`, e.g. `acme_analyst`).
 
-**Fix:** Remove and restart:
+### ❌ Seeding errors on a non-fresh store
+
+The seed uses deterministic record ids, so re-seeding over existing data can
+collide. Delete the data dir and re-run:
 
 ```bash
-rm rubix.db
-cargo run --bin rubix
+rm -rf rubix-data && make dev-be SEED=1
 ```
 
-### ❌ "Principal not found" or "Unauthorized"
+### ❌ "table 'records' not found"
 
-The principal ID is wrong or missing.
-
-**Fix:** Check the header:
-
-```bash
-curl ... -H "X-Principal: <correct-id>"
-```
-
-### ❌ "Query returned 0 rows"
-
-The namespace doesn't match or records are in a different namespace.
-
-**Fix:** Query all records:
-
-```bash
-curl ... -d '{"sql": "SELECT * FROM records"}'
-```
+The DataFusion table is `record` (singular), not `records`.
 
 ---
 
 ## Next steps
 
 - **Feature testing:** Pick a feature doc (gate, datasources, rules, query)
-- **Live WebSocket:** Once WS-16 is complete, test the `/ws` bridge for live updates
+- **Live WebSocket:** Test the `/ws` bridge for live updates while writing records
 - **Integration scenarios:** Run the golden-path cross-feature scripts in `scenarios/`

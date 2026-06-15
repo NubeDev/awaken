@@ -28,6 +28,13 @@ pub enum ApiError {
     /// The request body or parameters were invalid.
     #[error("bad request: {0}")]
     BadRequest(String),
+    /// The request conflicts with existing state (e.g. a duplicate datasource id).
+    #[error("conflict: {0}")]
+    Conflict(String),
+    /// An upstream the request depends on (e.g. an external datasource) is
+    /// unreachable. The request was well-formed; the dependency is the problem.
+    #[error("bad gateway: {0}")]
+    BadGateway(String),
     /// An unexpected store, gate, or engine failure.
     #[error("internal error: {0}")]
     Internal(String),
@@ -41,6 +48,8 @@ impl ApiError {
             ApiError::Forbidden(_) => StatusCode::FORBIDDEN,
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::BadGateway(_) => StatusCode::BAD_GATEWAY,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

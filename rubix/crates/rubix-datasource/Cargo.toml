@@ -12,7 +12,7 @@ workspace = true
 # Cloud-only Postgres connector via `datafusion-table-providers`; absent by
 # default so the edge build carries no Postgres backend (STACK-DEISGN.md, "Edge
 # is the default build"). When the feature is off the connector fails closed.
-postgres = ["dep:datafusion-table-providers", "dep:secrecy"]
+postgres = ["dep:datafusion-table-providers", "dep:secrecy", "dep:url"]
 
 [dependencies]
 rubix-core = { workspace = true }
@@ -23,6 +23,7 @@ surrealdb = { workspace = true }
 thiserror = { workspace = true }
 datafusion-table-providers = { workspace = true, optional = true, features = ["postgres"] }
 secrecy = { version = "0.10", optional = true }
+url = { version = "2", optional = true }
 
 [dev-dependencies]
 rubix-core = { workspace = true }
@@ -53,4 +54,9 @@ path = "tests/registry/span_test.rs"
 [[test]]
 name = "postgres_connect"
 path = "tests/postgres/connect_test.rs"
+required-features = ["postgres"]
+
+[[test]]
+name = "postgres_span"
+path = "tests/postgres/span_test.rs"
 required-features = ["postgres"]

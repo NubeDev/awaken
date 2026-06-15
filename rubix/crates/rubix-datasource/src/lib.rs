@@ -23,10 +23,11 @@ mod surreal;
 #[cfg(feature = "postgres")]
 mod postgres;
 
-pub use connector::{Connector, DatasourceConfig};
+pub use connector::{Connector, DatasourceConfig, NATIVE_KIND};
 pub use error::{DatasourceError, Result};
 pub use registry::{
-    NATIVE_SURREAL_ID, Registry, authorize_register, list, register, resolve, span,
+    NATIVE_SURREAL_ID, Registry, authorize_register, find, list, register, register_materialized,
+    remove, resolve, span,
 };
 pub use surreal::SurrealConnector;
 

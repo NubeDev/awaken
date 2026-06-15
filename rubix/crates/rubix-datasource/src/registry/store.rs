@@ -79,6 +79,15 @@ impl Registry {
     pub(crate) fn entries(&self) -> impl Iterator<Item = (&String, &DatasourceEntry)> {
         self.entries.iter()
     }
+
+    /// Remove the entry registered under `id`, returning whether one was present.
+    ///
+    /// Crate-internal: callers go through [`remove`](super::remove::remove) so the
+    /// capability check and the native-id guard always run first. Removing the
+    /// reserved native id is refused there, never here.
+    pub(crate) fn remove(&mut self, id: &str) -> bool {
+        self.entries.remove(id).is_some()
+    }
 }
 
 impl Default for Registry {

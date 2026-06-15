@@ -5342,6 +5342,22 @@ dependencies = [
  "surrealdb",
  "thiserror 2.0.18",
  "tokio",
+ "url",
+]
+
+[[package]]
+name = "rubix-ext"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-gate",
+ "rubix-ingest",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -5421,6 +5437,7 @@ dependencies = [
  "arrow-json",
  "async-trait",
  "axum 0.7.9",
+ "chrono",
  "datafusion",
  "futures",
  "http-body-util",

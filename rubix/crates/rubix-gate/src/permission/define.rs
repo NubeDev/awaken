@@ -27,7 +27,10 @@ use crate::error::{GateError, Result};
 /// The table principals live in, the record access method, and the row-level
 /// read permission on the generic record table.
 ///
-/// The `SIGNIN` query authenticates a principal by subject + secret. The
+/// The `SIGNIN` query authenticates a principal by subject + secret, building the
+/// `principal` record id with `type::record('principal', $subject)` so a subject
+/// containing hyphens (a kebab-case extension name, a UUID) resolves to the right
+/// record instead of being parsed as an arithmetic expression. The
 /// `PERMISSIONS FOR select WHERE namespace = $auth.namespace` clause is the
 /// load-bearing line: SurrealDB itself confines a scoped session's reads to its
 /// own namespace.
@@ -37,7 +40,7 @@ DEFINE TABLE IF NOT EXISTS grant SCHEMALESS;\n\
 DEFINE ACCESS IF NOT EXISTS principal ON DATABASE TYPE RECORD\n\
   SIGNIN (\n\
     SELECT * FROM principal\n\
-    WHERE id = type::record('principal:' + $subject) AND secret = $secret\n\
+    WHERE id = type::record('principal', $subject) AND secret = $secret\n\
   )\n\
   DURATION FOR SESSION 1h;\n\
 DEFINE TABLE OVERWRITE record SCHEMALESS\n\

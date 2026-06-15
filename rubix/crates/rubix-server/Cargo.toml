@@ -8,6 +8,14 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Compile the Postgres datasource connector into the control plane so a
+# `POST /datasources` with `"kind":"postgres"` can register a live Postgres
+# source. Off by default — the edge build carries no Postgres backend and the
+# control plane refuses a postgres kind with `415` (STACK-DEISGN.md, "Edge is the
+# default build"; the connector fails closed when the feature is absent).
+postgres = ["rubix-datasource/postgres"]
+
 [[bin]]
 name = "rubix-server"
 path = "src/main.rs"
@@ -39,10 +47,12 @@ rubix-prefs = { workspace = true }
 arrow-json = "58"
 async-trait = "0.1"
 axum = { workspace = true, features = ["ws"] }
+chrono = { workspace = true }
 datafusion = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 utoipa = { workspace = true }

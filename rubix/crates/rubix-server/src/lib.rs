@@ -9,17 +9,21 @@
 //! the [`AppState`], and serves it.
 
 mod auth;
+pub mod datasources;
 mod dto;
 mod error;
 mod http;
 mod openapi;
+pub mod seed;
 mod state;
 mod ws;
 
 use axum::Router;
 
+pub use datasources::{define_datasource_schema, rehydrate};
 pub use error::{ApiError, ApiResult};
 pub use openapi::document as openapi_document;
+pub use seed::seed_dev;
 pub use state::AppState;
 
 /// Assemble the full transport router over the given state.

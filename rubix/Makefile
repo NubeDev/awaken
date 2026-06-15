@@ -12,6 +12,9 @@
 #   make build-ui    build just the UI
 #   make clean       remove build artifacts (cargo target + UI dist)
 #   make kill        free the dev ports if a previous run was left running
+#   make db-up       start a local TimescaleDB (Postgres) container
+#   make db-down     stop + remove the container (keeps the data volume)
+#   make db-clean    stop + remove the container and delete its data volume
 #
 # The backend is the cargo workspace in this directory; the UI is a pnpm/vite
 # app under ui/.
@@ -55,8 +58,19 @@ ifeq ($(AI),1)
 export RUBIX_AI := 1
 endif
 
+# Local TimescaleDB (Postgres) for the rubix-datasource Postgres connector.
+# Dockerfile lives next to the connector code. DB_PORT maps the container's
+# 5432 onto the host; override to avoid clashing with a native Postgres. With
+# the defaults the connection string is:
+#   postgres://rubix:rubix@127.0.0.1:$(DB_PORT)/rubix
+DB_DIR := crates/rubix-datasource/docker
+DB_IMAGE := rubix-timescaledb
+DB_CONTAINER := rubix-timescaledb
+DB_VOLUME := rubix-timescale-data
+DB_PORT ?= 5433
+
 .PHONY: build dev dev-be dev-ui test test-be test-ui lint fmt \
-        build-be build-ui clean kill
+        build-be build-ui clean kill db-up db-down db-clean
 
 build: build-be build-ui
 
@@ -108,3 +122,32 @@ kill:
 	-@fuser -k -KILL $(BE_PORT)/tcp 2>/dev/null || true
 	-@fuser -k -KILL $(UI_PORT)/tcp 2>/dev/null || true
 	@echo "freed ports $(BE_PORT) and $(UI_PORT)"
+
+# Build the image from the Dockerfile, run it detached on a named volume, then
+# poll pg_isready until it accepts queries — so a follow-on `make dev` finds a
+# live backend. Removes any stale container of the same name first.
+db-up:
+	docker build -t $(DB_IMAGE) $(DB_DIR)
+	-@docker rm -f $(DB_CONTAINER) 2>/dev/null || true
+	docker run -d --name $(DB_CONTAINER) \
+		-p $(DB_PORT):5432 \
+		-v $(DB_VOLUME):/var/lib/postgresql/data \
+		$(DB_IMAGE)
+	@echo "waiting for timescaledb to accept queries..."
+	@for i in $$(seq 1 30); do \
+		docker exec $(DB_CONTAINER) pg_isready -U rubix -d rubix >/dev/null 2>&1 && break; \
+		sleep 1; \
+	done
+	@echo "timescaledb → postgres://rubix:rubix@127.0.0.1:$(DB_PORT)/rubix"
+
+# Stop and remove the container; the named data volume survives so the next
+# `make db-up` keeps existing data.
+db-down:
+	-@docker rm -f $(DB_CONTAINER) 2>/dev/null || true
+	@echo "removed container $(DB_CONTAINER) (volume $(DB_VOLUME) preserved)"
+
+# Stop and remove the container AND delete its data volume — a clean slate.
+db-clean:
+	-@docker rm -f $(DB_CONTAINER) 2>/dev/null || true
+	-@docker volume rm $(DB_VOLUME) 2>/dev/null || true
+	@echo "removed container $(DB_CONTAINER) and volume $(DB_VOLUME)"

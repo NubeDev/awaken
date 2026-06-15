@@ -37,7 +37,12 @@ import { ChartType, type ChartConfig } from '../../components/chart-builder/type
 
 const route = getRouteApi('/t/$tenant/admin/query')
 
-const STARTER = 'SELECT content.kind AS kind, count() AS n FROM record GROUP BY kind'
+// The query surface exposes structural columns (id, namespace, created, updated)
+// plus `content` as a JSON *string* — there are no JSON UDFs registered, so
+// `content.kind`-style field access fails. This starter uses only structural
+// columns: records bucketed by day, which charts directly.
+const STARTER =
+  "SELECT date_trunc('day', created) AS day, count(*) AS n FROM record GROUP BY day ORDER BY day"
 
 const NEW = '__new__'
 

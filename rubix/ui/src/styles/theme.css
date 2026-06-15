@@ -1,11 +1,18 @@
-/* Rubix design tokens — ported verbatim from the ui-demo so the React app
- * matches the prototype's look exactly. The raw HSL triples live on :root for
- * inline `hsl(var(--x) / a)` uses (charts, gradients); the @theme block maps the
- * same values into Tailwind v4 color/font utilities (bg-panel2, text-r1, …). */
+/* Rubix design tokens. Raw HSL triples live on :root (light) and .dark (dark) so
+ * every color flips with the theme class on <html>; the @theme block maps those
+ * same vars into Tailwind v4 utilities via hsl(var(--token)) so bg-panel2 /
+ * text-r1 / bg-background all resolve against the active theme at render time.
+ * The ThemeProvider (context/theme-provider) toggles the `.dark` class. */
 
 @import 'tailwindcss';
 
-:root {
+/* Make `dark:` variants key off the .dark class on <html> rather than the OS
+ * media query — the ThemeProvider owns the class, including a "system" mode. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Dark theme (the original Rubix palette) ---- */
+:root,
+.dark {
   --bg: 234 18% 6%;
   --panel: 232 15% 9%;
   --panel2: 230 14% 12%;
@@ -20,10 +27,7 @@
   --green: 150 64% 52%;
   --cool: 200 86% 64%;
 
-  /* Recharts series palette (vendored Laminar chart layer references
-   * `hsl(var(--chart-N))`). Mapped onto the Rubix palette so charts inherit the
-   * theme. `--muted-foreground`/`--primary` are the raw triples the chart
-   * components reach for inline (axis ticks, drag-zoom overlay). */
+  /* Recharts series palette + the raw triples chart components read inline. */
   --chart-1: 258 84% 74%;
   --chart-2: 174 70% 56%;
   --chart-3: 200 86% 64%;
@@ -31,53 +35,155 @@
   --chart-5: 150 64% 52%;
   --muted-foreground: 220 8% 56%;
   --primary: 258 84% 74%;
+
+  /* shadcn semantic tokens (dark) */
+  --background: 234 18% 6%;
+  --foreground: 220 16% 93%;
+  --card: 232 15% 9%;
+  --card-foreground: 220 16% 93%;
+  --popover: 230 14% 12%;
+  --popover-foreground: 220 16% 93%;
+  --primary-foreground: 234 18% 6%;
+  --secondary: 230 14% 12%;
+  --secondary-foreground: 220 16% 93%;
+  --muted-bg: 230 13% 15%;
+  --accent: 230 13% 15%;
+  --accent-foreground: 220 16% 93%;
+  --destructive: 357 84% 66%;
+  --destructive-foreground: 220 16% 93%;
+  --input: 230 10% 18%;
+  --ring: 258 84% 74%;
+
+  /* sidebar shell (dark) — slightly lifted off --bg so the floating inset reads */
+  --sidebar: 232 15% 9%;
+  --sidebar-foreground: 220 16% 93%;
+  --sidebar-border: 230 10% 18%;
+  --sidebar-accent: 230 13% 15%;
+  --sidebar-accent-foreground: 220 16% 93%;
+  --sidebar-ring: 258 84% 74%;
+
+  /* the app body gradient, theme-scoped (see body{} below) */
+  --body-glow-1: 258 84% 74%;
+  --body-glow-1-a: 0.08;
+  --body-glow-2: 174 70% 56%;
+  --body-glow-2-a: 0.06;
+}
+
+/* ---- Light theme ---- *
+ * Mirrors the dark scale inverted: near-white surfaces stepping up in tint, ink
+ * text, the same purple/cyan accents but a touch deeper so they read on white.
+ * Tuned so the raw operator utilities (bg-panel2/bg-panel3/text-r1) stay legible. */
+.light {
+  --bg: 240 20% 99%;
+  --panel: 0 0% 100%;
+  --panel2: 240 18% 97%;
+  --panel3: 240 16% 93%;
+  --border: 240 14% 88%;
+  --fg: 234 22% 14%;
+  --muted: 235 12% 42%;
+  --r1: 258 72% 58%;
+  --r2: 174 64% 38%;
+  --amber: 32 88% 46%;
+  --crit: 357 74% 52%;
+  --green: 150 58% 38%;
+  --cool: 200 80% 46%;
+
+  --chart-1: 258 72% 58%;
+  --chart-2: 174 64% 38%;
+  --chart-3: 200 80% 46%;
+  --chart-4: 32 88% 46%;
+  --chart-5: 150 58% 38%;
+  --muted-foreground: 235 12% 42%;
+  --primary: 258 72% 58%;
+
+  --background: 240 20% 99%;
+  --foreground: 234 22% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 234 22% 14%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 234 22% 14%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 18% 97%;
+  --secondary-foreground: 234 22% 14%;
+  --muted-bg: 240 16% 93%;
+  --accent: 240 16% 93%;
+  --accent-foreground: 234 22% 14%;
+  --destructive: 357 74% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 240 14% 88%;
+  --ring: 258 72% 58%;
+
+  --sidebar: 240 18% 97%;
+  --sidebar-foreground: 234 22% 14%;
+  --sidebar-border: 240 14% 88%;
+  --sidebar-accent: 240 16% 91%;
+  --sidebar-accent-foreground: 234 22% 14%;
+  --sidebar-ring: 258 72% 58%;
+
+  --body-glow-1: 258 72% 58%;
+  --body-glow-1-a: 0.06;
+  --body-glow-2: 174 64% 46%;
+  --body-glow-2-a: 0.05;
 }
 
 @theme {
-  --color-bg: hsl(234 18% 6%);
-  --color-panel: hsl(232 15% 9%);
-  --color-panel2: hsl(230 14% 12%);
-  --color-panel3: hsl(230 13% 15%);
-  --color-border: hsl(230 10% 18%);
-  --color-fg: hsl(220 16% 93%);
-  --color-muted: hsl(220 8% 56%);
-  --color-r1: hsl(258 84% 74%);
-  --color-r2: hsl(174 70% 56%);
-  --color-amber: hsl(32 92% 60%);
-  --color-crit: hsl(357 84% 66%);
-  --color-green: hsl(150 64% 52%);
-  --color-cool: hsl(200 86% 64%);
+  --color-bg: hsl(var(--bg));
+  --color-panel: hsl(var(--panel));
+  --color-panel2: hsl(var(--panel2));
+  --color-panel3: hsl(var(--panel3));
+  --color-border: hsl(var(--border));
+  --color-fg: hsl(var(--fg));
+  --color-muted: hsl(var(--muted));
+  --color-r1: hsl(var(--r1));
+  --color-r2: hsl(var(--r2));
+  --color-amber: hsl(var(--amber));
+  --color-crit: hsl(var(--crit));
+  --color-green: hsl(var(--green));
+  --color-cool: hsl(var(--cool));
 
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-serif: 'Newsreader', Georgia, serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 
-  /* shadcn/ui semantic tokens, mapped onto the Rubix palette above so vendored
-   * primitives (Button, Dialog, Table, …) inherit this dark theme rather than
-   * shadcn's defaults. Admin screens are built on these; the existing operator
-   * pages keep using the raw bg-panel2/text-r1 utilities. One source of truth. */
-  --color-background: hsl(234 18% 6%);
-  --color-foreground: hsl(220 16% 93%);
-  --color-card: hsl(232 15% 9%);
-  --color-card-foreground: hsl(220 16% 93%);
-  --color-popover: hsl(230 14% 12%);
-  --color-popover-foreground: hsl(220 16% 93%);
-  --color-primary: hsl(258 84% 74%);
-  --color-primary-foreground: hsl(234 18% 6%);
-  --color-secondary: hsl(230 14% 12%);
-  --color-secondary-foreground: hsl(220 16% 93%);
-  --color-muted: hsl(230 13% 15%);
-  --color-muted-foreground: hsl(220 8% 56%);
-  --color-accent: hsl(230 13% 15%);
-  --color-accent-foreground: hsl(220 16% 93%);
-  --color-destructive: hsl(357 84% 66%);
-  --color-destructive-foreground: hsl(220 16% 93%);
-  --color-input: hsl(230 10% 18%);
-  --color-ring: hsl(258 84% 74%);
+  /* shadcn/ui semantic tokens → Tailwind utilities. hsl(var(--token)) so they
+   * track the active theme. Note --color-muted (raw palette) and the shadcn
+   * "muted" surface differ; the latter maps to --muted-bg to avoid a clash. */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  /* sidebar shell tokens */
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
 
   --radius-lg: 0.75rem;
   --radius-md: 0.5rem;
   --radius-sm: 0.375rem;
+}
+
+/* The shadcn "muted" surface utility (bg-muted) maps to --muted-bg, not the raw
+ * --color-muted text token, so both can coexist. Defined outside @theme since it
+ * overrides the palette's bg-muted; admin screens use it for subtle fills. */
+@utility bg-muted {
+  background-color: hsl(var(--muted-bg));
 }
 
 * {
@@ -103,8 +209,8 @@ body,
 body {
   color: hsl(var(--fg));
   background:
-    radial-gradient(1200px 700px at 82% -10%, hsl(258 84% 74% / 0.08), transparent),
-    radial-gradient(1000px 800px at -8% 120%, hsl(174 70% 56% / 0.06), transparent),
+    radial-gradient(1200px 700px at 82% -10%, hsl(var(--body-glow-1) / var(--body-glow-1-a)), transparent),
+    radial-gradient(1000px 800px at -8% 120%, hsl(var(--body-glow-2) / var(--body-glow-2-a)), transparent),
     hsl(var(--bg));
 }
 
@@ -133,13 +239,7 @@ kbd {
   }
 }
 .orb-core {
-  background: conic-gradient(
-    from 0deg,
-    hsl(var(--r1)),
-    hsl(var(--r2)),
-    hsl(var(--amber)),
-    hsl(var(--r1))
-  );
+  background: conic-gradient(from 0deg, hsl(var(--r1)), hsl(var(--r2)), hsl(var(--amber)), hsl(var(--r1)));
   animation: orb 9s ease-in-out infinite;
 }
 

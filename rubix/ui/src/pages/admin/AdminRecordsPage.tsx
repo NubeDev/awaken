@@ -15,7 +15,7 @@ import {
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useAllRecords, useCollections } from '../../hooks/useAdmin'
 import { useRecordMutations } from '../../hooks/useAdminMutations'
-import { AdminLayout } from '../../components/admin/AdminLayout'
+import { usePageHeader } from '../../components/shell/page-header'
 import { RecordDialog } from '../../components/admin/RecordDialog'
 import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
 import { Button } from '../../components/ui/button'
@@ -46,6 +46,8 @@ export function AdminRecordsPage() {
   const [filter, setFilter] = useState('')
   const [editing, setEditing] = useState<Record | undefined>()
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  usePageHeader({ crumbs: ['Admin', 'Records'] })
 
   // The kinds offered in the filter: registered collections plus any kind seen in
   // the data, so an unregistered kind is still selectable.
@@ -169,7 +171,7 @@ export function AdminRecordsPage() {
   }
 
   return (
-    <AdminLayout active="records">
+    <div className="px-6 py-6">
       <div className="mx-auto max-w-[1100px]">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
@@ -254,7 +256,7 @@ export function AdminRecordsPage() {
         onSubmit={handleSubmit}
         saving={create.isPending || update.isPending}
       />
-    </AdminLayout>
+    </div>
   )
 }
 

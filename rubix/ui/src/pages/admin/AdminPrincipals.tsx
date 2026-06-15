@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { listGrants } from '../../api/admin'
 import { usePrincipals } from '../../hooks/useAdmin'
 import { usePrincipalMutations, useGrantMutations } from '../../hooks/useAdminMutations'
-import { AdminLayout } from '../../components/admin/AdminLayout'
+import { usePageHeader } from '../../components/shell/page-header'
 import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -54,6 +54,8 @@ export function AdminPrincipals() {
   const [createOpen, setCreateOpen] = useState(false)
   const [selected, setSelected] = useState<Principal | null>(null)
 
+  usePageHeader({ crumbs: ['Admin', 'Principals'] })
+
   async function handleRole(subject: string, role: string) {
     try {
       await setRole.mutateAsync({ subject, role })
@@ -74,7 +76,7 @@ export function AdminPrincipals() {
   }
 
   return (
-    <AdminLayout active="principals">
+    <div className="px-6 py-6">
       <div className="mx-auto max-w-[1100px]">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -166,7 +168,7 @@ export function AdminPrincipals() {
           onOpenChange={(o) => !o && setSelected(null)}
         />
       )}
-    </AdminLayout>
+    </div>
   )
 }
 

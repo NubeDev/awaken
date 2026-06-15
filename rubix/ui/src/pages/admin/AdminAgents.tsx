@@ -7,7 +7,7 @@ import { getRouteApi } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Bot, Plus } from 'lucide-react'
 import { useAgents, useAgentMutations } from '../../hooks/useAgents'
-import { AdminLayout } from '../../components/admin/AdminLayout'
+import { usePageHeader } from '../../components/shell/page-header'
 import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -48,8 +48,10 @@ export function AdminAgents() {
   const { toast } = useToast()
   const [createOpen, setCreateOpen] = useState(false)
 
+  usePageHeader({ crumbs: ['Admin', 'Agents'] })
+
   return (
-    <AdminLayout active="agents">
+    <div className="px-6 py-6">
       <div className="mx-auto max-w-[1100px]">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -115,7 +117,7 @@ export function AdminAgents() {
         onOpenChange={setCreateOpen}
         onProvisioned={() => toast('Agent provisioned')}
       />
-    </AdminLayout>
+    </div>
   )
 }
 

@@ -15,7 +15,7 @@ import { ArrowUp } from 'lucide-react'
 import { useRecords } from '../hooks/useRecords'
 import { useAskAgent } from '../hooks/useAgents'
 import { pointIdFor, readingSeries, toSites, toZones } from '../utils/derive'
-import { TopBar } from '../components/ui/TopBar'
+import { usePageHeader } from '../components/shell/page-header'
 import { Orb } from '../components/ui/Orb'
 import { Line } from '../components/viz/Line'
 import { sevMap } from '../components/ui/severity'
@@ -54,6 +54,8 @@ export function Copilot() {
   const [thread, setThread] = useState<Turn[]>([])
   const [input, setInput] = useState('')
   const askAgent = useAskAgent(tenant)
+
+  usePageHeader({ site: activeKey, siteName, crumbs: ['Ask Rubix'], livePoints: records?.length })
 
   const seed: Turn = {
     role: 'rubix',
@@ -115,7 +117,6 @@ export function Copilot() {
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar tenant={tenant} site={activeKey} siteName={siteName} crumbs={['Ask Rubix']} livePoints={records?.length} />
       {isLoading && <LoadingView label="Reading the site…" />}
       {error && <ErrorView error={error} />}
       {records && (

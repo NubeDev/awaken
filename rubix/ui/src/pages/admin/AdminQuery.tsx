@@ -18,7 +18,7 @@ import {
   updateSavedQuery,
   type SavedQuery,
 } from '../../api/savedQueries'
-import { AdminLayout } from '../../components/admin/AdminLayout'
+import { usePageHeader } from '../../components/shell/page-header'
 import { ErrorView } from '../../components/ui/StateView'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -204,8 +204,10 @@ export function AdminQuery() {
     query.mutate(resolve(p.sql))
   }
 
+  usePageHeader({ crumbs: ['Admin', 'Query'] })
+
   return (
-    <AdminLayout active="query">
+    <div className="px-6 py-6">
       <div className="mx-auto max-w-[1100px]">
         <div className="mb-5 flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-xl border border-border bg-card">
@@ -357,7 +359,7 @@ export function AdminQuery() {
           </Tabs>
         )}
       </div>
-    </AdminLayout>
+    </div>
   )
 }
 

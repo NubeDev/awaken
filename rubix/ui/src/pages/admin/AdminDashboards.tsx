@@ -18,7 +18,7 @@ import {
   type BoardPanel,
   type SavedBoard,
 } from '../../api/boards'
-import { AdminLayout } from '../../components/admin/AdminLayout'
+import { usePageHeader } from '../../components/shell/page-header'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import {
@@ -146,8 +146,10 @@ export function AdminDashboards() {
 
   const availableCharts = (charts.data ?? []).filter((c) => !panels.some((p) => p.chart_id === c.id))
 
+  usePageHeader({ crumbs: ['Admin', 'Dashboards'] })
+
   return (
-    <AdminLayout active="dashboards">
+    <div className="px-6 py-6">
       <div className="mx-auto max-w-[1280px]">
         <div className="mb-5 flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-xl border border-border bg-card">
@@ -278,6 +280,6 @@ export function AdminDashboards() {
           />
         )}
       </div>
-    </AdminLayout>
+    </div>
   )
 }

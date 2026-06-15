@@ -21,6 +21,7 @@ import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminQuery } from './pages/admin/AdminQuery'
 import { AdminDashboards } from './pages/admin/AdminDashboards'
 import { GenericPage } from './pages/GenericPage'
+import { AppShell } from './components/shell/AppShell'
 
 interface SiteSearch {
   site?: string
@@ -34,12 +35,14 @@ const rootRoute = createRootRoute({ component: () => <Outlet /> })
 
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: Portfolio })
 
-// /t/$tenant — the tenant layout. Children render directly; the layout is a
-// pass-through Outlet so each screen owns its own chrome (TopBar).
+// /t/$tenant — the tenant layout. One shared AppShell (floating sidebar + sticky
+// header) wraps every operator and admin screen; pages feed their breadcrumbs and
+// live-point counts up into the header via PageHeader context instead of each
+// rendering its own chrome.
 const tenantRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 't/$tenant',
-  component: () => <Outlet />,
+  component: AppShell,
 })
 
 const homeRoute = createRoute({
@@ -63,9 +66,10 @@ const copilotRoute = createRoute({
   component: Copilot,
 })
 
-// /t/$tenant/admin — the admin console. A pass-through layout route; each child
-// screen renders inside <AdminLayout>. The bare /admin path redirects to the
-// schema inspector (the developer's natural entry: "how is this backend shaped?").
+// /t/$tenant/admin — the admin console. A pass-through Outlet route nested inside
+// the tenant AppShell; each child screen renders its own content (no separate
+// admin chrome). The bare /admin path redirects to the schema inspector (the
+// developer's natural entry: "how is this backend shaped?").
 const adminRoute = createRoute({
   getParentRoute: () => tenantRoute,
   path: 'admin',

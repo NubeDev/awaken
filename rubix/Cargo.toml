@@ -10,6 +10,7 @@ members = [
     "crates/rubix-datasource",
     "crates/rubix-rules",
     "crates/rubix-ingest",
+    "crates/rubix-prefs",
     "crates/rubix-server",
 ]
 
@@ -29,8 +30,11 @@ rubix-query = { version = "0.1.0", path = "crates/rubix-query" }
 rubix-datasource = { version = "0.1.0", path = "crates/rubix-datasource" }
 rubix-rules = { version = "0.1.0", path = "crates/rubix-rules" }
 rubix-ingest = { version = "0.1.0", path = "crates/rubix-ingest" }
+rubix-prefs = { version = "0.1.0", path = "crates/rubix-prefs" }
 
 anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+utoipa = { version = "5", default-features = false }
 zenoh = { version = "1.9", default-features = false, features = ["transport_tcp"] }
 rhai = { version = "1", default-features = false, features = ["std", "sync"] }
 datafusion = { version = "53", default-features = false, features = ["sql", "unicode_expressions", "regex_expressions"] }

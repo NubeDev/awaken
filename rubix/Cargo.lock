@@ -5370,6 +5370,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-prefs"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "rubix-query"
 version = "0.1.0"
 dependencies = [

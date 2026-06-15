@@ -12,6 +12,8 @@ use rubix_datasource::Registry;
 use rubix_store::StoreHandle;
 use tokio::sync::RwLock;
 
+use crate::profile::Profile;
+
 /// The datasource registry shared across handlers.
 ///
 /// The control plane registers/removes connectors on it (`POST`/`DELETE
@@ -32,20 +34,45 @@ pub struct AppState {
     pub database: String,
     /// The shared datasource registry (native default + registered connectors).
     pub datasources: SharedRegistry,
+    /// The deployment profile this server booted into (WS-14). The gate reads its
+    /// namespace strategy to resolve a request's tenant; routes read its
+    /// `auth_required`/`sync_enabled` defaults from one place.
+    pub profile: Profile,
 }
 
 impl AppState {
-    /// Build state around an open store handle and the active namespace/database.
+    /// Build state around an open store handle and the active namespace/database,
+    /// defaulting to the edge profile.
     ///
     /// The datasource registry starts with the native SurrealDB default; the boot
-    /// path rehydrates any persisted connectors into it before serving.
+    /// path rehydrates any persisted connectors into it before serving. The binary
+    /// uses [`AppState::with_profile`] to thread the selected deployment profile;
+    /// this constructor keeps the single-namespace edge default for callers (and
+    /// tests) that do not select one.
     #[must_use]
     pub fn new(store: StoreHandle, namespace: impl Into<String>, database: impl Into<String>) -> Self {
+        Self::with_profile(store, namespace, database, crate::profile::default_profile())
+    }
+
+    /// Build state around an open store handle, namespace/database, and a selected
+    /// deployment [`Profile`] (WS-14).
+    ///
+    /// The boot path resolves the profile from `RUBIX_PROFILE`
+    /// ([`profile::from_env`](crate::profile::from_env)) and threads it here so
+    /// every handler reads the same per-profile defaults.
+    #[must_use]
+    pub fn with_profile(
+        store: StoreHandle,
+        namespace: impl Into<String>,
+        database: impl Into<String>,
+        profile: Profile,
+    ) -> Self {
         Self {
             store,
             namespace: namespace.into(),
             database: database.into(),
             datasources: Arc::new(RwLock::new(Registry::with_native_default())),
+            profile,
         }
     }
 }

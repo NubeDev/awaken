@@ -1,14 +1,17 @@
-//! Rubix server binary: open the store, build state, serve the transport.
+//! Rubix server binary: select the profile, open the store, build state, serve.
 //!
-//! Boots on the committed `RuntimeConfig` edge default and serves the full WS-16
-//! transport (HTTP routes, the WebSocket live-query bridge, and the OpenAPI
-//! document). Edge/cloud **profile selection** into `AppState` is WS-14 and is
-//! deferred (see `rubix/docs/sessions/TODOs.md`); the binary uses the default
-//! edge profile until that lands.
+//! Selects the deployment profile from `RUBIX_PROFILE` among the compiled-in
+//! profiles (WS-14), fails the boot closed if the name is unknown/uncompiled or a
+//! required backend is absent, then serves the full WS-16 transport (HTTP routes,
+//! the WebSocket live-query bridge, and the OpenAPI document). The selected
+//! [`Profile`](rubix_server::Profile) is threaded into `AppState` so the gate
+//! resolves a request's tenant namespace per profile.
 
 use rubix_core::{Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection};
 use rubix_gate::{define_audit_schema, define_gate_schema};
-use rubix_server::{AppState, define_datasource_schema, rehydrate, router, seed_dev};
+use rubix_server::{
+    AppState, define_datasource_schema, profile as server_profile, rehydrate, router, seed_dev,
+};
 use rubix_store::StoreHandle;
 
 const DEFAULT_NAMESPACE: &str = "rubix";
@@ -18,7 +21,17 @@ const DEFAULT_BIND: &str = "127.0.0.1:8080";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config = load_config();
+    // Select the deployment profile before touching the store: an unknown or
+    // uncompiled `RUBIX_PROFILE`, or a profile whose required backend is absent
+    // from the build, must fail the boot closed with a clear error and bind no
+    // socket (WS-14, "fails closed at boot").
+    let profile = server_profile::from_env().map_err(|e| Error::Config(e.to_string()))?;
+    profile
+        .verify_backends()
+        .map_err(|e| Error::Config(e.to_string()))?;
+    println!("rubix profile: {:?}", profile.kind);
+
+    let config = load_config(profile.kind);
     let store = StoreHandle::open(&config)
         .await
         .context("opening store on startup")?;
@@ -52,7 +65,12 @@ async fn main() -> Result<()> {
             .map_err(|e| Error::Config(e.to_string()))?;
     }
 
-    let state = AppState::new(store, config.namespace.clone(), config.database.clone());
+    let state = AppState::with_profile(
+        store,
+        config.namespace.clone(),
+        config.database.clone(),
+        profile,
+    );
 
     // Rebuild any datasource connectors registered in a prior run into the shared
     // registry before serving, so the registry reflects persisted state. A
@@ -78,11 +96,13 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Build the runtime config from the environment, defaulting to a file-backed
-/// edge node.
-fn load_config() -> RuntimeConfig {
+/// Build the runtime config from the environment, file-backed, carrying the
+/// selected deployment profile so the store/runtime layer sees the same choice.
+fn load_config(profile: rubix_core::Profile) -> RuntimeConfig {
     let namespace = std::env::var("RUBIX_NAMESPACE").unwrap_or_else(|_| DEFAULT_NAMESPACE.to_owned());
     let database = std::env::var("RUBIX_DATABASE").unwrap_or_else(|_| DEFAULT_DATABASE.to_owned());
     let data_dir = std::env::var("RUBIX_DATA_DIR").unwrap_or_else(|_| DEFAULT_DATA_DIR.to_owned());
-    RuntimeConfig::file_backed(data_dir, namespace, database)
+    let mut config = RuntimeConfig::file_backed(data_dir, namespace, database);
+    config.profile = profile;
+    config
 }

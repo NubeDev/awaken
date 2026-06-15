@@ -37,6 +37,24 @@ pub enum GrantProfile {
     /// An admin extension: may exercise every cross-plane capability the platform
     /// knows about.
     Admin,
+    /// An **AI agent analyst** (`rubix/docs/design/AGENT.md`, "Analyst vs.
+    /// operator"). Read-only "ask your data": its record reads are scoped by
+    /// SurrealDB row-perms (no capability needed for those), it may reach the
+    /// DataFusion/Postgres plane (`external-query`), and it may persist memory of
+    /// what it read through the gate (`agent-memory-write`) — recording recall is a
+    /// mutation, so it crosses the gate even for a read-only analyst. It holds no
+    /// rule or actuation authority.
+    AgentAnalyst,
+    /// An **AI agent operator** — the analyst tier plus the authority to record
+    /// rule decisions (`rule-invoke`) and write/enable rule definitions and
+    /// schedules (`rule-define`). It changes *configuration and insights*, never a
+    /// physical point.
+    AgentOperator,
+    /// An **AI agent actuator** — the operator tier plus `device-actuate`, the
+    /// authority to command a registered physical point. This is the demo's full
+    /// tier ("Apply pre-cool to L4 West"). Promoting analyst → operator → actuator
+    /// is granting one variant set at a time, fail closed at every step.
+    AgentActuator,
 }
 
 impl GrantProfile {
@@ -47,6 +65,12 @@ impl GrantProfile {
     /// ingest-only is the ingest pair, admin is everything. All three are derived
     /// from the one [`Capability`] enum — no profile invents a capability outside
     /// the WS-04 allow-set.
+    /// The three agent tiers are deliberately **layered** — each is a superset of
+    /// the one below (analyst ⊂ operator ⊂ actuator), so the static slices below
+    /// repeat the lower tier's capabilities rather than compose at runtime (the
+    /// return type is a `'static` slice). The
+    /// [`agent_tiers_are_strictly_layered`](tests) test pins the subset relation so
+    /// the slices cannot drift apart.
     #[must_use]
     pub fn capabilities(self) -> &'static [Capability] {
         match self {
@@ -55,6 +79,22 @@ impl GrantProfile {
                 &[Capability::IngestPublish, Capability::ZenohSubscribe]
             }
             GrantProfile::Admin => &Capability::ALL,
+            GrantProfile::AgentAnalyst => {
+                &[Capability::ExternalQuery, Capability::AgentMemoryWrite]
+            }
+            GrantProfile::AgentOperator => &[
+                Capability::ExternalQuery,
+                Capability::AgentMemoryWrite,
+                Capability::RuleInvoke,
+                Capability::RuleDefine,
+            ],
+            GrantProfile::AgentActuator => &[
+                Capability::ExternalQuery,
+                Capability::AgentMemoryWrite,
+                Capability::RuleInvoke,
+                Capability::RuleDefine,
+                Capability::DeviceActuate,
+            ],
         }
     }
 }
@@ -114,6 +154,56 @@ mod tests {
         assert_ne!(read_only, ingest_only);
         assert_ne!(ingest_only, admin);
         assert_ne!(read_only, admin);
+    }
+
+    #[test]
+    fn agent_tiers_are_strictly_layered() {
+        let analyst = GrantProfile::AgentAnalyst.capabilities();
+        let operator = GrantProfile::AgentOperator.capabilities();
+        let actuator = GrantProfile::AgentActuator.capabilities();
+
+        let subset = |inner: &[Capability], outer: &[Capability]| {
+            inner.iter().all(|capability| outer.contains(capability))
+        };
+
+        // analyst ⊂ operator ⊂ actuator — each tier is a superset of the one
+        // below, so promoting a principal is granting capabilities, never a rebuild.
+        assert!(subset(analyst, operator));
+        assert!(subset(operator, actuator));
+        // Each promotion adds authority, so the sets strictly grow.
+        assert!(operator.len() > analyst.len());
+        assert!(actuator.len() > operator.len());
+    }
+
+    #[test]
+    fn only_the_actuator_can_command_a_device() {
+        // Actuation is fail closed below the top tier: pre-cooling a floor and
+        // recording an insight must be distinct grants (AGENT.md, "Actuator").
+        assert!(
+            !GrantProfile::AgentAnalyst
+                .capabilities()
+                .contains(&Capability::DeviceActuate)
+        );
+        assert!(
+            !GrantProfile::AgentOperator
+                .capabilities()
+                .contains(&Capability::DeviceActuate)
+        );
+        assert!(
+            GrantProfile::AgentActuator
+                .capabilities()
+                .contains(&Capability::DeviceActuate)
+        );
+    }
+
+    #[test]
+    fn the_analyst_records_memory_but_holds_no_rule_authority() {
+        let analyst = GrantProfile::AgentAnalyst.capabilities();
+        // Recording recall crosses the gate even for a read-only analyst.
+        assert!(analyst.contains(&Capability::AgentMemoryWrite));
+        // But it cannot record rule decisions or define rules.
+        assert!(!analyst.contains(&Capability::RuleInvoke));
+        assert!(!analyst.contains(&Capability::RuleDefine));
     }
 
     #[test]

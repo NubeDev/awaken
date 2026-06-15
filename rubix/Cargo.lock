@@ -5303,6 +5303,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-agent"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-ext",
+ "rubix-gate",
+ "rubix-query",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "rubix-bus"
 version = "0.1.0"
 dependencies = [
@@ -5468,6 +5484,20 @@ dependencies = [
  "surrealdb",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "rubix-sync"
+version = "0.1.0"
+dependencies = [
+ "rubix-core",
+ "rubix-store",
+ "serde",
+ "serde_json",
+ "surrealdb",
+ "thiserror 2.0.18",
+ "tokio",
+ "zenoh",
 ]
 
 [[package]]

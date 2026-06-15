@@ -3,7 +3,7 @@
 // screens.js `topbar()`, navigation rewired to TanStack Router.
 
 import { Link } from '@tanstack/react-router'
-import { Building2, ChevronRight, ChevronsUpDown, Search } from 'lucide-react'
+import { Building2, ChevronRight, ChevronsUpDown, Search, SlidersHorizontal } from 'lucide-react'
 import { Orb } from './Orb'
 import { Button } from './button'
 
@@ -50,6 +50,16 @@ export function TopBar({ tenant, site, siteName, crumbs, livePoints }: TopBarPro
         )}
       </div>
       <div className="h-4 w-px bg-border mx-1" />
+      {/* Admin console — always reachable, from any screen. Highlights when the
+          console is the active route (data-status="active" from TanStack Router). */}
+      <Link
+        to="/t/$tenant/admin"
+        params={{ tenant }}
+        className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border text-[12px] text-muted hover:text-fg hover:bg-panel2 transition data-[status=active]:text-fg data-[status=active]:border-r1/40 data-[status=active]:bg-r1/10"
+      >
+        <SlidersHorizontal size={14} />
+        Admin
+      </Link>
       <Button
         type="button"
         variant="outline"

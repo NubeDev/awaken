@@ -30,6 +30,10 @@ pub fn health() {}
 #[utoipa::path(
     get,
     path = "/records",
+    params(
+        ("kind" = Option<String>, Query, description = "Filter to one collection (content.kind)"),
+        ("tag" = Option<String>, Query, description = "Comma-separated tag names the record must all carry")
+    ),
     responses((status = 200, description = "Records visible to the principal", body = [RecordDto]))
 )]
 pub fn list_records() {}
@@ -41,7 +45,8 @@ pub fn list_records() {}
     request_body = CreateRecordRequest,
     responses(
         (status = 200, description = "The created record", body = RecordDto),
-        (status = 403, description = "Principal lacks the write capability")
+        (status = 403, description = "Principal lacks the write capability"),
+        (status = 422, description = "Content failed its collection contract")
     )
 )]
 pub fn create_record() {}

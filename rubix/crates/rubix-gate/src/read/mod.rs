@@ -6,4 +6,6 @@
 
 mod on_session;
 
-pub use on_session::{read_record_on_session, read_records_on_session};
+pub use on_session::{
+    read_record_on_session, read_records_on_session, read_records_on_session_filtered,
+};

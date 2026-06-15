@@ -29,6 +29,10 @@ name = "http_records_crud"
 path = "tests/http/records/crud_test.rs"
 
 [[test]]
+name = "http_records_collection"
+path = "tests/http/records/collection_test.rs"
+
+[[test]]
 name = "ws_bridge"
 path = "tests/ws/bridge_test.rs"
 
@@ -46,7 +50,7 @@ rubix-datasource = { workspace = true }
 rubix-prefs = { workspace = true }
 arrow-json = "58"
 async-trait = "0.1"
-axum = { workspace = true, features = ["ws"] }
+axum = { workspace = true, features = ["ws", "query"] }
 chrono = { workspace = true }
 datafusion = { workspace = true }
 futures = { workspace = true }

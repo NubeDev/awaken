@@ -7,7 +7,7 @@
 //! Reads are not proxied per message; they run directly on the session the gate
 //! issued once (contract #1).
 
-use rubix_core::{Id, Record, list_records, read_record};
+use rubix_core::{Id, Record, list_records, list_records_filtered, read_record};
 
 use crate::error::{GateError, Result};
 use crate::session::ScopedSession;
@@ -21,6 +21,26 @@ use crate::session::ScopedSession;
 /// Returns [`GateError::Read`] if the underlying scoped query fails.
 pub async fn read_records_on_session(session: &ScopedSession) -> Result<Vec<Record>> {
     list_records(session.connection())
+        .await
+        .map_err(GateError::Read)
+}
+
+/// Read the principal's records narrowed by collection `kind` and/or `tag` set.
+///
+/// The filter runs on the same scoped session, so SurrealDB row-level
+/// permissions still bound the result first; `kind`/`tags` only narrow within
+/// that scope (`rubix/docs/design/BACKEND-COLLECTIONS.md`, "List/realtime
+/// filtering by collection"). `None`/empty filters make this equivalent to
+/// [`read_records_on_session`].
+///
+/// # Errors
+/// Returns [`GateError::Read`] if the underlying scoped query fails.
+pub async fn read_records_on_session_filtered(
+    session: &ScopedSession,
+    kind: Option<&str>,
+    tags: &[String],
+) -> Result<Vec<Record>> {
+    list_records_filtered(session.connection(), kind, tags)
         .await
         .map_err(GateError::Read)
 }

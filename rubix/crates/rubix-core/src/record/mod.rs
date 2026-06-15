@@ -18,7 +18,7 @@ mod update;
 pub use create::create_record;
 pub use decode::decode_record;
 pub use delete::delete_record;
-pub use list::list_records;
+pub use list::{list_records, list_records_filtered};
 pub use read::read_record;
 pub use update::update_record;
 

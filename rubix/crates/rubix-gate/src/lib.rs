@@ -34,7 +34,9 @@ pub use command::{Applied, CapturedChange, Change, Command, apply};
 pub use error::{GateError, Result};
 pub use permission::define_gate_schema;
 pub use principal::provision_principal;
-pub use read::{read_record_on_session, read_records_on_session};
+pub use read::{
+    read_record_on_session, read_records_on_session, read_records_on_session_filtered,
+};
 pub use session::{ScopedSession, issue_scoped_session};
 pub use token::PrincipalToken;
 pub use undo::{ChangeRecord, RecordKind, UndoEntry, UndoStore, is_undoable, push_change, redo, undo};

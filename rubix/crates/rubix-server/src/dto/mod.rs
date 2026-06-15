@@ -5,10 +5,12 @@
 //! so the response layer (timestamps as strings, prefs-formatted) does not leak
 //! engine shapes onto the wire.
 
+pub mod auth;
 pub mod datasource;
 pub mod query;
 pub mod record;
 
+pub use auth::{LoginRequest, LoginResponse, MeResponse};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};
 pub use query::{QueryRequest, QueryResponse};
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};

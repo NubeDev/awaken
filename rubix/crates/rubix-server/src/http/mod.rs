@@ -6,6 +6,7 @@
 //! merges the resource routers into one `Router`; the WS live-query bridge and
 //! the OpenAPI document are merged at the crate root (`lib.rs`).
 
+mod auth;
 mod datasources;
 mod health;
 mod query;
@@ -22,6 +23,7 @@ use health::health;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
+        .merge(auth::router())
         .merge(records::router())
         .merge(query::router())
         .merge(datasources::router())

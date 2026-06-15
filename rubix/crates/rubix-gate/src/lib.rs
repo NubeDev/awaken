@@ -14,6 +14,7 @@
 //! [`audit`] (contracts #1, #3, #4).
 
 mod audit;
+mod auth_token;
 mod authenticate;
 pub mod capability;
 mod command;
@@ -26,6 +27,10 @@ mod token;
 mod undo;
 
 pub use audit::{AuditRecord, define_audit_schema};
+pub use auth_token::{
+    DEFAULT_TTL_SECONDS, IssuedToken, ResolvedToken, issue_session_token, resolve_session_token,
+    revoke_session_token,
+};
 pub use authenticate::authenticate;
 pub use capability::{
     Capability, Grant, check_capability, create_grant, is_registered, list_grants, revoke_grant,

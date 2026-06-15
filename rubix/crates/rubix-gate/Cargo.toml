@@ -76,6 +76,10 @@ name = "command_validate"
 path = "tests/command/validate_test.rs"
 
 [[test]]
+name = "auth_token"
+path = "tests/auth/token_test.rs"
+
+[[test]]
 name = "audit_append"
 path = "tests/audit/append_test.rs"
 

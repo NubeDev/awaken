@@ -14,9 +14,44 @@
 #![allow(dead_code)]
 
 use crate::dto::{
-    CreateRecordRequest, DatasourceDto, QueryRequest, QueryResponse, RecordDto,
-    RegisterDatasourceRequest, UpdateDatasourceRequest, UpdateRecordRequest,
+    CreateRecordRequest, DatasourceDto, LoginRequest, LoginResponse, MeResponse, QueryRequest,
+    QueryResponse, RecordDto, RegisterDatasourceRequest, UpdateDatasourceRequest,
+    UpdateRecordRequest,
 };
+
+/// `POST /auth/login`.
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "An opaque bearer token and its expiry", body = LoginResponse),
+        (status = 401, description = "Unknown subject or wrong secret")
+    )
+)]
+pub fn login() {}
+
+/// `POST /auth/logout`.
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 204, description = "Token revoked (idempotent)"),
+        (status = 400, description = "No bearer token presented")
+    )
+)]
+pub fn logout() {}
+
+/// `GET /auth/me`.
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    responses(
+        (status = 200, description = "The current principal and its grants", body = MeResponse),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub fn me() {}
 
 /// `GET /health`.
 #[utoipa::path(

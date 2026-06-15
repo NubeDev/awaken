@@ -66,6 +66,10 @@ pub enum GateError {
     #[error("audit write failed: {0}")]
     AuditWrite(#[source] surrealdb::Error),
 
+    /// Issuing, resolving, or revoking an opaque login token failed at the store.
+    #[error("session token store operation failed: {0}")]
+    TokenStore(#[source] surrealdb::Error),
+
     /// A change was refused at the undo boundary: undo covers user-facing
     /// definitions only — never the data plane (readings, insight firings) and
     /// never the audit log (`rubix/docs/SCOPE.md`, "Undo/redo").

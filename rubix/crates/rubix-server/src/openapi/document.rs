@@ -10,8 +10,9 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    CreateRecordRequest, DatasourceDto, QueryRequest, QueryResponse, RecordDto,
-    RegisterDatasourceRequest, UpdateDatasourceRequest, UpdateRecordRequest,
+    CreateRecordRequest, DatasourceDto, LoginRequest, LoginResponse, MeResponse, QueryRequest,
+    QueryResponse, RecordDto, RegisterDatasourceRequest, UpdateDatasourceRequest,
+    UpdateRecordRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.
@@ -23,6 +24,9 @@ use crate::dto::{
     ),
     paths(
         crate::openapi::paths::health,
+        crate::openapi::paths::login,
+        crate::openapi::paths::logout,
+        crate::openapi::paths::me,
         crate::openapi::paths::list_records,
         crate::openapi::paths::create_record,
         crate::openapi::paths::get_record,
@@ -37,6 +41,9 @@ use crate::dto::{
         crate::openapi::paths::subscribe_records
     ),
     components(schemas(
+        LoginRequest,
+        LoginResponse,
+        MeResponse,
         RecordDto,
         CreateRecordRequest,
         UpdateRecordRequest,

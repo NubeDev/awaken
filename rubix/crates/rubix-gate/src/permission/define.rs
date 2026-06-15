@@ -10,6 +10,10 @@
 //!   authz layer, `rubix/docs/SCOPE.md`); it carries no scoped-session `select`
 //!   permission because grants are read by the gate on the store handle, never
 //!   on a principal's scoped session;
+//! - the `session_token` table holds opaque server-side login tokens (a hashed
+//!   token → credentials, with an expiry); like `grant` it is read only by the
+//!   gate on the store handle, never on a scoped session, so it carries no
+//!   row-level permission;
 //! - `DEFINE ACCESS principal ON DATABASE TYPE RECORD` with a `SIGNIN` clause
 //!   resolves a token to a principal record and binds it to `$auth`;
 //! - the `record` table's `PERMISSIONS FOR select` clause keys on
@@ -37,6 +41,7 @@ use crate::error::{GateError, Result};
 const GATE_SCHEMA: &str = "\
 DEFINE TABLE IF NOT EXISTS principal SCHEMALESS;\n\
 DEFINE TABLE IF NOT EXISTS grant SCHEMALESS;\n\
+DEFINE TABLE IF NOT EXISTS session_token SCHEMALESS;\n\
 DEFINE ACCESS IF NOT EXISTS principal ON DATABASE TYPE RECORD\n\
   SIGNIN (\n\
     SELECT * FROM principal\n\

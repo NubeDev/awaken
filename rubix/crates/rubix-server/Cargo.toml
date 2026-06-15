@@ -38,6 +38,10 @@ name = "http_health"
 path = "tests/http/health_test.rs"
 
 [[test]]
+name = "http_auth"
+path = "tests/http/auth_test.rs"
+
+[[test]]
 name = "http_records_crud"
 path = "tests/http/records/crud_test.rs"
 

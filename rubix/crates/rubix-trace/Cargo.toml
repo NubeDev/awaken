@@ -39,3 +39,7 @@ path = "tests/trace/retain_test.rs"
 [[test]]
 name = "assemble"
 path = "tests/trace/assemble_test.rs"
+
+[[test]]
+name = "summary"
+path = "tests/trace/summary_test.rs"

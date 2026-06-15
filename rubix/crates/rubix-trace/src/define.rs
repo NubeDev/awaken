@@ -1,4 +1,4 @@
-//! Define the append-only `trace` table.
+//! Define the append-only `trace` table and the `trace_summary` rollup surface.
 //!
 //! Contract #4 (`rubix/STACK-DEISGN.md`; `rubix/docs/SCOPE.md`, "Tracing"):
 //! traces are append-only and bounded/sampled. The table is `SCHEMALESS` so a
@@ -28,6 +28,21 @@ DEFINE TABLE OVERWRITE trace SCHEMALESS\n\
     FOR select WHERE namespace = $auth.namespace\n\
     FOR create, update, delete NONE;";
 
+/// The `trace_summary` rollup surface and its permissions.
+///
+/// A Tier-B derived rollup (`rubix/docs/design/LAMINAR-BORROW.md` §5b/§7), not a
+/// record: one versioned row per correlation id, upserted as spans land. Unlike
+/// the append-only `trace` table this surface is *updated* in place by the
+/// system, so it permits `update` only to the owner (still `NONE` for scoped
+/// principals) — the upsert runs on the root/owner session, which is not subject
+/// to table permissions, so principals stay read-only while the system folds.
+/// Reads are scoped to the principal's own tenant, matching the `trace` table.
+const SUMMARY_SCHEMA: &str = "\
+DEFINE TABLE OVERWRITE trace_summary SCHEMALESS\n\
+  PERMISSIONS\n\
+    FOR select WHERE namespace = $auth.namespace\n\
+    FOR create, update, delete NONE;";
+
 /// Apply the append-only `trace` table definition on the root handle.
 ///
 /// Must run on the root/owner session (the `rubix-store` handle's connection),
@@ -39,6 +54,11 @@ DEFINE TABLE OVERWRITE trace SCHEMALESS\n\
 /// Returns [`TraceError::DefineSchema`] if the statement fails to apply.
 pub async fn define_trace_schema(db: &Surreal<Db>) -> Result<()> {
     db.query(TRACE_SCHEMA)
+        .await
+        .map_err(TraceError::DefineSchema)?
+        .check()
+        .map_err(TraceError::DefineSchema)?;
+    db.query(SUMMARY_SCHEMA)
         .await
         .map_err(TraceError::DefineSchema)?
         .check()

@@ -28,6 +28,7 @@ mod row;
 mod sample;
 mod span;
 mod span_metrics;
+mod summary;
 
 pub use assemble::{SpanNode, assemble_trace};
 pub use define::define_trace_schema;
@@ -41,3 +42,4 @@ pub use span_metrics::{
     MetricsBuilder, SpanMetrics, SpanStatus, SPAN_COST, SPAN_KIND, SPAN_STATUS, SPAN_TOKENS,
     read_kind,
 };
+pub use summary::{TraceSummary, read_summary, upsert_summary};

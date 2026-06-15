@@ -18,7 +18,9 @@ use surrealdb::engine::local::Db;
 
 use rubix_bus::ControlBus;
 use rubix_core::{CorrelationId, Id};
-use rubix_trace::{MetricsBuilder, SampleRate, Span, SpanStatus, emit_span, persist_span};
+use rubix_trace::{
+    MetricsBuilder, SampleRate, Span, SpanStatus, emit_span, persist_span, upsert_summary,
+};
 
 use crate::engine::Decision;
 use crate::error::{Result, RuleError};
@@ -91,7 +93,8 @@ pub fn build_span(
     }
 }
 
-/// Emit `span` on the bus and append it to the bounded trace table.
+/// Emit `span` on the bus, fold it into the trace summary, and append it to the
+/// bounded trace table.
 ///
 /// Emitting is fire-and-forget (a no-subscriber emit is a no-op, `rubix-trace`);
 /// persistence is the durable, sampled copy that `assemble_trace` later reads
@@ -100,8 +103,13 @@ pub fn build_span(
 /// deliberate thinning that keeps traces bounded (contract #4) — which is not an
 /// error.
 ///
+/// The §5b `trace_summary` rollup is folded for **every** span, *before*
+/// sampling, so the per-correlation-id summary (status/tokens/cost/span-count)
+/// stays accurate even when span sampling thins the durable per-span copies — the
+/// rollup is the cheap trace-list read, and sampling must not skew it.
+///
 /// # Errors
-/// Returns [`RuleError::Span`] if the durable append fails.
+/// Returns [`RuleError::Span`] if the summary fold or the durable append fails.
 pub async fn emit_and_persist(
     bus: &ControlBus,
     trace_db: &Surreal<Db>,
@@ -110,6 +118,9 @@ pub async fn emit_and_persist(
     rate: SampleRate,
 ) -> Result<()> {
     emit_span(bus, span);
+    upsert_summary(trace_db, namespace, span)
+        .await
+        .map_err(|e| RuleError::Span(e.to_string()))?;
     persist_span(trace_db, namespace, span, rate)
         .await
         .map_err(|e| RuleError::Span(e.to_string()))?;

@@ -1,0 +1,39 @@
+{
+  "keyexpr": "acme/hq/ahu-3/sat",
+  "point": {
+    "id": "0cc7587a-87d2-49c1-93ef-4940299c737c",
+    "equip_id": "03a06be6-c8b7-4cff-987e-da2abea76690",
+    "slug": "sat",
+    "display_name": "Supply Air Temp",
+    "kind": "sp",
+    "unit": "degC",
+    "tags": {
+      "sp": true,
+      "temp": true
+    },
+    "priority_array": {
+      "slots": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        21.5,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "relinquish_default": null
+    },
+    "cur_value": 21.5,
+    "cur_ts": "2026-06-12T22:32:42.861650683Z",
+    "created_at": "2026-06-12T22:32:33.278416Z"
+  }
+}

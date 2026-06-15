@@ -17,6 +17,8 @@ interface DashboardGridProps {
   charts: Map<string, SavedChart>
   onLayoutChange: (panels: BoardPanel[]) => void
   onRemovePanel: (chartId: string) => void
+  /** Board time-range params, applied to each panel's `{{…}}` placeholders. */
+  params?: Record<string, string | number>
 }
 
 const COLS = 12
@@ -27,6 +29,7 @@ export function DashboardGrid({
   charts,
   onLayoutChange,
   onRemovePanel,
+  params,
 }: DashboardGridProps) {
   const { width, containerRef } = useContainerWidth()
 
@@ -57,6 +60,7 @@ export function DashboardGrid({
                   chart={chart}
                   syncId="board"
                   onRemove={() => onRemovePanel(p.chart_id)}
+                  params={params}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">

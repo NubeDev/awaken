@@ -32,6 +32,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { SqlEditor } from '../../components/sql/SqlEditor'
+import { ParametersPanel } from '../../components/sql/ParametersPanel'
+import { applyParameters, useSqlEditorStore } from '../../components/sql/sql-editor-store'
 import { ChartRendererCore } from '../../components/chart-builder/charts'
 import { useChartZoom } from '../../components/chart-builder/charts/useChartZoom'
 import { transformDataToColumns, type ColumnInfo, type DataRow } from '../../components/chart-builder/utils'
@@ -110,6 +112,12 @@ export function AdminQuery() {
   const [drillRow, setDrillRow] = useState<Record<string, any> | null>(null)
 
   const zoom = useChartZoom()
+  const { parameters, setParameterValue, getFormattedParameters } = useSqlEditorStore()
+
+  // Resolve `{{start_time}}`/`{{end_time}}`/`{{interval_unit}}` placeholders to
+  // the parameter panel's current values before a query runs. Saved queries keep
+  // the raw, parameterised SQL — only the executed text is substituted.
+  const resolve = (text: string) => applyParameters(text, getFormattedParameters())
 
   const saved = useQuery({
     queryKey: ['saved-queries', tenant],
@@ -167,7 +175,7 @@ export function AdminQuery() {
   const chartRows = useMemo(() => zoom.apply(rows, chart.x), [zoom, rows, chart.x])
 
   function run() {
-    if (sql.trim()) query.mutate(sql)
+    if (sql.trim()) query.mutate(resolve(sql))
   }
 
   function load(id: string) {
@@ -193,7 +201,7 @@ export function AdminQuery() {
     setSql(p.sql)
     setChart(p.chart)
     setSelectedId(NEW)
-    query.mutate(p.sql)
+    query.mutate(resolve(p.sql))
   }
 
   return (
@@ -270,7 +278,24 @@ export function AdminQuery() {
           )}
         </div>
 
-        <SqlEditor value={sql} onChange={setSql} onRun={run} />
+        <Tabs defaultValue="query">
+          <TabsList>
+            <TabsTrigger value="query">Query</TabsTrigger>
+            <TabsTrigger value="parameters">Parameters</TabsTrigger>
+          </TabsList>
+          <TabsContent value="query">
+            <SqlEditor value={sql} onChange={setSql} onRun={run} />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Reference parameters as <code className="mono">{'{{start_time}}'}</code> /{' '}
+              <code className="mono">{'{{end_time}}'}</code> /{' '}
+              <code className="mono">{'{{interval_unit}}'}</code> — set their values in the
+              Parameters tab.
+            </p>
+          </TabsContent>
+          <TabsContent value="parameters">
+            <ParametersPanel parameters={parameters} onChange={setParameterValue} />
+          </TabsContent>
+        </Tabs>
 
         <div className="mt-3 flex items-center gap-3">
           <Button onClick={run} disabled={query.isPending} className="gap-1.5">

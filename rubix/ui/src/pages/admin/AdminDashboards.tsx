@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LayoutDashboard, Plus, Trash2 } from 'lucide-react'
 import { useApi } from '../../api/ConnectionContext'
-import { listCharts, type SavedChart } from '../../api/charts'
+import { createChart, listCharts, type SavedChart } from '../../api/charts'
 import {
   createBoard,
   deleteBoard,
@@ -24,12 +24,18 @@ import { Input } from '../../components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
 import { DashboardGrid } from '../../components/dashboards/DashboardGrid'
+import { BoardTimeRange } from '../../components/dashboards/BoardTimeRange'
+import { CHART_PRESETS, type ChartPreset, type PresetGroup } from '../../components/dashboards/chart-presets'
+import { DEFAULT_RANGE, formatBoardParams, type BoardTimeRange as Range } from '../../components/dashboards/board-params'
 import { EmptyView } from '../../components/ui/StateView'
+
+const PRESET_GROUPS: PresetGroup[] = ['Records', 'Audit', 'Traces']
 
 const route = getRouteApi('/t/$tenant/admin/dashboards')
 
@@ -40,6 +46,11 @@ export function AdminDashboards() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
+  // Board-wide time range — substituted into every panel's `{{…}}` placeholders
+  // so one control re-scopes the whole board (§3). Memoised into a params map so
+  // panels only re-run when the formatted window actually changes.
+  const [range, setRange] = useState<Range>(DEFAULT_RANGE)
+  const params = useMemo(() => formatBoardParams(range), [range])
   // Local working copy of the open board's panels — the grid edits this live; a
   // debounced effect flushes it to the gate so drags don't thrash the backend.
   const [panels, setPanels] = useState<BoardPanel[]>([])
@@ -111,6 +122,24 @@ export function AdminDashboards() {
     persist([...panels, { chart_id: chartId, x: (i % 2) * 6, y: Math.floor(i / 2) * 4, w: 6, h: 4 }])
   }
 
+  // One-click preset: materialise the preset as a kind:"chart" record, then place
+  // it on the board. Time-series presets carry `{{start_time}}`/`{{end_time}}`
+  // placeholders, so they immediately track the board range.
+  const addPreset = useMutation({
+    mutationFn: (preset: ChartPreset) =>
+      createChart(api, { name: preset.name, sql: preset.sql, config: preset.config }),
+    onSuccess: (c) => {
+      void qc.invalidateQueries({ queryKey: ['charts', tenant] })
+      addPanel(c.id)
+    },
+  })
+
+  function onPick(value: string) {
+    const preset = CHART_PRESETS.find((p) => p.name === value)
+    if (preset) addPreset.mutate(preset)
+    else addPanel(value)
+  }
+
   function removePanel(chartId: string) {
     persist(panels.filter((p) => p.chart_id !== chartId))
   }
@@ -166,23 +195,38 @@ export function AdminDashboards() {
 
           {selected && (
             <>
-              <Select value="" onValueChange={addPanel}>
+              <Select value="" onValueChange={onPick}>
                 <SelectTrigger className="ml-auto w-[200px]">
                   <span className="flex items-center gap-1.5">
                     <Plus size={14} /> <SelectValue placeholder="Add chart" />
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCharts.length === 0 ? (
-                    <SelectItem value="__none__" disabled>
-                      No more charts
-                    </SelectItem>
-                  ) : (
-                    availableCharts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))
+                  {/* Presets — one-click charts, grouped by surface. */}
+                  {PRESET_GROUPS.map((group) => (
+                    <SelectGroup key={group}>
+                      <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {group}
+                      </div>
+                      {CHART_PRESETS.filter((p) => p.group === group).map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                  {/* Saved charts authored in the Query console. */}
+                  {availableCharts.length > 0 && (
+                    <SelectGroup>
+                      <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Saved charts
+                      </div>
+                      {availableCharts.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   )}
                 </SelectContent>
               </Select>
@@ -197,6 +241,13 @@ export function AdminDashboards() {
             </>
           )}
         </div>
+
+        {/* Board time range — one control re-scopes every parameterised panel. */}
+        {selected && panels.length > 0 && (
+          <div className="mb-4">
+            <BoardTimeRange value={range} onChange={setRange} />
+          </div>
+        )}
 
         {!selected ? (
           <EmptyView
@@ -223,6 +274,7 @@ export function AdminDashboards() {
             charts={chartMap}
             onLayoutChange={persist}
             onRemovePanel={removePanel}
+            params={params}
           />
         )}
       </div>

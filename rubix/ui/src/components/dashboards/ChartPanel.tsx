@@ -11,20 +11,27 @@ import { runQuery } from '../../api/query'
 import type { SavedChart } from '../../api/charts'
 import { ChartRendererCore } from '../chart-builder/charts'
 import { transformDataToColumns, type DataRow } from '../chart-builder/utils'
+import { applyParameters } from '../sql/sql-editor-store'
 
 interface ChartPanelProps {
   tenant: string
   chart: SavedChart
   syncId: string
   onRemove: () => void
+  /** Board time-range params substituted into the chart's `{{…}}` placeholders. */
+  params?: Record<string, string | number>
 }
 
-export function ChartPanel({ tenant, chart, syncId, onRemove }: ChartPanelProps) {
+export function ChartPanel({ tenant, chart, syncId, onRemove, params }: ChartPanelProps) {
   const api = useApi(tenant)
 
+  // Substitute the board's time range into the chart SQL before running. A chart
+  // with no placeholders is unaffected, so non-time-series panels ignore the range.
+  const sql = params ? applyParameters(chart.sql, params) : chart.sql
+
   const q = useQuery({
-    queryKey: ['chart-panel', tenant, chart.id, chart.sql],
-    queryFn: () => runQuery(api, chart.sql),
+    queryKey: ['chart-panel', tenant, chart.id, sql],
+    queryFn: () => runQuery(api, sql),
   })
 
   const rows = q.data?.rows ?? []

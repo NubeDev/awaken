@@ -1,54 +1,37 @@
-// CodeMirror SQL editor — the §1a "lift wholesale" editor, trimmed to what works
-// on today's surface: SQL syntax highlighting, a Rubix-themed dark palette, and a
-// ⌘/Ctrl+Enter run keybinding. Schema-aware autocomplete is deferred — it tracks
-// the query-catalog endpoint (§1 prereq), which is not on the committed spine.
+// CodeMirror SQL editor — the §1a "lift wholesale" editor. Now schema-aware:
+// autocomplete over the Rubix catalog (canonical tables + structural columns +
+// json_get/date_bin/aggregate functions), search, and selection-match
+// highlighting, all from `editor-extensions.ts` (ported from Laminar's
+// `components/sql/utils.ts`). A ⌘/Ctrl+Enter keybinding runs the query.
+//
+// Schema-aware completion is no longer deferred: it ships against a *static*
+// catalog today. Per-`content.kind` typed columns will appear once the
+// `/query/schema` endpoint lands (§1 prerequisite) — at which point the only
+// change here is passing a fetched catalog instead of the default.
 
-import { sql } from '@codemirror/lang-sql'
 import { keymap } from '@codemirror/view'
 import { Prec } from '@codemirror/state'
 import CodeMirror from '@uiw/react-codemirror'
-import { createTheme } from '@uiw/codemirror-themes'
-import { tags as t } from '@lezer/highlight'
 import { useMemo } from 'react'
 
-// Mirror the app's dark theme (styles/theme.css) so the editor sits in the
-// surrounding panels rather than shipping CodeMirror's default light look.
-const rubixTheme = createTheme({
-  theme: 'dark',
-  settings: {
-    background: 'transparent',
-    foreground: 'hsl(220, 16%, 93%)',
-    caret: 'hsl(258, 84%, 74%)',
-    selection: 'hsl(258, 84%, 74%, 0.25)',
-    selectionMatch: 'hsl(258, 84%, 74%, 0.20)',
-    lineHighlight: 'hsl(230, 14%, 12%, 0.4)',
-    gutterBackground: 'transparent',
-    gutterForeground: 'hsl(220, 8%, 56%)',
-    fontFamily: 'var(--font-mono)',
-  },
-  styles: [
-    { tag: t.keyword, color: 'hsl(258, 84%, 74%)' },
-    { tag: t.string, color: 'hsl(150, 64%, 52%)' },
-    { tag: [t.number, t.bool, t.null], color: 'hsl(32, 92%, 60%)' },
-    { tag: t.function(t.variableName), color: 'hsl(200, 86%, 64%)' },
-    { tag: t.comment, color: 'hsl(220, 8%, 56%)', fontStyle: 'italic' },
-    { tag: t.operator, color: 'hsl(174, 70%, 56%)' },
-  ],
-})
+import { createExtensions, theme } from './editor-extensions'
+import type { RubixCatalog } from './catalog'
 
 interface SqlEditorProps {
   value: string
   onChange: (value: string) => void
   onRun?: () => void
   minHeight?: string
+  /** Override the autocomplete catalog (e.g. a fetched, row-perm-scoped schema). */
+  catalog?: RubixCatalog
 }
 
-export function SqlEditor({ value, onChange, onRun, minHeight = '160px' }: SqlEditorProps) {
+export function SqlEditor({ value, onChange, onRun, minHeight = '160px', catalog }: SqlEditorProps) {
   // High-precedence keymap so ⌘/Ctrl+Enter runs the query rather than inserting a
   // newline. `Prec.highest` beats CodeMirror's default Enter handling.
   const extensions = useMemo(
     () => [
-      sql(),
+      ...createExtensions(catalog),
       Prec.highest(
         keymap.of([
           {
@@ -61,7 +44,7 @@ export function SqlEditor({ value, onChange, onRun, minHeight = '160px' }: SqlEd
         ]),
       ),
     ],
-    [onRun],
+    [onRun, catalog],
   )
 
   return (
@@ -69,7 +52,7 @@ export function SqlEditor({ value, onChange, onRun, minHeight = '160px' }: SqlEd
       <CodeMirror
         value={value}
         onChange={onChange}
-        theme={rubixTheme}
+        theme={theme}
         extensions={extensions}
         minHeight={minHeight}
         basicSetup={{

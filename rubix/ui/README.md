@@ -2,7 +2,7 @@
 
 Frontend for the Rubix edge-to-cloud data platform.
 
-**Stack:** React 18 + TypeScript + Vite
+**Stack:** React 19 + TypeScript + Vite
 
 ---
 

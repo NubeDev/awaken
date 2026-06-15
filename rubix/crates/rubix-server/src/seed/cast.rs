@@ -34,6 +34,13 @@ struct DemoPrincipal {
 /// transport can exercise today.
 const CAST: &[DemoPrincipal] = &[
     DemoPrincipal {
+        subject: "admin",
+        secret: "admin-demo",
+        kind: PrincipalKind::User,
+        role: Role::Admin,
+        grants: &[Capability::IngestPublish, Capability::DatasourceRegister],
+    },
+    DemoPrincipal {
         subject: "operator",
         secret: "operator-demo",
         kind: PrincipalKind::User,

@@ -7,6 +7,7 @@ mod collection;
 mod configure;
 mod correlate;
 mod error;
+mod hook;
 mod id;
 mod principal;
 mod record;
@@ -20,6 +21,7 @@ pub use collection::{
 pub use configure::{Profile, RuntimeConfig, StoreEngine};
 pub use correlate::CorrelationId;
 pub use error::{Error, Result, ResultExt};
+pub use hook::{HOOK_KIND, Hook, HookEvent, HookParseError, find_hooks};
 pub use id::Id;
 pub use principal::{Principal, PrincipalKind, Role};
 pub use record::{

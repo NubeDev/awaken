@@ -21,14 +21,17 @@
 
 UI_DIR := ui
 
-# Dev ports — kept in sync with the code. rubix-server binds RUBIX_ADDR
-# (default 0.0.0.0:8080 in crates/rubix-server/src/main.rs); the UI's vite
-# dev server listens on 5180 and proxies /api to VITE_API_PROXY (default
+# Dev ports — kept in sync with the code. rubix-server binds RUBIX_BIND
+# (default 127.0.0.1:8080 in crates/rubix-server/src/main.rs); the UI's vite
+# dev server listens on 5180 and proxies the API to VITE_API_PROXY (default
 # http://127.0.0.1:8088 in ui/vite.config.ts). We point the backend at :8088
 # below so the UI proxy reaches it out of the box. Override on the CLI to remap.
 BE_PORT ?= 8088
 UI_PORT ?= 5180
-export RUBIX_ADDR ?= 127.0.0.1:$(BE_PORT)
+# The binary reads RUBIX_BIND (crates/rubix-server/src/main.rs); keep this name
+# in sync or the backend silently falls back to its default port and the UI proxy
+# can't reach it.
+export RUBIX_BIND ?= 127.0.0.1:$(BE_PORT)
 
 # Backend cargo feature profile. Empty = the default `edge` build (SQLite,
 # on-box drivers, no auth). Set FEATURES=cloud to compile the Postgres store
@@ -85,12 +88,12 @@ build-ui:
 dev:
 	@echo "backend → http://$(RUBIX_ADDR)   ui → http://127.0.0.1:$(UI_PORT)"
 	@trap 'kill 0' EXIT INT TERM; \
-	( cargo run --bin rubix $(CARGO_FEATURES) $(SEED_FLAG) ) & \
+	( cargo run --bin rubix-server $(CARGO_FEATURES) $(SEED_FLAG) ) & \
 	( cd $(UI_DIR) && pnpm dev ) & \
 	wait
 
 dev-be:
-	cargo run --bin rubix $(CARGO_FEATURES) $(SEED_FLAG)
+	cargo run --bin rubix-server $(CARGO_FEATURES) $(SEED_FLAG)
 
 dev-ui:
 	cd $(UI_DIR) && pnpm dev

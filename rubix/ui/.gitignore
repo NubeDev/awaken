@@ -8,3 +8,7 @@ node_modules
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# Playwright e2e output
+test-results
+playwright-report

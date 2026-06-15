@@ -10,6 +10,13 @@
 //! record — the platform bakes in no fixed ontology, structure comes from the
 //! decision content (`rubix/docs/SCOPE.md`, principle 4). The carried correlation
 //! id is the same thread stamped into the published event and the span tree.
+//!
+//! The recorded content also carries the §5c evaluation shape
+//! (`rubix/docs/design/LAMINAR-BORROW.md`): the decision's `scores` map and a
+//! `group_id` (falling back to the rule's identity), so a rule firing is a
+//! comparable, chartable *evaluation datapoint* — audited and correlated to the
+//! trace id like every other gate write. The same shape later covers agent-run
+//! QA when the Rig brain lands.
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
@@ -68,7 +75,7 @@ pub async fn record_insight(
         principal.clone(),
         RULE_CAPABILITY,
         insight_id.clone(),
-        Change::Create(decision.to_content(&rule.output)),
+        Change::Create(decision.to_content(&rule.output, rule.id.as_str())),
     );
     let applied = apply(db, &command, Some(correlation))
         .await

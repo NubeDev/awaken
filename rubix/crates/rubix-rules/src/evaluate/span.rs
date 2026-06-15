@@ -143,6 +143,8 @@ mod tests {
             fired: true,
             value: 30.0,
             reason: "hot".to_owned(),
+            scores: std::collections::BTreeMap::new(),
+            group_id: None,
         }
     }
 

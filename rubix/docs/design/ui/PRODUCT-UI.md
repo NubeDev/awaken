@@ -124,6 +124,34 @@ built against this contract, and until the backend lands it, an `@rubix/api`
 adapter maps the tenant-scoped client onto the current flat routes so the UI does
 not encode the old shape.
 
+### Backend gap — actions (the less-ready half of the thesis)
+
+The thesis is **act → consequence → resolve**, and the must-keep moments are
+actions ("Apply pre-cool to L4 West", "Fail over to backup CRAC"). But the
+demo's buttons are not one kind of thing, and only some have a backend path today.
+Split them:
+
+- **Read-backed** (ready): "Show the math", "Open Energy", "Compare this week",
+  drill-ins. These are `/query` / `/records` reads, scoped to the tenant. Build now.
+- **Record-write / insight** (ready): "Assign to on-call", "Pin", "Add to report",
+  dismiss/mute. These cross the gate as a `Command` that mutates a SurrealDB
+  record. Build now — subject to the board-write open question (4) for boards.
+- **Actuate a physical point** (blocked): "Fail over to backup CRAC", "Apply
+  pre-cool", "Restart gateway", "Discharge battery". **The backend cannot command
+  a device.** Per [AGENT.md](../AGENT.md) ("Actuator" section): `rule-invoke`
+  records an append-only insight, not an actuation; a gate `Command` only mutates a
+  record and has **no egress** to a Modbus/BACnet/Zenoh control point; there is no
+  `device-actuate` capability yet. The `device-actuate` grant is *decided* but
+  unbuilt, and the egress wire is AGENT.md open question 8.
+
+So the demo's "fail over → recovery chart → queue clears" is **not** a UI-wiring
+exercise — the consequence chart is fed by a backend that, today, cannot move the
+setpoint. Until `device-actuate` + an egress plane land, actuate-class buttons must
+be built as **explicitly disabled / "coming"**, or routed to a human hand-off
+(assign-to-on-call, the one actuation-adjacent action that *is* a record write) —
+never wired to a fake success. Treat this as the harder of the two backend gaps,
+not a footnote.
+
 ## How the demo maps to the build
 
 The prototype is a throwaway artifact (Tailwind CDN + vanilla JS + hardcoded
@@ -147,8 +175,11 @@ The demo's strongest, must-keep moments:
   and clears the queue item (precool/failover in `app.js`).
 - **"Build me a live view" → pin it**: the agent composes a live dashboard tile set
   and the operator pins it to a persistent, tenant-scoped board.
-- **Omni-search (⌘K)** that jumps across tenants, screens, dashboards, and zones —
-  and falls through to "ask Rubix" when nothing matches.
+- **Omni-search (⌘K)** within the current tenant — screens, dashboards, zones —
+  falling through to "ask Rubix" when nothing matches. *Cross-tenant* search
+  (jumping between tenants from one box) is aspirational, pending open question 3:
+  each tenant is a separate namespace/scoped session, so it is a fan-out across
+  namespaces and a real isolation-leak surface if ever backed by a shared index.
 - **Visual language**: orb identity, serif for the agent's prose, mono tabular
   numerals, heat-mapped zone cells, hand-tuned chart density.
 
@@ -228,9 +259,12 @@ the same tenant.
    is a memory write that must cross the gate, and *how* it crosses is still open —
    it depends on the agent-memory-write vs. append-only-path decision in
    [AGENT.md](../AGENT.md) (3b), so the board write path is pending that call.
-5. **Agent surface boundary.** Which copilot answers/actions are agent-runtime
-   ([AGENT.md](../AGENT.md)) vs. plain `/query` calls — i.e. where the line sits
-   between "ask Rubix" (LLM/agent) and a deterministic dashboard query.
+5. **Agent surface boundary (reads *and* actions).** On the read side: which
+   copilot answers are agent-runtime ([AGENT.md](../AGENT.md)) vs. plain `/query`.
+   On the action side: actuate-class buttons have **no backend plane at all** yet
+   (see "Backend gap — actions") — sequencing `device-actuate` + egress
+   (AGENT.md "Actuator" / open question 8) is the gating decision for the
+   act-and-resolve half of the thesis, not just an LLM-vs-query line.
 6. **Cross-tenant / MSP area.** Whether portfolio-wide or provider-level
    administration ever becomes a first-class area above the tenant scope, or stays
    out of this product entirely.

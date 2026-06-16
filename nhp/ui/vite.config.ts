@@ -17,13 +17,25 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    port: 5180,
-    // Proxy the real rubix-server API in dev so the UI calls /api/v1/* without
-    // CORS. Override the target with VITE_API_PROXY.
+    // VITE_UI_PORT / VITE_API_PROXY are pinned by nhp/Makefile (BE_PORT 8094 /
+    // UI_PORT 5194) so the dev server and its proxy always follow the backend.
+    port: Number(process.env.VITE_UI_PORT) || 5194,
+    // rubix-server serves flat, unprefixed routes (/records, /query, /auth/...,
+    // /principals, /health, /ws/..., see rubix crates/rubix-server/src/http/
+    // mod.rs). Proxy those to the backend so the UI calls them same-origin
+    // without CORS; everything else falls through to vite's SPA index.html.
+    // `/api` is kept for any future versioned surface. Override the target with
+    // VITE_API_PROXY.
     proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8088',
+      '^/(api|records|query|auth|datasources|principals|tenants|devices|health|api-docs)(/|\\?|$)':
+        {
+          target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8094',
+          changeOrigin: true,
+        },
+      '/ws': {
+        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8094',
         changeOrigin: true,
+        ws: true,
       },
     },
   },

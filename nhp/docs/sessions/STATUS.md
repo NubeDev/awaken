@@ -19,7 +19,7 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 | WS-03 | Seed: mock portfolio + faked poller data (status/last_seen/history) | ✅ | 2026-06-16T00:37:54Z | 2026-06-16T11:05:00Z | 75d9ac61 |
 | WS-04 | Admin: meter-types & register-map editor (history/unit/chart/group/alarm) | ✅ | 2026-06-16T00:58:07Z | 2026-06-16T01:17:31Z | 12cc1ee0 |
 | WS-05 | Admin: gateways, networks (485/ethernet), device-limit, users/teams/roles | ✅ | 2026-06-16T01:20:12Z | 2026-06-16T01:38:09Z | 98653028 |
-| WS-06 | Onboarding wizards (tenant→site→gateway+N networks→meters→users) | ⬜ | | | |
+| WS-06 | Onboarding wizards (tenant→site→gateway+N networks→meters→users) | ✅ | 2026-06-16T01:40:16Z | 2026-06-16T12:06:00Z | e7ee7e40 |
 | WS-07 | Dashboards: tag-driven auto-build pages + online/offline + alarms | ⬜ | | | |
 | WS-08 | POC polish: end-to-end smoke, README, demo walkthrough | ⬜ | | | |
 
@@ -54,3 +54,5 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 - 2026-06-16T01:17:31Z gated WS-04 ✅ (pnpm -C nhp/ui build green + 21/21 unit tests; meter-type CRUD/clone, register-map+alarm editor, CSV/JSON bulk import, versioning rollup + per-meter re-apply diff — all on the rubix records API, live-verified on --seed-dev, zero rubix diff, commit 12cc1ee0)
 - 2026-06-16T01:20:12Z spawned WS-05
 - 2026-06-16T01:38:09Z gated WS-05 ✅ (pnpm -C nhp/ui build green + 21/21 unit tests; gateway CRUD with required-site picker + read-only poller status/last_seen, network CRUD with 485/ethernet param sub-forms + device-limit capacity badge/cap-floor guard (capacity.ts), users/roles CRUD on the REAL rubix /principals admin API as seeded acme_admin (per-request auth override) — live-verified on --seed-dev: operator→403, principal create/patch/delete + minted secret, gateway+network round-trip with site; zero rubix diff, commit 98653028)
+- 2026-06-16T01:40:16Z spawned WS-06
+- 2026-06-16T12:06:00Z gated WS-06 ✅ (pnpm -C nhp/ui build green + 44/44 unit tests; reusable resumable wizard shell (stepper + batch-write with parentRef late-binding), gateway+N-networks verified at N=30, bulk-meters with capacity.ts cap-block + register/tag stamping, tenant(as-record)/site/user wizards, combined add-everything tree — all orchestrate WS-04/05 records-API create paths and apply the shared tag module (enums/tags.ts, parity-guarded against seed/tags.mjs); live-verified on --seed-dev: 31/31 gateway+30-net write + 27/27 combined-tree write with full tag chains; zero rubix diff, no stray rubix-data)

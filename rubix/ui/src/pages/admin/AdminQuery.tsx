@@ -38,6 +38,12 @@ import { ChartRendererCore } from '../../components/chart-builder/charts'
 import { useChartZoom } from '../../components/chart-builder/charts/useChartZoom'
 import { transformDataToColumns, type ColumnInfo, type DataRow } from '../../components/chart-builder/utils'
 import { ChartType, type ChartConfig, type DisplayMode } from '../../components/chart-builder/types'
+import { PHYSICAL_QUANTITIES, type PhysicalQuantity } from '../../components/chart-builder/units'
+import { WIDGETS, allowsBreakdown, needsX, needsY } from '../../components/chart-builder/catalog'
+import { TransformEditor } from '../../components/chart-builder/TransformEditor'
+import { FieldConfigEditor } from '../../components/chart-builder/FieldConfigEditor'
+import type { FieldConfig } from '../../components/chart-builder/field-config'
+import { applyCosmeticTransforms, splitTransforms, type Transform } from '../../components/chart-builder/transforms'
 
 const route = getRouteApi('/t/$tenant/admin/query')
 
@@ -124,8 +130,11 @@ export function AdminQuery() {
     queryFn: () => listSavedQueries(api),
   })
 
+  // The console preview honours the chart's transforms (§1): aggregate ops go to
+  // the backend, cosmetic ops are applied to the previewed rows below.
   const query = useMutation<QueryResponse, Error, string>({
-    mutationFn: (text) => runQuery(api, text),
+    mutationFn: (text) =>
+      runQuery(api, text, { transforms: splitTransforms(chart.transforms).aggregate }),
     onSuccess: () => {
       zoom.reset()
       setDrillRow(null)
@@ -171,8 +180,16 @@ export function AdminQuery() {
 
   const chartColumns = useMemo(() => transformDataToColumns(rows as DataRow[]), [rows])
 
-  // Rows shown in the chart, narrowed to the active drag-zoom window (if any).
-  const chartRows = useMemo(() => zoom.apply(rows, chart.x), [zoom, rows, chart.x])
+  // Rows shown in the chart: cosmetic transforms applied client-side (§1, the
+  // aggregate tier already ran server-side), then narrowed to the drag-zoom window.
+  const transformedRows = useMemo(
+    () => applyCosmeticTransforms(rows, splitTransforms(chart.transforms).cosmetic),
+    [rows, chart.transforms],
+  )
+  const chartRows = useMemo(
+    () => zoom.apply(transformedRows, chart.x),
+    [zoom, transformedRows, chart.x],
+  )
 
   function run() {
     if (sql.trim()) query.mutate(resolve(sql))
@@ -331,6 +348,10 @@ export function AdminQuery() {
             <TabsContent value="chart">
               <div className="flex flex-wrap items-center gap-2">
                 <ChartConfigBar columns={chartColumns} config={chart} onChange={setChart} />
+                <FieldConfigEditor
+                  value={chart.fieldConfig}
+                  onChange={(fieldConfig: FieldConfig | undefined) => setChart({ ...chart, fieldConfig })}
+                />
                 {zoom.zoomed && (
                   <Button variant="ghost" onClick={zoom.reset} className="gap-1.5 text-muted-foreground">
                     <ZoomOut size={15} /> Reset zoom
@@ -354,6 +375,14 @@ export function AdminQuery() {
               {chart.type === ChartType.LineChart || chart.type === ChartType.BarChart ? (
                 <p className="mt-2 text-xs text-muted-foreground">Drag across the chart to zoom into a range.</p>
               ) : null}
+              {/* Transform pipeline (§1): aggregate ops apply on the next Run;
+                  cosmetic ops apply to the preview immediately. */}
+              <div className="mt-4 rounded-xl border border-border bg-card/40 p-3">
+                <TransformEditor
+                  value={chart.transforms}
+                  onChange={(transforms: Transform[]) => setChart({ ...chart, transforms })}
+                />
+              </div>
               {drillRow && <DrillPanel row={drillRow} onClose={() => setDrillRow(null)} />}
             </TabsContent>
           </Tabs>
@@ -429,7 +458,12 @@ function ChartConfigBar({
   onChange: (config: ChartConfig) => void
 }) {
   const set = (patch: Partial<ChartConfig>) => onChange({ ...config, ...patch } as ChartConfig)
-  const isAxis = config.type !== ChartType.Table
+  // Which pickers to show is the catalog's call (§8 roles), not a per-type rule
+  // here — so a new widget's fields follow from its descriptor. This is what stops
+  // a Pie offering a Breakdown it can't use.
+  const showX = needsX(config.type)
+  const showY = needsY(config.type)
+  const showBreakdown = allowsBreakdown(config.type) && config.type !== ChartType.Table
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={config.type ?? ChartType.LineChart} onValueChange={(v) => set({ type: v as ChartType })}>
@@ -437,16 +471,18 @@ function ChartConfigBar({
           <SelectValue placeholder="Chart type" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ChartType.LineChart}>Line</SelectItem>
-          <SelectItem value={ChartType.BarChart}>Bar</SelectItem>
-          <SelectItem value={ChartType.HorizontalBarChart}>Horizontal bar</SelectItem>
-          <SelectItem value={ChartType.Table}>Table</SelectItem>
+          {/* Driven by the widget catalog (§8) so a new widget is one entry. */}
+          {WIDGETS.map((w) => (
+            <SelectItem key={w.type} value={w.type}>
+              {w.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
-      {isAxis && (
+      {showX && <ColumnPicker label="X" value={config.x} columns={columns} onChange={(x) => set({ x })} />}
+      {showY && <ColumnPicker label="Y" value={config.y} columns={columns} onChange={(y) => set({ y })} />}
+      {showBreakdown && (
         <>
-          <ColumnPicker label="X" value={config.x} columns={columns} onChange={(x) => set({ x })} />
-          <ColumnPicker label="Y" value={config.y} columns={columns} onChange={(y) => set({ y })} />
           <ColumnPicker
             label="Breakdown"
             value={config.breakdown}
@@ -469,7 +505,60 @@ function ChartConfigBar({
           </Select>
         </>
       )}
+      {/* Per-series quantity (§7): author the Y column's physical quantity so the
+          query API converts it to the caller's unit system (§2). Only for widgets
+          that have a value column. */}
+      {showY && config.y && (
+        <QuantityPicker
+          column={config.y}
+          value={config.quantities?.[config.y]}
+          onChange={(q) => set({ quantities: setQuantity(config.quantities, config.y!, q) })}
+        />
+      )}
     </div>
+  )
+}
+
+// Set (or clear, when `q` is undefined) the quantity for `column` in the map,
+// returning undefined when the map empties so an untouched chart serialises clean.
+function setQuantity(
+  map: Record<string, PhysicalQuantity> | undefined,
+  column: string,
+  q: PhysicalQuantity | undefined,
+): Record<string, PhysicalQuantity> | undefined {
+  const next = { ...(map ?? {}) }
+  if (q) next[column] = q
+  else delete next[column]
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+// The Y column's physical quantity — drives backend unit conversion (§2/§7).
+function QuantityPicker({
+  column,
+  value,
+  onChange,
+}: {
+  column: string
+  value?: PhysicalQuantity
+  onChange: (q: PhysicalQuantity | undefined) => void
+}) {
+  return (
+    <Select
+      value={value ?? NONE}
+      onValueChange={(v) => onChange(v === NONE ? undefined : (v as PhysicalQuantity))}
+    >
+      <SelectTrigger className="w-[150px]">
+        <SelectValue placeholder={`${column} quantity`} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>No quantity</SelectItem>
+        {PHYSICAL_QUANTITIES.map((q) => (
+          <SelectItem key={q.value} value={q.value}>
+            {q.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -493,11 +582,13 @@ function ColumnPicker({
       </SelectTrigger>
       <SelectContent>
         {allowNone && <SelectItem value={NONE}>No {label.toLowerCase()}</SelectItem>}
-        {columns.map((c) => (
-          <SelectItem key={c.name} value={c.name}>
-            {c.name}
-          </SelectItem>
-        ))}
+        {columns
+          .filter((c) => c.name !== '')
+          .map((c) => (
+            <SelectItem key={c.name} value={c.name}>
+              {c.name}
+            </SelectItem>
+          ))}
       </SelectContent>
     </Select>
   )

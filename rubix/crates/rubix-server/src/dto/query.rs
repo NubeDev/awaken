@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 
-use rubix_query::{Grain, QueryError, TimeBound, TimeScope};
+use rubix_query::{Agg, CompareOp, Grain, QueryError, ReduceCalc, TimeBound, TimeScope, Transform};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
@@ -24,8 +24,15 @@ use utoipa::ToSchema;
 pub struct QueryRequest {
     /// The read-only `SELECT`/`WITH` statement to run. May carry the time macros
     /// `$__timeFilter(col)`, `$__timeBucket(col)`, and `$__interval`, which the
-    /// backend expands against `time`.
+    /// backend expands against `time`. Ignored when `query_id` is set.
+    #[serde(default)]
     pub sql: String,
+    /// An optional saved-query id (§4b). When set, the backend resolves the
+    /// `kind:"query"` record's SQL **on the caller's scoped session** and runs it
+    /// in place of `sql` — so a saved query never runs with the author's scope or
+    /// caps, only the caller's (the §4b privilege-escalation guard).
+    #[serde(default)]
+    pub query_id: Option<String>,
     /// An optional structured, UTC time scope the backend injects (§5).
     #[serde(default)]
     pub time: Option<TimeScopeDto>,
@@ -35,6 +42,101 @@ pub struct QueryRequest {
     /// not in the map is left untouched; the cache itself only holds raw values.
     #[serde(default)]
     pub quantities: Option<HashMap<String, String>>,
+    /// An optional post-query transform pipeline (§1). The whole portable spec
+    /// rides the request; the backend executes only the **aggregate** ops
+    /// (`filter`/`groupBy`/`reduce`) over the result rows and leaves the cosmetic
+    /// ops for the client. Empty/absent → rows pass through.
+    #[serde(default)]
+    pub transforms: Option<Vec<TransformDto>>,
+}
+
+/// One transform on the wire — a discriminated union mirroring the client spec
+/// (§1). Only the aggregate variants are executed server-side; cosmetic variants
+/// are accepted (so the contract stays whole) and skipped here.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TransformDto {
+    /// Cosmetic (client-side): copy `from` into `to`.
+    Rename { from: String, to: String },
+    /// Cosmetic (client-side): `field = left <op> right`.
+    Calculated {
+        field: String,
+        left: String,
+        op: String,
+        right: String,
+    },
+    /// Aggregate (server-side): keep rows where `field <op> value`.
+    Filter {
+        field: String,
+        op: String,
+        value: String,
+    },
+    /// Aggregate (server-side): one row per `by`, aggregating `field` into `as`.
+    GroupBy {
+        by: String,
+        field: String,
+        agg: String,
+        #[serde(rename = "as")]
+        as_: String,
+    },
+    /// Aggregate (server-side): collapse all rows to one holding `calc(field)`.
+    Reduce {
+        field: String,
+        calc: String,
+        #[serde(rename = "as")]
+        as_: String,
+    },
+    /// Cosmetic (client-side): reorder columns to follow `order`.
+    Organize { order: Vec<String> },
+}
+
+impl TransformDto {
+    /// Parse the wire transform into the query-layer [`Transform`].
+    ///
+    /// # Errors
+    /// Returns [`QueryError::Rejected`] if an operator/aggregation/reduce token is
+    /// not recognised.
+    pub fn into_transform(self) -> Result<Transform, QueryError> {
+        Ok(match self {
+            TransformDto::Rename { from, to } => Transform::Rename { from, to },
+            TransformDto::Calculated {
+                field,
+                left,
+                op,
+                right,
+            } => Transform::Calculated {
+                field,
+                left,
+                op,
+                right,
+            },
+            TransformDto::Filter { field, op, value } => Transform::Filter {
+                field,
+                op: CompareOp::parse(&op)
+                    .ok_or_else(|| QueryError::Rejected(format!("unknown filter op: {op}")))?,
+                value,
+            },
+            TransformDto::GroupBy {
+                by,
+                field,
+                agg,
+                as_,
+            } => Transform::GroupBy {
+                by,
+                field,
+                agg: Agg::parse(&agg)
+                    .ok_or_else(|| QueryError::Rejected(format!("unknown aggregation: {agg}")))?,
+                as_,
+            },
+            TransformDto::Reduce { field, calc, as_ } => Transform::Reduce {
+                field,
+                calc: ReduceCalc::parse(&calc)
+                    .ok_or_else(|| QueryError::Rejected(format!("unknown reduce calc: {calc}")))?,
+                as_,
+            },
+            TransformDto::Organize { order } => Transform::Organize { order },
+        })
+    }
 }
 
 /// A structured, UTC time scope: window bounds plus an optional bucket grain.
@@ -123,6 +225,31 @@ pub struct ColumnDto {
     pub kind: String,
 }
 
+/// The readable schema for the principal: tables + columns (§4b).
+///
+/// Backs query autocomplete and stops charts guessing the JSON shape. The tables
+/// are exactly those the principal can read — native canonical tables (scoped
+/// scan) plus external datasource tables when `external-query` is held.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct QuerySchemaResponse {
+    /// Every readable table, ordered by schema then table name.
+    pub tables: Vec<TableSchemaDto>,
+}
+
+/// One readable table and its columns, as addressed in SQL.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct TableSchemaDto {
+    /// The schema the table lives under: the default catalog schema for native
+    /// canonical tables, or a datasource id for external tables (addressed
+    /// `"<schema>"."<table>"`).
+    pub schema: String,
+    /// The bare table name.
+    pub table: String,
+    /// The table's columns in declaration order, with the same coarse type tags
+    /// as result columns ([`ColumnDto`]).
+    pub columns: Vec<ColumnDto>,
+}
+
 /// The body of a batch query request: run a whole board in one round trip (§3).
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct BatchQueryRequest {
@@ -137,27 +264,37 @@ pub struct BatchQueryItem {
     /// The caller's key for this statement (typically a chart id). Echoed back on
     /// the matching result.
     pub key: String,
-    /// The read-only SQL, with the same time macros as `POST /query`.
+    /// The read-only SQL, with the same time macros as `POST /query`. Ignored when
+    /// `query_id` is set.
+    #[serde(default)]
     pub sql: String,
+    /// An optional saved-query id resolved on the caller's scope (§4b).
+    #[serde(default)]
+    pub query_id: Option<String>,
     /// An optional structured, UTC time scope injected into this statement.
     #[serde(default)]
     pub time: Option<TimeScopeDto>,
     /// An optional `column → physical quantity` map applied post-read (§2).
     #[serde(default)]
     pub quantities: Option<HashMap<String, String>>,
+    /// An optional post-query transform pipeline; aggregate ops run server-side (§1).
+    #[serde(default)]
+    pub transforms: Option<Vec<TransformDto>>,
 }
 
 impl BatchQueryItem {
     /// The single-query request this item resolves to (so both paths share the
-    /// time-macro resolution and the per-caller unit conversion).
+    /// time-macro resolution, the per-caller unit conversion, and the transforms).
     #[must_use]
     pub fn into_request(self) -> (String, QueryRequest) {
         (
             self.key,
             QueryRequest {
                 sql: self.sql,
+                query_id: self.query_id,
                 time: self.time,
                 quantities: self.quantities,
+                transforms: self.transforms,
             },
         )
     }

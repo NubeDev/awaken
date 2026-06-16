@@ -25,7 +25,8 @@ pub use auth::{LoginRequest, LoginResponse, MeResponse};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};
 pub use prefs::{PreferencesDto, UpdatePreferencesRequest};
 pub use query::{
-    BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, ColumnDto, QueryRequest,
-    QueryResponse, TimeBoundDto, TimeScopeDto,
+    BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, ColumnDto,
+    QueryRequest, QueryResponse, QuerySchemaResponse, TableSchemaDto, TimeBoundDto, TimeScopeDto,
+    TransformDto,
 };
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};

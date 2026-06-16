@@ -17,7 +17,8 @@ use crate::dto::{
     BatchQueryRequest, BatchQueryResponse, CreateDeviceRequest, CreatePrincipalRequest,
     CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
     GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto, PrincipalDto, QueryRequest,
-    QueryResponse, RecordDto, RegisterDatasourceRequest, TenantDto, UpdateDatasourceRequest,
+    QueryResponse, QuerySchemaResponse, RecordDto, RegisterDatasourceRequest, TenantDto,
+    UpdateDatasourceRequest,
     UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
 };
 
@@ -149,6 +150,17 @@ pub fn run_query() {}
     )
 )]
 pub fn run_batch() {}
+
+/// `GET /query/schema`.
+#[utoipa::path(
+    get,
+    path = "/query/schema",
+    responses(
+        (status = 200, description = "Readable tables + columns for the principal", body = QuerySchemaResponse),
+        (status = 403, description = "Principal lacks the external-query capability")
+    )
+)]
+pub fn query_schema() {}
 
 /// `GET /prefs`.
 #[utoipa::path(

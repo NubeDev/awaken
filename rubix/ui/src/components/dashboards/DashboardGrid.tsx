@@ -8,13 +8,15 @@
 // (§3) — one round trip and one consistent snapshot — and hands each panel its
 // result. A single bad panel shows its error while the others render.
 
-import { useMemo, type RefObject } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, type RefObject } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { GridLayout, type Layout, useContainerWidth } from 'react-grid-layout'
 import { useApi } from '../../api/ConnectionContext'
 import type { SavedChart } from '../../api/charts'
 import type { BoardPanel } from '../../api/boards'
 import { runBatchQuery, type BatchQueryItem, type TimeScope } from '../../api/query'
+import { applyCosmeticTransforms, splitTransforms } from '../chart-builder/transforms'
+import { snapInstant, useRefreshTick, type RefreshInterval } from './board-refresh'
 import { ChartPanel, type PanelResult } from './ChartPanel'
 
 interface DashboardGridProps {
@@ -25,6 +27,10 @@ interface DashboardGridProps {
   onRemovePanel: (chartId: string) => void
   /** The board's structured, UTC time scope, sent with the batch (§5). */
   time?: TimeScope
+  /** Auto-refresh interval; `null` is Off (§6). */
+  refresh?: RefreshInterval
+  /** Reports whether a batch refetch is in flight, for the refresh control's spinner. */
+  onFetchingChange?: (fetching: boolean) => void
 }
 
 const COLS = 12
@@ -36,9 +42,31 @@ export function DashboardGrid({
   onLayoutChange,
   onRemovePanel,
   time,
+  refresh = null,
+  onFetchingChange,
 }: DashboardGridProps) {
   const api = useApi(tenant)
   const { width, containerRef } = useContainerWidth()
+
+  // Visibility-aware tick: advances once per interval while visible, pauses on a
+  // hidden tab, catches up on return (§6). Folded into the snapped scope below so
+  // a refresh re-resolves the window; folded into the query key so a tick triggers
+  // a refetch even when `time` is otherwise stable.
+  const tick = useRefreshTick(refresh)
+
+  // Snap absolute window bounds DOWN to the refresh tick before they enter the
+  // query key (§6): a relative "now-1h" resolved each render would otherwise mint
+  // a fresh from/to and bust the cache (and miss the backend's time-snapshot
+  // cache, §4a). Within a tick every render sees identical bounds → a guaranteed
+  // hit. Relative-token bounds (strings) are resolved server-side, so pass through.
+  const snappedTime = useMemo<TimeScope | undefined>(() => {
+    if (!time) return undefined
+    return {
+      ...time,
+      from: typeof time.from === 'number' ? snapInstant(time.from, refresh) : time.from,
+      to: typeof time.to === 'number' ? snapInstant(time.to, refresh) : time.to,
+    }
+  }, [time, refresh, tick])
 
   // One batch per board, keyed by chart id. Only panels whose chart resolved are
   // queried; a missing-chart panel renders its own placeholder below.
@@ -47,24 +75,72 @@ export function DashboardGrid({
       panels
         .map((p) => charts.get(p.chart_id))
         .filter((c): c is SavedChart => Boolean(c))
-        .map((c) => ({ key: c.id, sql: c.sql, time })),
-    [panels, charts, time],
+        // Thread the chart's per-column quantity map (§2/§7) and the AGGREGATE
+        // transform tier (§1) into the batch. Only filter/groupBy/reduce go to the
+        // backend; the cosmetic tier runs client-side after the rows return. A
+        // chart referencing a saved query sends its id instead of SQL (§4b).
+        .map((c) => ({
+          key: c.id,
+          sql: c.sql,
+          query_id: c.config?.query_id,
+          time: snappedTime,
+          quantities: c.config?.quantities,
+          transforms: splitTransforms(c.config?.transforms).aggregate,
+        })),
+    [panels, charts, snappedTime],
   )
 
+  // The cosmetic transform tier per chart id — applied to each panel's rows after
+  // the batch returns (the aggregate tier already ran server-side, §1).
+  const cosmeticByChart = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof splitTransforms>['cosmetic']>()
+    for (const p of panels) {
+      const c = charts.get(p.chart_id)
+      if (c) m.set(c.id, splitTransforms(c.config?.transforms).cosmetic)
+    }
+    return m
+  }, [panels, charts])
+
   const batch = useQuery({
-    queryKey: ['board-batch', tenant, items.map((i) => `${i.key}:${i.sql}`), time],
+    queryKey: [
+      'board-batch',
+      tenant,
+      items.map(
+        (i) =>
+          `${i.key}:${i.query_id ?? i.sql}:${JSON.stringify(i.quantities ?? null)}:${JSON.stringify(
+            i.transforms ?? null,
+          )}`,
+      ),
+      snappedTime,
+    ],
     queryFn: () => runBatchQuery(api, items),
     enabled: items.length > 0,
+    // refetchInterval also serves as the live driver; the visibility pause is
+    // handled by our tick (and TanStack's own refetchIntervalInBackground default
+    // of false), keepPreviousData stops a refresh flashing a spinner per panel.
+    refetchInterval: refresh ?? false,
+    placeholderData: keepPreviousData,
   })
+
+  // Surface fetch state to the page so the refresh control can spin its icon.
+  useEffect(() => {
+    onFetchingChange?.(batch.isFetching)
+  }, [batch.isFetching, onFetchingChange])
 
   // Index the batch results by key (chart id) for O(1) per-panel lookup.
   const byKey = useMemo(() => {
     const m = new Map<string, PanelResult>()
     for (const r of batch.data?.results ?? []) {
-      m.set(r.key, { rows: r.rows, columns: r.columns, error: r.error })
+      // Run the cosmetic transform tier client-side on this panel's rows (§1).
+      const cosmetic = cosmeticByChart.get(r.key)
+      const rows =
+        r.rows && cosmetic && cosmetic.length > 0
+          ? applyCosmeticTransforms(r.rows, cosmetic)
+          : r.rows
+      m.set(r.key, { rows, columns: r.columns, error: r.error })
     }
     return m
-  }, [batch.data])
+  }, [batch.data, cosmeticByChart])
 
   const layout: Layout = panels.map((p) => ({ i: p.chart_id, x: p.x, y: p.y, w: p.w, h: p.h }))
 

@@ -34,16 +34,44 @@ export interface QueryResponse {
   columns: QueryColumn[]
 }
 
-export function runQuery(client: ApiClient, sql: string, time?: TimeScope): Promise<QueryResponse> {
-  return client.post<QueryResponse>('query', time ? { sql, time } : { sql })
+/** Optional extras a single query may carry alongside the SQL. */
+export interface QueryExtras {
+  time?: TimeScope
+  /** `column → physical quantity` for post-read unit conversion (§2). */
+  quantities?: Record<string, string>
+  /** Transform spec; only aggregate ops run server-side (§1). */
+  transforms?: WireTransform[]
+}
+
+export function runQuery(client: ApiClient, sql: string, extras: QueryExtras = {}): Promise<QueryResponse> {
+  return client.post<QueryResponse>('query', { sql, ...extras })
 }
 
 /** One keyed statement in a batch (typically keyed by chart id). */
 export interface BatchQueryItem {
   key: string
   sql: string
+  /** A saved-query id resolved to SQL server-side on the caller's scope (§4b);
+   *  when set, `sql` is ignored. */
+  query_id?: string
   time?: TimeScope
+  /** Optional `column → physical quantity` map (§2/§7). The backend converts each
+   *  named column to the caller's unit system after reading (post-cache). */
+  quantities?: Record<string, string>
+  /** Optional transform spec. Only the aggregate ops (filter/groupBy/reduce) are
+   *  executed server-side; cosmetic ops are ignored here and run client-side (§1). */
+  transforms?: WireTransform[]
 }
+
+/** A transform on the wire — the discriminated union the backend's aggregate tier
+ *  reads (§1). The cosmetic-op variants are accepted but run client-side. */
+export type WireTransform =
+  | { kind: 'rename'; from: string; to: string }
+  | { kind: 'calculated'; field: string; left: string; op: string; right: string }
+  | { kind: 'filter'; field: string; op: string; value: string }
+  | { kind: 'groupBy'; by: string; field: string; agg: string; as: string }
+  | { kind: 'reduce'; field: string; calc: string; as: string }
+  | { kind: 'organize'; order: ReadonlyArray<string> }
 
 /** One statement's outcome: rows + columns, or an error — never both. */
 export interface BatchQueryResult {
@@ -64,4 +92,25 @@ export function runBatchQuery(
   queries: BatchQueryItem[],
 ): Promise<BatchQueryResponse> {
   return client.post<BatchQueryResponse>('query/batch', { queries })
+}
+
+/** One readable table and its columns, as the principal addresses it in SQL. */
+export interface TableSchema {
+  /** The schema: the default catalog for native tables, or a datasource id. */
+  schema: string
+  /** The bare table name. */
+  table: string
+  /** The columns, with the same coarse type tags as query result columns. */
+  columns: QueryColumn[]
+}
+
+export interface QuerySchemaResponse {
+  tables: TableSchema[]
+}
+
+// The tables + columns the principal can read (§4b) — for query autocomplete and
+// to stop charts guessing the JSON shape. Row-perm aware and gated on the same
+// external-query capability as POST /query.
+export function fetchQuerySchema(client: ApiClient): Promise<QuerySchemaResponse> {
+  return client.get<QuerySchemaResponse>('query/schema')
 }

@@ -20,6 +20,7 @@ mod list;
 mod register;
 mod remove;
 mod resolve;
+mod schema;
 mod span;
 mod store;
 
@@ -29,5 +30,6 @@ pub use list::list;
 pub use register::{register, register_materialized};
 pub use remove::remove;
 pub use resolve::resolve;
+pub use schema::{ColumnSchema, TableSchema, schema_of};
 pub use span::{span, span_batch};
 pub use store::{NATIVE_SURREAL_ID, Registry};

@@ -31,6 +31,8 @@ import {
 } from '../../components/ui/select'
 import { DashboardGrid } from '../../components/dashboards/DashboardGrid'
 import { BoardTimeRange } from '../../components/dashboards/BoardTimeRange'
+import { BoardRefresh } from '../../components/dashboards/BoardRefresh'
+import { DEFAULT_REFRESH, type RefreshInterval } from '../../components/dashboards/board-refresh'
 import { CHART_PRESETS, type ChartPreset, type PresetGroup } from '../../components/dashboards/chart-presets'
 import { DEFAULT_RANGE, boardTimeScope, type BoardTimeRange as Range } from '../../components/dashboards/board-params'
 import { EmptyView } from '../../components/ui/StateView'
@@ -53,6 +55,10 @@ export function AdminDashboards() {
   // only refetch when the window actually changes.
   const [range, setRange] = useState<Range>(DEFAULT_RANGE)
   const time = useMemo(() => boardTimeScope(range), [range])
+  // Board auto-refresh interval (§6); drives refetchInterval on the batch query.
+  const [refresh, setRefresh] = useState<RefreshInterval>(DEFAULT_REFRESH)
+  // Whether a batch refetch is in flight — spins the refresh icon.
+  const [refreshing, setRefreshing] = useState(false)
   // Local working copy of the open board's panels — the grid edits this live; a
   // debounced effect flushes it to the gate so drags don't thrash the backend.
   const [panels, setPanels] = useState<BoardPanel[]>([])
@@ -246,10 +252,12 @@ export function AdminDashboards() {
           )}
         </div>
 
-        {/* Board time range — one control re-scopes every parameterised panel. */}
+        {/* Board time range + auto-refresh — one control re-scopes every
+            parameterised panel; the other drives visibility-aware polling (§6). */}
         {selected && panels.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             <BoardTimeRange value={range} onChange={setRange} />
+            <BoardRefresh value={refresh} onChange={setRefresh} refreshing={refreshing} />
           </div>
         )}
 
@@ -279,6 +287,8 @@ export function AdminDashboards() {
             onLayoutChange={persist}
             onRemovePanel={removePanel}
             time={time}
+            refresh={refresh}
+            onFetchingChange={setRefreshing}
           />
         )}
       </div>

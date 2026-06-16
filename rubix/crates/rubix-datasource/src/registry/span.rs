@@ -92,7 +92,10 @@ pub async fn span_batch(
 }
 
 /// Check the principal holds the query capability, fail closed otherwise.
-async fn authorize_query(grant_reader: &Surreal<Db>, session: &ScopedSession) -> Result<()> {
+pub(crate) async fn authorize_query(
+    grant_reader: &Surreal<Db>,
+    session: &ScopedSession,
+) -> Result<()> {
     let granted = check_capability(grant_reader, session.principal(), QUERY_CAPABILITY)
         .await
         .map_err(|e| DatasourceError::Capability(e.to_string()))?;
@@ -110,7 +113,7 @@ async fn authorize_query(grant_reader: &Surreal<Db>, session: &ScopedSession) ->
 /// external connectors' providers are already materialised once in the registry,
 /// so they are registered fresh on each context (cheap pointer registration) and
 /// stay outside the per-principal cache.
-async fn build_spanning_context(
+pub(crate) async fn build_spanning_context(
     registry: &Registry,
     session: &ScopedSession,
     cache: &ContextCache,

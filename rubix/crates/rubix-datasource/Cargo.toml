@@ -52,6 +52,10 @@ name = "registry_span"
 path = "tests/registry/span_test.rs"
 
 [[test]]
+name = "registry_schema"
+path = "tests/registry/schema_test.rs"
+
+[[test]]
 name = "postgres_connect"
 path = "tests/postgres/connect_test.rs"
 required-features = ["postgres"]

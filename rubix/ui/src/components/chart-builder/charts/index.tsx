@@ -1,20 +1,18 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 
-import BarChart from '@/components/chart-builder/charts/bar-chart'
-import HorizontalBarChart from '@/components/chart-builder/charts/horizontal-bar-chart'
-import LineChart, { type ChartDragHandlers } from '@/components/chart-builder/charts/line-chart'
-import TableChart from '@/components/chart-builder/charts/table-chart'
+import { type ChartDragHandlers } from '@/components/chart-builder/charts/line-chart'
 import {
   generateChartConfig,
   transformDataForBreakdown,
   transformDataForSimpleChart,
 } from '@/components/chart-builder/charts/utils'
+import { RENDER_MAP, type WidgetRenderContext } from '@/components/chart-builder/charts/render-map'
 import {
   type ChartConfig,
   ChartType,
-  resolveDisplayMode,
   type TableColumnConfig,
 } from '@/components/chart-builder/types'
+import { allowsBreakdown, descriptor, missingFields, needsX } from '@/components/chart-builder/catalog'
 import { type ColumnInfo } from '@/components/chart-builder/utils'
 
 // Vendored from Laminar's `chart-builder/charts/index.tsx`. The store-coupled
@@ -49,80 +47,56 @@ export const ChartRendererCore = ({
   isFetching,
   fetchNextPage,
 }: ChartRendererCoreProps) => {
-  const isTable = config.type === ChartType.Table
-
+  // Grouped cartesian series — only computed for widgets that need an X axis
+  // (line/area/bar); pie reads raw rows and table reads columns. `needsX` and
+  // `allowsBreakdown` come from the catalog, so this stays correct as widgets are
+  // added without editing a per-type list here.
   const {
     chartData,
     keys,
     chartConfig: uiChartConfig,
   } = useMemo(() => {
-    if (!config.type || isTable || !config.x || !config.y) {
+    if (!needsX(config.type) || !config.x || !config.y) {
       return { chartData: [], keys: new Set<string>(), chartConfig: {} }
     }
 
     const xColumn = columns.find((col) => col.name === config.x)
     const yColumn = columns.find((col) => col.name === config.y)
-    const breakdownColumn = config.breakdown
-      ? columns.find((col) => col.name === config.breakdown)
-      : undefined
-
     if (!xColumn || !yColumn) {
       return { chartData: [], keys: new Set<string>(), chartConfig: {} }
     }
 
+    const breakdownColumn =
+      allowsBreakdown(config.type) && config.breakdown
+        ? columns.find((col) => col.name === config.breakdown)
+        : undefined
+
     if (breakdownColumn) {
       return transformDataForBreakdown(data, config.x, config.y, config.breakdown!)
     }
-
     return transformDataForSimpleChart(data, config.x, [config.y])
-  }, [config, data, columns, isTable])
+  }, [config, data, columns])
 
-  if (isTable) {
-    const tableColumnConfig = config.type === ChartType.Table ? config.tableColumnConfig : undefined
-    return (
-      <TableChart
-        data={data}
-        columns={columns}
-        hiddenColumns={hiddenColumns}
-        onRowClick={onBarClick}
-        tableColumnConfig={tableColumnConfig}
-        onColumnConfigChange={onColumnConfigChange}
-        hasMore={hasMore}
-        isFetching={isFetching}
-        fetchNextPage={fetchNextPage}
-      />
-    )
-  }
-
-  if (!config.type || !config.x || !config.y) {
+  // Validate against the catalog's roles — one rule, not a hand-written gate.
+  const missing = missingFields(config.type, { x: config.x, y: config.y })
+  if (missing.length > 0) {
     return (
       <div className="flex items-center justify-center h-full w-full text-muted-foreground">
         <div className="text-center">
           <p className="text">Invalid chart configuration</p>
-          {!config.type && <p className="text-sm mt-1">• Chart type is required</p>}
-          {!config.x && <p className="text-sm mt-1">• X-axis column is required</p>}
-          {!config.y && <p className="text-sm mt-1">• Y-axis column is required</p>}
+          {missing.map((m) => (
+            <p key={m} className="text-sm mt-1">
+              • {m} is required
+            </p>
+          ))}
         </div>
       </div>
     )
   }
 
-  const displayMode = resolveDisplayMode(config)
-
-  const props = {
-    data: chartData,
-    x: config.x,
-    y: config.y,
-    breakdown: config.breakdown,
-    displayMode,
-    metricColumn: config.type === ChartType.HorizontalBarChart ? config.x : config.y,
-    keys: Array.from(keys),
-    chartConfig: uiChartConfig || generateChartConfig(Array.from(keys)),
-    syncId,
-    drag,
-  }
-
-  if (keys.size === 0) {
+  // Cartesian widgets with nothing to plot show an empty state; pie/table render
+  // their own emptiness, so only gate when this widget builds series via X.
+  if (needsX(config.type) && config.type !== ChartType.PieChart && keys.size === 0) {
     return (
       <div className="flex flex-1 h-full justify-center items-center bg-muted/30 rounded-lg">
         <span className="text-muted-foreground">No data during this period</span>
@@ -130,20 +104,25 @@ export const ChartRendererCore = ({
     )
   }
 
-  switch (config.type) {
-    case ChartType.LineChart:
-      return <LineChart {...props} />
-    case ChartType.BarChart:
-      return <BarChart {...props} />
-    case ChartType.HorizontalBarChart: {
-      const { syncId: _, drag: __, ...horizontalBarProps } = props
-      return <HorizontalBarChart {...horizontalBarProps} onBarClick={onBarClick} />
-    }
-    default:
-      return (
-        <div className="flex items-center justify-center h-full w-full text-muted-foreground">
-          <p className="text-sm">Unsupported chart type: {config.type}</p>
-        </div>
-      )
+  const ctx: WidgetRenderContext = {
+    config,
+    data,
+    chartData,
+    keys: Array.from(keys),
+    uiChartConfig: uiChartConfig || generateChartConfig(Array.from(keys)),
+    columns,
+    hiddenColumns,
+    onBarClick,
+    onColumnConfigChange,
+    syncId,
+    drag,
+    hasMore,
+    isFetching,
+    fetchNextPage,
   }
+
+  // Dispatch through the renderMap — one entry per widget, no switch to drift.
+  // `descriptor` falls back to a valid type for a stale stored value, so the
+  // lookup is always defined.
+  return RENDER_MAP[descriptor(config.type).type](ctx)
 }

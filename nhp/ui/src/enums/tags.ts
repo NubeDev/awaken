@@ -16,8 +16,6 @@
  *   tenant:<key> site:<key> gateway:<key> network:<key> meter:<key>
  *   group:<chart_group>   quantity:<q>   meter-type:<key>
  */
-import type { RegisterDef } from '@/api/records'
-
 export const tenantTag = (key: string) => `tenant:${key}`
 export const siteTag = (key: string) => `site:${key}`
 export const gatewayTag = (key: string) => `gateway:${key}`
@@ -96,7 +94,7 @@ export interface RegisterTagCtx {
  */
 export function registerTags(
   { tenant, site, gateway, network, meter }: RegisterTagCtx,
-  register: Pick<RegisterDef, 'chart_group' | 'quantity'>
+  register: { chart_group?: string; quantity?: string }
 ): string[] {
   const tags = [
     tenantTag(tenant),

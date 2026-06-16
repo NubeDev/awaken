@@ -273,3 +273,57 @@ async fn a_create_without_the_rule_define_grant_is_forbidden() {
     let (status, _) = send(&app, authed("POST", "/rules", temp_rule_body("x"))).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+
+#[tokio::test]
+async fn a_reading_backed_binding_rolls_up_the_typed_reading_table_scoped_to_a_series() {
+    use rubix_core::{Reading, append_readings};
+    use surrealdb::types::Datetime;
+
+    let TestApp { app, store } = boot("server_rules_readings", &[Capability::RuleDefine]).await;
+
+    // Append three readings to the typed `reading` table for one series, plus a
+    // decoy on another series the binding must exclude.
+    let at = |secs: i64| Datetime::from_timestamp(secs, 0).expect("valid instant");
+    let series = "hq--ahu-1--zone-temp";
+    let readings = vec![
+        Reading::new("rubix", series, at(0), 21.0, serde_json::json!({})),
+        Reading::new("rubix", series, at(3600), 25.0, serde_json::json!({})),
+        Reading::new("rubix", series, at(7200), 23.0, serde_json::json!({})),
+        // Decoy: a different series at a higher value — must not leak into the roll-up.
+        Reading::new("rubix", "hq--elec-main--power", at(0), 999.0, serde_json::json!({})),
+    ];
+    append_readings(store.raw(), &readings)
+        .await
+        .expect("append readings");
+
+    // Dry-run a reading binding: max of the temp series over the window. The series
+    // filter scopes the roll-up to the temp point, so the decoy is excluded.
+    let (status, verdict) = send(
+        &app,
+        authed(
+            "POST",
+            "/rules/peak-temp/dryrun",
+            json!({
+                "script": "#{ fired: t > 24.0, value: t, reason: \"peak\" }",
+                "inputs": [{
+                    "name": "t", "table": "readings", "field": "value",
+                    "grain": "day", "aggregate": "max",
+                    "filter_field": "series", "filter_value": series
+                }],
+                "subrules": []
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "reading dry-run: {verdict:?}");
+    assert_eq!(verdict["fired"], json!(true));
+    // Max over the temp series is 25.0 — not the decoy's 999.0.
+    assert_eq!(verdict["value"], json!(25.0));
+    assert!(
+        !verdict["inputs"][0]["buckets"]
+            .as_array()
+            .expect("buckets")
+            .is_empty(),
+        "the resolved reading binding must carry its window buckets"
+    );
+}

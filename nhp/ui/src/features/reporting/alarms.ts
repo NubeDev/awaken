@@ -20,6 +20,10 @@ export interface ActiveAlarm {
   meterName: string
   siteName: string
   tenantName: string
+  /** Slug keys for dashboard deep-links — present when the hierarchy resolved. */
+  tenantKey?: string
+  siteKey?: string
+  gatewayKey?: string
   quantity?: string
   unit?: string
   precision?: number
@@ -59,6 +63,9 @@ export function activeAlarms(
       meterName: meter?.content.name ?? '—',
       siteName: loc?.siteName ?? '—',
       tenantName: loc?.tenantName ?? '—',
+      tenantKey: loc?.tenantKey,
+      siteKey: loc?.siteKey,
+      gatewayKey: loc?.gatewayKey,
       quantity: r.content.quantity,
       unit: r.content.unit,
       precision: r.content.precision,

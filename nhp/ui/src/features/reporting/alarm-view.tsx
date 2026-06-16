@@ -4,6 +4,7 @@
  * `ActiveAlarm[]` — both the live alarm console and the printable alarm-summary
  * report feed it, so "what alarms" looks identical live and on paper.
  */
+import { Link } from '@tanstack/react-router'
 import { Card } from '@/components/ui/card'
 import {
   Table,
@@ -97,8 +98,37 @@ export function AlarmTable({ alarms }: { alarms: ActiveAlarm[] }) {
                 >
                   {formatValue(a.value, { precision: a.precision, unit: a.unit })}
                 </TableCell>
-                <TableCell>{a.meterName}</TableCell>
-                <TableCell>{a.siteName}</TableCell>
+                <TableCell>
+                  {a.tenantKey && a.siteKey && a.gatewayKey ? (
+                    <Link
+                      to='/dashboards'
+                      search={{
+                        tenant: a.tenantKey,
+                        site: a.siteKey,
+                        gateway: a.gatewayKey,
+                        meter: a.meterId,
+                      }}
+                      className='text-primary hover:underline print:text-current print:no-underline'
+                    >
+                      {a.meterName}
+                    </Link>
+                  ) : (
+                    a.meterName
+                  )}
+                </TableCell>
+                <TableCell>
+                  {a.tenantKey && a.siteKey ? (
+                    <Link
+                      to='/dashboards'
+                      search={{ tenant: a.tenantKey, site: a.siteKey }}
+                      className='text-primary hover:underline print:text-current print:no-underline'
+                    >
+                      {a.siteName}
+                    </Link>
+                  ) : (
+                    a.siteName
+                  )}
+                </TableCell>
                 <TableCell className='text-muted-foreground whitespace-nowrap text-xs'>
                   {new Date(a.at).toLocaleString()}
                 </TableCell>

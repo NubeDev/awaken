@@ -38,6 +38,11 @@ export interface MeterLocation {
   siteName: string
   tenantId?: string
   tenantName: string
+  /** Slug keys for dashboard deep-links (`/dashboards?tenant=…&site=…&gateway=…`).
+   *  The dashboard route matches tenant/site/gateway by `content.key`, meter by id. */
+  tenantKey?: string
+  siteKey?: string
+  gatewayKey?: string
 }
 
 export interface PortfolioIndex {
@@ -81,6 +86,9 @@ export function buildIndex(data: PortfolioData): PortfolioIndex {
       siteName: site?.name ?? '—',
       tenantId,
       tenantName: tenant?.name ?? '—',
+      tenantKey: tenant?.key,
+      siteKey: site?.key,
+      gatewayKey: gw?.key,
     })
   }
 

@@ -8,6 +8,7 @@
  * and flagged, never silently clamped, so the figure is auditable.
  */
 import { useMemo } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Card } from '@/components/ui/card'
 import {
   Table,
@@ -54,8 +55,12 @@ export function ConsumptionReport({
             : null
         return {
           id: r.id,
+          meterId: r.content.meter,
           meterName: meter?.content.name ?? '—',
           siteName: loc?.siteName ?? '—',
+          tenantKey: loc?.tenantKey,
+          siteKey: loc?.siteKey,
+          gatewayKey: loc?.gatewayKey,
           register: r.content.name,
           unit: r.content.unit ?? 'kWh',
           precision: r.content.precision ?? 1,
@@ -106,8 +111,37 @@ export function ConsumptionReport({
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.id}>
-              <TableCell>{r.siteName}</TableCell>
-              <TableCell>{r.meterName}</TableCell>
+              <TableCell>
+                {r.tenantKey && r.siteKey ? (
+                  <Link
+                    to='/dashboards'
+                    search={{ tenant: r.tenantKey, site: r.siteKey }}
+                    className='text-primary hover:underline print:text-current print:no-underline'
+                  >
+                    {r.siteName}
+                  </Link>
+                ) : (
+                  r.siteName
+                )}
+              </TableCell>
+              <TableCell>
+                {r.tenantKey && r.siteKey && r.gatewayKey ? (
+                  <Link
+                    to='/dashboards'
+                    search={{
+                      tenant: r.tenantKey,
+                      site: r.siteKey,
+                      gateway: r.gatewayKey,
+                      meter: r.meterId,
+                    }}
+                    className='text-primary hover:underline print:text-current print:no-underline'
+                  >
+                    {r.meterName}
+                  </Link>
+                ) : (
+                  r.meterName
+                )}
+              </TableCell>
               <TableCell>{r.register}</TableCell>
               <TableCell className='text-right font-mono text-xs'>
                 {fmt(r.start, r.precision)}

@@ -47,6 +47,18 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
+/**
+ * Service-account credentials for the rubix records API. rubix accepts EITHER a
+ * `Bearer` login token OR the `x-rubix-subject` / `x-rubix-secret` header pair
+ * (rubix/crates/rubix-server/src/auth.rs). The NHP collections/seed use the header
+ * pair as the seeded `acme_operator` (WS-02/03); the admin UI talks to the same
+ * `/records` surface, so it sends the same pair when configured. Set via Vite env
+ * (`VITE_RUBIX_SUBJECT` / `VITE_RUBIX_SECRET`) for a `--seed-dev` backend; when
+ * unset the Bearer token (sign-in screen) is used instead.
+ */
+const SERVICE_SUBJECT = import.meta.env.VITE_RUBIX_SUBJECT as string | undefined
+const SERVICE_SECRET = import.meta.env.VITE_RUBIX_SECRET as string | undefined
+
 function buildHeaders(
   hasBody: boolean,
   extra?: Record<string, string>
@@ -55,6 +67,10 @@ function buildHeaders(
   if (hasBody) headers['content-type'] = 'application/json'
   const token = currentAccessToken()
   if (token) headers['authorization'] = `Bearer ${token}`
+  else if (SERVICE_SUBJECT && SERVICE_SECRET) {
+    headers['x-rubix-subject'] = SERVICE_SUBJECT
+    headers['x-rubix-secret'] = SERVICE_SECRET
+  }
   return Object.keys(headers).length > 0 ? headers : undefined
 }
 

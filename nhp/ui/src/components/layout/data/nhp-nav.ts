@@ -18,7 +18,12 @@ export const nhpNavGroups: NavGroup[] = [
   {
     title: 'Configure',
     items: [
-      { title: 'Admin', url: '/admin', icon: Settings2 },
+      {
+        title: 'Admin',
+        icon: Settings2,
+        // Meter-types is WS-04; gateways/networks/users join here in WS-05.
+        items: [{ title: 'Meter-types', url: '/admin/meter-types' }],
+      },
       { title: 'Wizards', url: '/wizards', icon: Wand2 },
     ],
   },

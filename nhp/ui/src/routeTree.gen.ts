@@ -20,6 +20,8 @@ import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminMeterTypesRouteImport } from './routes/_authenticated/admin/meter-types'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -75,6 +77,17 @@ const authSignInRoute = authSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminMeterTypesRoute =
+  AuthenticatedAdminMeterTypesRouteImport.update({
+    id: '/meter-types',
+    path: '/meter-types',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -84,9 +97,11 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
-  '/admin': typeof AuthenticatedAdminRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboards': typeof AuthenticatedDashboardsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
+  '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof authSignInRoute
@@ -95,10 +110,11 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
-  '/admin': typeof AuthenticatedAdminRoute
   '/dashboards': typeof AuthenticatedDashboardsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -109,10 +125,12 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboards': typeof AuthenticatedDashboardsRoute
   '/_authenticated/wizards': typeof AuthenticatedWizardsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,6 +145,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboards'
     | '/wizards'
+    | '/admin/meter-types'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sign-in'
@@ -135,10 +155,11 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
-    | '/admin'
     | '/dashboards'
     | '/wizards'
     | '/'
+    | '/admin/meter-types'
+    | '/admin'
   id:
     | '__root__'
     | '/_authenticated'
@@ -152,6 +173,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboards'
     | '/_authenticated/wizards'
     | '/_authenticated/'
+    | '/_authenticated/admin/meter-types'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -243,18 +266,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/meter-types': {
+      id: '/_authenticated/admin/meter-types'
+      path: '/meter-types'
+      fullPath: '/admin/meter-types'
+      preLoaderRoute: typeof AuthenticatedAdminMeterTypesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminMeterTypesRoute: typeof AuthenticatedAdminMeterTypesRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminMeterTypesRoute: AuthenticatedAdminMeterTypesRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardsRoute: typeof AuthenticatedDashboardsRoute
   AuthenticatedWizardsRoute: typeof AuthenticatedWizardsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardsRoute: AuthenticatedDashboardsRoute,
   AuthenticatedWizardsRoute: AuthenticatedWizardsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

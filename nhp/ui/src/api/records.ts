@@ -1,0 +1,125 @@
+/**
+ * Typed access to the rubix generic records API — the surface every NHP domain
+ * entity lives on (WS-02/03). A record is `{ id, namespace, content, tags, … }`
+ * (rubix/crates/rubix-server/src/dto/record.rs); `content.kind` selects the
+ * collection. The routes are bare (NOT under `/api/v1`):
+ *   POST   /records              { content }      → RecordDto
+ *   GET    /records?kind=…&tag=…                  → RecordDto[]
+ *   PATCH  /records/:id          { content }      → RecordDto
+ *   DELETE /records/:id
+ * Writes cross the gate (audited/undoable). Auth: see api/client.ts.
+ */
+import { request } from './client'
+import type { ByteOrder, ChartType, Datatype, FnCode } from '@/enums/options'
+
+/** A record as the rubix list/get read returns it. `content` is free-form JSON. */
+export interface RecordDto<C = Record<string, unknown>> {
+  id: string
+  namespace: string
+  content: C
+  /** Tag names; only the LIST read joins the tag graph (single reads return []). */
+  tags: string[]
+  created: string
+  updated: string
+}
+
+/**
+ * Alarm threshold ramp (DOMAIN-MODEL §Alarms): ordered steps the chart colours by
+ * and the rule engine fires on. The baseline step carries `value: null`.
+ */
+export type AlarmSeverity = 'ok' | 'warning' | 'critical'
+export interface AlarmThreshold {
+  value: number | null
+  severity: AlarmSeverity
+}
+export interface Alarm {
+  thresholds: AlarmThreshold[]
+  /** Optional dwell before firing (hysteresis), e.g. "5m". */
+  for?: string
+}
+
+/**
+ * One register definition inside a meter-type's `registers[]` (DOMAIN-MODEL
+ * §register). The same shape is stamped onto a meter's `kind:"register"` records.
+ */
+export interface RegisterDef {
+  key: string
+  name: string
+  // protocol metadata (consumed by the external poller)
+  address: number
+  fn_code: FnCode
+  datatype: Datatype
+  word_count: number
+  byte_order: ByteOrder
+  scale: number
+  offset: number
+  signed: boolean
+  // semantics & presentation (consumed by NHP/dashboards)
+  unit: string
+  quantity: string
+  history: boolean
+  chart_type: ChartType
+  chart_group: string
+  precision: number
+  // alarms (optional)
+  alarm?: Alarm
+}
+
+/** `kind:"meter-type"` content — the admin template (DOMAIN-MODEL §meter-type). */
+export interface MeterType {
+  kind: 'meter-type'
+  key: string
+  name: string
+  manufacturer?: string
+  version: number
+  registers: RegisterDef[]
+  tags?: string[]
+}
+
+/** `kind:"meter"` content — a stamped meter (DOMAIN-MODEL §meter). */
+export interface Meter {
+  kind: 'meter'
+  key: string
+  name: string
+  network: string
+  meter_type: string
+  meter_type_version: number
+  address: number
+  status?: string
+  last_seen?: string
+  tags?: string[]
+}
+
+/** `kind:"register"` content — a meter's concrete register, stamped from a def. */
+export interface RegisterRecord extends RegisterDef {
+  meter: string
+  tags?: string[]
+}
+
+export type MeterTypeRecord = RecordDto<MeterType>
+export type MeterRecord = RecordDto<Meter>
+export type RegisterRec = RecordDto<RegisterRecord>
+
+// --- CRUD over /records, narrowed by content.kind --------------------------------
+
+export async function listRecords<C>(kind: string): Promise<RecordDto<C>[]> {
+  return request<RecordDto<C>[]>('/records', { query: { kind } })
+}
+
+export async function createRecord<C>(content: C): Promise<RecordDto<C>> {
+  return request<RecordDto<C>>('/records', { method: 'POST', body: { content } })
+}
+
+export async function updateRecord<C>(
+  id: string,
+  content: C
+): Promise<RecordDto<C>> {
+  return request<RecordDto<C>>(`/records/${id}`, {
+    method: 'PATCH',
+    body: { content },
+  })
+}
+
+export async function deleteRecord(id: string): Promise<void> {
+  await request<void>(`/records/${id}`, { method: 'DELETE' })
+}

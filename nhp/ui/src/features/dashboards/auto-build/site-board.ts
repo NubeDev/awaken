@@ -13,6 +13,7 @@ import { siteTag, gatewayTag, quantityTag } from '@/enums/tags'
 import type { HistorySample } from '../query/batch'
 import { resolveWindow, withinWindow, type WindowToken } from '../query/time-window'
 import { alarmCountsByMeter } from './alarm-eval'
+import { energyTrend, type EnergyTrend } from './energy-trend'
 import type { RollupStatus } from '../widgets/status-tile'
 import type { Series, TrendWidget } from '../widgets/types'
 
@@ -23,9 +24,22 @@ export interface GatewayCard {
   lastSeen?: string
   meterCount: number
   alarmCount: number
+  /** Per-gateway energy trend over the window (summed across its meters). */
+  energy: EnergyTrend
+}
+
+/** Site-wide rollups for the KPI strip — honest sums across the site's gateways. */
+export interface SiteKpis {
+  gateways: number
+  meters: number
+  alarms: number
+  /** Latest summed energy across the site, and its unit (kWh). */
+  energy: number | null
+  energyUnit?: string
 }
 
 export interface SiteBoard {
+  kpis: SiteKpis
   gateways: GatewayCard[]
   /** Cross-meter quantity:power comparison, or null if no power registers. */
   powerPanel: TrendWidget | null
@@ -44,6 +58,7 @@ export function buildSiteBoard(
   const siteGateways = gateways.filter((g) => (g.content.tags ?? []).includes(sTag))
   const siteMeters = meters.filter((m) => (m.content.tags ?? []).includes(sTag))
   const alarmByMeter = alarmCountsByMeter(registers, history)
+  const resolved = resolveWindow(window)
 
   const gatewayCards: GatewayCard[] = siteGateways
     .map((gw) => {
@@ -56,13 +71,21 @@ export function buildSiteBoard(
         lastSeen: gw.content.last_seen,
         meterCount: gwMeters.length,
         alarmCount: gwMeters.reduce((s, m) => s + (alarmByMeter.get(m.id) ?? 0), 0),
+        energy: energyTrend(gTag, registers, history, resolved),
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  const kpis: SiteKpis = {
+    gateways: gatewayCards.length,
+    meters: siteMeters.length,
+    alarms: gatewayCards.reduce((s, g) => s + g.alarmCount, 0),
+    energy: energyTrend(sTag, registers, history, resolved).latest,
+    energyUnit: gatewayCards.find((g) => g.energy.unit)?.energy.unit,
+  }
+
   // Cross-meter power: each meter's quantity:power register becomes one series.
   const pTag = quantityTag('power')
-  const resolved = resolveWindow(window)
   const meterById = new Map(siteMeters.map((m) => [m.id, m.content.name]))
   const powerRegs = registers.filter(
     (r) => (r.content.tags ?? []).includes(pTag) && (r.content.tags ?? []).includes(sTag)
@@ -93,5 +116,5 @@ export function buildSiteBoard(
         }
       : null
 
-  return { gateways: gatewayCards, powerPanel }
+  return { kpis, gateways: gatewayCards, powerPanel }
 }

@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedWizardsRouteImport } from './routes/_authenticated/wizards'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedDashboardsRouteImport } from './routes/_authenticated/dashboards'
+import { Route as AuthenticatedAlarmsRouteImport } from './routes/_authenticated/alarms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
@@ -22,8 +24,12 @@ import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
+import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin/tenants'
+import { Route as AuthenticatedAdminSitesRouteImport } from './routes/_authenticated/admin/sites'
+import { Route as AuthenticatedAdminMetersRouteImport } from './routes/_authenticated/admin/meters'
 import { Route as AuthenticatedAdminMeterTypesRouteImport } from './routes/_authenticated/admin/meter-types'
 import { Route as AuthenticatedAdminGatewaysRouteImport } from './routes/_authenticated/admin/gateways'
+import { Route as AuthenticatedAdminDataConsoleRouteImport } from './routes/_authenticated/admin/data-console'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -39,9 +45,19 @@ const AuthenticatedWizardsRoute = AuthenticatedWizardsRouteImport.update({
   path: '/wizards',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardsRoute = AuthenticatedDashboardsRouteImport.update({
   id: '/dashboards',
   path: '/dashboards',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAlarmsRoute = AuthenticatedAlarmsRouteImport.update({
+  id: '/alarms',
+  path: '/alarms',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -89,6 +105,23 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminTenantsRoute =
+  AuthenticatedAdminTenantsRouteImport.update({
+    id: '/tenants',
+    path: '/tenants',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSitesRoute = AuthenticatedAdminSitesRouteImport.update({
+  id: '/sites',
+  path: '/sites',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminMetersRoute =
+  AuthenticatedAdminMetersRouteImport.update({
+    id: '/meters',
+    path: '/meters',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminMeterTypesRoute =
   AuthenticatedAdminMeterTypesRouteImport.update({
     id: '/meter-types',
@@ -101,6 +134,12 @@ const AuthenticatedAdminGatewaysRoute =
     path: '/gateways',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminDataConsoleRoute =
+  AuthenticatedAdminDataConsoleRouteImport.update({
+    id: '/data-console',
+    path: '/data-console',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -111,10 +150,16 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/alarms': typeof AuthenticatedAlarmsRoute
   '/dashboards': typeof AuthenticatedDashboardsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
+  '/admin/data-console': typeof AuthenticatedAdminDataConsoleRoute
   '/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin/meters': typeof AuthenticatedAdminMetersRoute
+  '/admin/sites': typeof AuthenticatedAdminSitesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -125,11 +170,17 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/alarms': typeof AuthenticatedAlarmsRoute
   '/dashboards': typeof AuthenticatedDashboardsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/data-console': typeof AuthenticatedAdminDataConsoleRoute
   '/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin/meters': typeof AuthenticatedAdminMetersRoute
+  '/admin/sites': typeof AuthenticatedAdminSitesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -143,11 +194,17 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/alarms': typeof AuthenticatedAlarmsRoute
   '/_authenticated/dashboards': typeof AuthenticatedDashboardsRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/wizards': typeof AuthenticatedWizardsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/data-console': typeof AuthenticatedAdminDataConsoleRoute
   '/_authenticated/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/_authenticated/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/_authenticated/admin/meters': typeof AuthenticatedAdminMetersRoute
+  '/_authenticated/admin/sites': typeof AuthenticatedAdminSitesRoute
+  '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -162,10 +219,16 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/admin'
+    | '/alarms'
     | '/dashboards'
+    | '/reports'
     | '/wizards'
+    | '/admin/data-console'
     | '/admin/gateways'
     | '/admin/meter-types'
+    | '/admin/meters'
+    | '/admin/sites'
+    | '/admin/tenants'
     | '/admin/users'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -176,11 +239,17 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/alarms'
     | '/dashboards'
+    | '/reports'
     | '/wizards'
     | '/'
+    | '/admin/data-console'
     | '/admin/gateways'
     | '/admin/meter-types'
+    | '/admin/meters'
+    | '/admin/sites'
+    | '/admin/tenants'
     | '/admin/users'
     | '/admin'
   id:
@@ -193,11 +262,17 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/_authenticated/admin'
+    | '/_authenticated/alarms'
     | '/_authenticated/dashboards'
+    | '/_authenticated/reports'
     | '/_authenticated/wizards'
     | '/_authenticated/'
+    | '/_authenticated/admin/data-console'
     | '/_authenticated/admin/gateways'
     | '/_authenticated/admin/meter-types'
+    | '/_authenticated/admin/meters'
+    | '/_authenticated/admin/sites'
+    | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -235,11 +310,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWizardsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboards': {
       id: '/_authenticated/dashboards'
       path: '/dashboards'
       fullPath: '/dashboards'
       preLoaderRoute: typeof AuthenticatedDashboardsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/alarms': {
+      id: '/_authenticated/alarms'
+      path: '/alarms'
+      fullPath: '/alarms'
+      preLoaderRoute: typeof AuthenticatedAlarmsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin': {
@@ -305,6 +394,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/tenants': {
+      id: '/_authenticated/admin/tenants'
+      path: '/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sites': {
+      id: '/_authenticated/admin/sites'
+      path: '/sites'
+      fullPath: '/admin/sites'
+      preLoaderRoute: typeof AuthenticatedAdminSitesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/meters': {
+      id: '/_authenticated/admin/meters'
+      path: '/meters'
+      fullPath: '/admin/meters'
+      preLoaderRoute: typeof AuthenticatedAdminMetersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/meter-types': {
       id: '/_authenticated/admin/meter-types'
       path: '/meter-types'
@@ -319,19 +429,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminGatewaysRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/data-console': {
+      id: '/_authenticated/admin/data-console'
+      path: '/data-console'
+      fullPath: '/admin/data-console'
+      preLoaderRoute: typeof AuthenticatedAdminDataConsoleRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminDataConsoleRoute: typeof AuthenticatedAdminDataConsoleRoute
   AuthenticatedAdminGatewaysRoute: typeof AuthenticatedAdminGatewaysRoute
   AuthenticatedAdminMeterTypesRoute: typeof AuthenticatedAdminMeterTypesRoute
+  AuthenticatedAdminMetersRoute: typeof AuthenticatedAdminMetersRoute
+  AuthenticatedAdminSitesRoute: typeof AuthenticatedAdminSitesRoute
+  AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminDataConsoleRoute: AuthenticatedAdminDataConsoleRoute,
   AuthenticatedAdminGatewaysRoute: AuthenticatedAdminGatewaysRoute,
   AuthenticatedAdminMeterTypesRoute: AuthenticatedAdminMeterTypesRoute,
+  AuthenticatedAdminMetersRoute: AuthenticatedAdminMetersRoute,
+  AuthenticatedAdminSitesRoute: AuthenticatedAdminSitesRoute,
+  AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
@@ -341,14 +466,18 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedAlarmsRoute: typeof AuthenticatedAlarmsRoute
   AuthenticatedDashboardsRoute: typeof AuthenticatedDashboardsRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedWizardsRoute: typeof AuthenticatedWizardsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAlarmsRoute: AuthenticatedAlarmsRoute,
   AuthenticatedDashboardsRoute: AuthenticatedDashboardsRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedWizardsRoute: AuthenticatedWizardsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }

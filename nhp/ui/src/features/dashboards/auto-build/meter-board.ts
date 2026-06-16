@@ -22,9 +22,21 @@ import type { AlarmRow } from '../widgets/alarm-panel'
 import type { Series, StatWidget, TrendWidget } from '../widgets/types'
 
 export interface MeterBoard {
+  /** Headline KPI tiles: one per history-bearing group, latest value + sparkline + delta. */
+  kpis: StatWidget[]
   trends: TrendWidget[]
   stats: StatWidget[]
   alarms: AlarmRow[]
+}
+
+/** Fractional change first→last over a point list (null if not computable). */
+function windowDelta(points: { v: number | null }[]): number | null {
+  const vals = points.filter((p): p is { v: number } => p.v !== null)
+  if (vals.length < 2) return null
+  const first = vals[0].v
+  const last = vals[vals.length - 1].v
+  if (first === 0) return null
+  return (last - first) / Math.abs(first)
 }
 
 /** Latest sample value for a register's series (by register id), or null. */
@@ -78,6 +90,7 @@ export function buildMeterBoard(
         unit: c.unit,
         precision: c.precision,
         alarm: c.alarm as Alarm | undefined,
+        quantity: c.quantity,
       })
       continue
     }
@@ -88,6 +101,7 @@ export function buildMeterBoard(
   }
 
   const trends: TrendWidget[] = []
+  const kpis: StatWidget[] = []
   for (const [groupKey, regs] of groups) {
     const series: Series[] = regs.map((reg) => {
       const samples = withinWindow(
@@ -111,13 +125,32 @@ export function buildMeterBoard(
       series,
       timezone,
     })
+
+    // One headline KPI per group: the group's primary series (first register),
+    // showing its latest value, a sparkline of the window and the window delta.
+    // Multi-series groups (e.g. the three voltages) collapse to their first leg —
+    // the full set still renders in the trend chart below.
+    const lead = regs[0]
+    const leadLast = latest(history, lead.id)
+    const leadPoints = series[0]?.points ?? []
+    kpis.push({
+      type: 'stat',
+      title: titleCase(groupKey),
+      value: leadLast?.value ?? null,
+      unit: lead.content.unit,
+      precision: lead.content.precision,
+      alarm: lead.content.alarm as Alarm | undefined,
+      quantity: lead.content.quantity,
+      trend: { points: leadPoints, delta: windowDelta(leadPoints) },
+    })
   }
 
   // Deterministic ordering: groups alphabetical, stats alphabetical.
+  kpis.sort((a, b) => a.title.localeCompare(b.title))
   trends.sort((a, b) => a.title.localeCompare(b.title))
   stats.sort((a, b) => a.title.localeCompare(b.title))
   alarms.sort((a, b) => a.name.localeCompare(b.name))
-  return { trends, stats, alarms }
+  return { kpis, trends, stats, alarms }
 }
 
 function titleCase(s: string): string {

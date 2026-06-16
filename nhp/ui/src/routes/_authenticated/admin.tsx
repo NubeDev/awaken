@@ -8,8 +8,12 @@ import { Main } from '@/components/layout/main'
  * scope. See nhp/docs/ADMIN.md.
  */
 const SECTIONS = [
-  { to: '/admin/meter-types', label: 'Meter-types' },
+  { to: '/admin/tenants', label: 'Tenants' },
+  { to: '/admin/sites', label: 'Sites' },
   { to: '/admin/gateways', label: 'Gateways' },
+  { to: '/admin/meters', label: 'Meters' },
+  { to: '/admin/meter-types', label: 'Meter-types' },
+  { to: '/admin/data-console', label: 'Data Console' },
   { to: '/admin/users', label: 'Users' },
 ] as const
 

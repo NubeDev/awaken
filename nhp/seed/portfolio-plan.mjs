@@ -48,6 +48,7 @@ export const PORTFOLIO = [
         name: 'Acme HQ',
         address: '1 Market St, Springfield',
         timezone: 'America/New_York',
+        geo: '39.7817,-89.6501',
         gateways: [
           {
             key: 'acme-hq-gw1',
@@ -73,6 +74,7 @@ export const PORTFOLIO = [
         name: 'Acme Plant',
         address: '500 Industrial Rd, Springfield',
         timezone: 'America/Chicago',
+        geo: '39.7990,-89.6440',
         gateways: [
           {
             key: 'acme-plant-gw1',
@@ -112,6 +114,7 @@ export const PORTFOLIO = [
         name: 'Globex Tower',
         address: '742 Evergreen Tce, Capital City',
         timezone: 'America/Los_Angeles',
+        geo: '34.0522,-118.2437',
         gateways: [
           {
             key: 'globex-tower-gw1',
@@ -135,6 +138,7 @@ export const PORTFOLIO = [
         name: 'Globex Depot',
         address: '88 Logistics Way, Capital City',
         timezone: 'America/Denver',
+        geo: '34.0699,-118.2540',
         gateways: [
           {
             key: 'globex-depot-gw1',

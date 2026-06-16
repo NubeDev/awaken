@@ -13,11 +13,18 @@
  * Refresh: a visibility-aware timer (use-refresh.ts), NOT a /ws/records live
  * subscription — the WS-07 POC-blessed simplification (documented there).
  */
-import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
-import { Route } from '@/routes/_authenticated/dashboards'
+import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { Route, type DashboardSearch } from '@/routes/_authenticated/dashboards'
 import { Main } from '@/components/layout/main'
-import { Button } from '@/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import {
   Select,
   SelectContent,
@@ -25,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useHeaderLeft } from '@/context/header-slot'
 import {
   useGateways,
   useMeters,
@@ -51,12 +59,11 @@ const WINDOWS = Object.keys(WINDOW_TOKENS) as WindowToken[]
 
 export function DashboardPage() {
   const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
   const tenants = useTenants()
   const sites = useSites()
   const gateways = useGateways()
   const meters = useMeters()
-  const [tenantKey, setTenantKey] = useState<string | null>(null)
-  const [stack, setStack] = useState<Scope[]>([])
   const [window, setWindow] = useState<WindowToken>('now-24h')
   const [refresh, setRefresh] = useState<RefreshMs>(0)
 
@@ -71,15 +78,15 @@ export function DashboardPage() {
   useDashboardRefetch(interval)
 
   const tenantList = tenants.data ?? []
+  const activeTenant = search.tenant ?? tenantList[0]?.content.key ?? null
+  const tenantName = tenantList.find((t) => t.content.key === activeTenant)?.content.name
 
-  // Seed the tenant + drill stack from the URL scope (the sidebar tree deep-links
-  // here, e.g. ?tenant=acme&site=acme-plant&gateway=gw-01). Names are resolved
-  // from the loaded records; we re-seed whenever the params or the record sets
-  // change. Records the drill state derives FROM the URL, so the sidebar and the
-  // breadcrumb stay in sync.
-  useEffect(() => {
-    if (!search.tenant) return
-    setTenantKey(search.tenant)
+  // Drill state is the URL — NOT local state. The scope params (tenant/site/
+  // gateway/meter) are the single source of truth, so every level is a shareable
+  // deep link (/dashboards?tenant=acme&site=acme-hq&gateway=hq-gw1&meter=<id>) and
+  // the sidebar tree (which links with the same params) stays in sync for free.
+  // The breadcrumb stack is DERIVED from the params, resolving names from records.
+  const stack = useMemo<Scope[]>(() => {
     const next: Scope[] = []
     if (search.site) {
       const s = (sites.data ?? []).find((r) => r.content.key === search.site)
@@ -93,43 +100,88 @@ export function DashboardPage() {
       const m = (meters.data ?? []).find((r) => r.id === search.meter)
       next.push({ level: 'meter', key: search.meter, name: m?.content.name ?? 'Meter' })
     }
-    setStack(next)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.tenant, search.site, search.gateway, search.meter, sites.data, gateways.data, meters.data])
+    return next
+  }, [search.site, search.gateway, search.meter, sites.data, gateways.data, meters.data])
 
-  const activeTenant = tenantKey ?? tenantList[0]?.content.key ?? null
+  const top = stack[stack.length - 1]
+
+  // Navigation writes the scope to the URL (replace: a drill is not a separate
+  // history entry per click — Back returns to wherever you came from). `go` always
+  // carries the active `tenant` so the portfolio survives a drill; callers pass
+  // only the deeper scope (a missing level clears it and everything below).
+  const go = (scope: Omit<DashboardSearch, 'tenant'>) =>
+    navigate({ search: { tenant: activeTenant ?? undefined, ...scope }, replace: true })
+  const openSite = (site: string) => go({ site })
+  const openGateway = (site: string, gateway: string) => go({ site, gateway })
+  const openMeter = (site: string, gateway: string, meter: string) =>
+    go({ site, gateway, meter })
+  const reset = () => go({})
+  // Pop the breadcrumb to level `i` of the stack by truncating the scope params.
+  const popTo = (i: number) => {
+    const s = stack.slice(0, i + 1)
+    go({
+      site: s.find((x) => x.level === 'site')?.key,
+      gateway: s.find((x) => x.level === 'gateway')?.key,
+      meter: s.find((x) => x.level === 'meter')?.key,
+    })
+  }
+
+  // Publish the drill-stack breadcrumb into the app header's left slot
+  // (shadcn-admin top-bar convention). Interactive: clicking a crumb pops the
+  // stack to that level. Memoised so the slot only re-publishes on real change.
+  const crumb = useMemo(
+    () => (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            {stack.length === 0 ? (
+              <BreadcrumbPage>{tenantName}</BreadcrumbPage>
+            ) : (
+              <BreadcrumbLink asChild>
+                <button type='button' onClick={reset}>
+                  {tenantName}
+                </button>
+              </BreadcrumbLink>
+            )}
+          </BreadcrumbItem>
+          {stack.map((s, i) => {
+            const isLast = i === stack.length - 1
+            return (
+              <BreadcrumbItem key={`${s.level}-${s.key}`}>
+                <BreadcrumbSeparator />
+                {isLast ? (
+                  <BreadcrumbPage>{s.name}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <button type='button' onClick={() => popTo(i)}>
+                      {s.name}
+                    </button>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            )
+          })}
+        </BreadcrumbList>
+      </Breadcrumb>
+    ),
+    // popTo/reset close over `stack` via setStack's functional form is not used,
+    // so depend on the inputs that change the rendered crumbs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stack, tenantName]
+  )
+  useHeaderLeft(activeTenant ? crumb : null)
 
   if (tenants.isLoading) return <Main><Empty message='Loading…' /></Main>
   if (!activeTenant) return <Main><Empty message='No tenants. Seed a portfolio first.' /></Main>
 
-  const top = stack[stack.length - 1]
-  const popTo = (i: number) => setStack(stack.slice(0, i + 1))
-  const reset = () => setStack([])
-
   return (
     <Main>
+      {/* Title row (shadcn-admin layout): page heading on the left, board controls
+          on the right. Tenant/scope selection is the SIDEBAR tree + breadcrumb
+          (the in-row tenant selector was removed — redundant with the sidebar).
+          The breadcrumb lives in the app header above (header-slot.tsx). */}
       <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2'>
-          <h2 className='text-xl font-semibold'>Dashboards</h2>
-          <Select
-            value={activeTenant}
-            onValueChange={(v) => {
-              setTenantKey(v)
-              reset()
-            }}
-          >
-            <SelectTrigger className='h-8 w-48'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {tenantList.map((t) => (
-                <SelectItem key={t.content.key} value={t.content.key}>
-                  {t.content.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <h1 className='text-2xl font-bold tracking-tight'>{top?.name ?? tenantName ?? 'Dashboard'}</h1>
         <div className='flex items-center gap-2'>
           <Select value={window} onValueChange={(v) => setWindow(v as WindowToken)}>
             <SelectTrigger className='h-8 w-28'>
@@ -158,26 +210,12 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Breadcrumb of the drill stack. */}
-      <div className='text-muted-foreground mb-4 flex flex-wrap items-center gap-1 text-sm'>
-        <Button variant='ghost' size='sm' className='h-7 px-2' onClick={reset}>
-          {tenantList.find((t) => t.content.key === activeTenant)?.content.name}
-        </Button>
-        {stack.map((s, i) => (
-          <span key={`${s.level}-${s.key}`} className='flex items-center gap-1'>
-            <ChevronRight className='size-3' />
-            <Button variant='ghost' size='sm' className='h-7 px-2' onClick={() => popTo(i)}>
-              {s.name}
-            </Button>
-          </span>
-        ))}
-      </div>
-
       {!top && (
         <TenantPage
           tenantKey={activeTenant}
+          window={window}
           history={history.data ?? []}
-          onOpenSite={(key, name) => setStack([{ level: 'site', key, name }])}
+          onOpenSite={(key) => openSite(key)}
         />
       )}
       {top?.level === 'site' && (
@@ -185,15 +223,15 @@ export function DashboardPage() {
           siteKey={top.key}
           window={window}
           history={history.data ?? []}
-          onOpenGateway={(key, name) =>
-            setStack([...stack, { level: 'gateway', key, name }])
-          }
+          onOpenGateway={(key) => openGateway(top.key, key)}
         />
       )}
       {top?.level === 'gateway' && (
         <GatewayPage
           gatewayKey={top.key}
-          onOpenMeter={(id, name) => setStack([...stack, { level: 'meter', key: id, name }])}
+          onOpenMeter={(id) =>
+            openMeter(search.site ?? '', top.key, id)
+          }
         />
       )}
       {top?.level === 'meter' && <MeterPage meterId={top.key} window={window} />}

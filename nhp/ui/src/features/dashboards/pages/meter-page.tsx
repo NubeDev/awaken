@@ -31,6 +31,10 @@ export function MeterPage({ meterId, window }: { meterId: string; window: Window
 
   const board = buildMeterBoard(meterRegisters, history.data ?? [], window, timezone)
 
+  // Headline KPIs first (per-group latest + sparkline + delta), then the
+  // live-only stat tiles. Both render as accented StatTiles.
+  const tiles = [...board.kpis, ...board.stats]
+
   return (
     <div className='space-y-4'>
       <Card className='flex items-center justify-between p-4'>
@@ -41,10 +45,10 @@ export function MeterPage({ meterId, window }: { meterId: string; window: Window
         />
       </Card>
 
-      {board.stats.length > 0 && (
+      {tiles.length > 0 && (
         <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4'>
-          {board.stats.map((s) => (
-            <StatTile key={s.title} widget={s} />
+          {tiles.map((s) => (
+            <StatTile key={`${s.type}-${s.title}`} widget={s} />
           ))}
         </div>
       )}

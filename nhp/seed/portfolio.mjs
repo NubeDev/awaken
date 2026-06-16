@@ -102,6 +102,7 @@ export async function seedPortfolio({ log = () => {} } = {}) {
           tenant: tenantId,
           address: site.address,
           timezone: site.timezone,
+          geo: site.geo,
           tags: siteTags(ctx),
         },
         idx.site,

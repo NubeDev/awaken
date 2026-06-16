@@ -1,4 +1,10 @@
-import { LayoutDashboard, Settings2, Wand2 } from 'lucide-react'
+import {
+  FileBarChart,
+  LayoutDashboard,
+  Settings2,
+  Siren,
+  Wand2,
+} from 'lucide-react'
 import { type NavGroup } from '../types'
 
 /**
@@ -13,6 +19,15 @@ export const nhpNavGroups: NavGroup[] = [
     title: 'Operate',
     items: [
       { title: 'Dashboards', url: '/dashboards', icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'Report',
+    items: [
+      // Tenant- and site-scoped reporting + the live alarm console (scope is
+      // chosen in-page via the filter bar, not the URL — NHP nav is flat).
+      { title: 'Reports', url: '/reports', icon: FileBarChart },
+      { title: 'Alarms', url: '/alarms', icon: Siren },
     ],
   },
   {

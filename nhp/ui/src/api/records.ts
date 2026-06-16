@@ -109,6 +109,19 @@ export interface RegisterRecord extends RegisterDef {
   tags?: string[]
 }
 
+/**
+ * `kind:"tenant"` content (DOMAIN-MODEL §tenant) — the portfolio root. A tenant
+ * owns sites; `namespace` is the rubix namespace its data lives under (seed
+ * portfolio.mjs). Has no parent relation.
+ */
+export interface Tenant {
+  kind: 'tenant'
+  key: string
+  name: string
+  namespace?: string
+  tags?: string[]
+}
+
 /** `kind:"site"` content (DOMAIN-MODEL §site) — read-only here, for the gateway's
  * required parent `site` relation picker. */
 export interface Site {
@@ -176,6 +189,7 @@ export interface Network {
   tags?: string[]
 }
 
+export type TenantRecord = RecordDto<Tenant>
 export type SiteRecord = RecordDto<Site>
 export type GatewayRecord = RecordDto<Gateway>
 export type NetworkRecord = RecordDto<Network>

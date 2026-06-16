@@ -35,12 +35,17 @@ export interface StatWidget {
   precision?: number
   /** Alarm ramp to colour the value by its current severity. */
   alarm?: Alarm
+  /** Register quantity (power/energy/…) → semantic accent colour + icon. */
+  quantity?: string
+  /**
+   * Optional inline trend for the tile: the windowed points (sparkline) plus a
+   * window-over-window delta (% change first→last). Present only when the
+   * register keeps history; absent for live-only stats.
+   */
+  trend?: {
+    points: { t: number; v: number | null }[]
+    /** Fractional change first→last over the window (0.05 = +5%), or null. */
+    delta: number | null
+  }
 }
 
-/** A flat table of rows (gateway network list, etc). */
-export interface TableWidget {
-  type: 'table'
-  title: string
-  columns: { key: string; label: string }[]
-  rows: Record<string, string | number>[]
-}

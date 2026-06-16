@@ -10,7 +10,9 @@
 import type { GatewayRecord, MeterRecord, RegisterRec, SiteRecord } from '@/api/records'
 import { tenantTag, siteTag } from '@/enums/tags'
 import type { HistorySample } from '../query/batch'
+import { resolveWindow, type WindowToken } from '../query/time-window'
 import { alarmCountsByMeter } from './alarm-eval'
+import { energyTrend, type EnergyTrend } from './energy-trend'
 import { rollupStatus } from './rollup'
 import type { RollupStatus } from '../widgets/status-tile'
 
@@ -21,6 +23,9 @@ export interface SiteCard {
   meterCount: number
   gatewayCount: number
   alarmCount: number
+  /** Site-wide energy trend over the window (summed across meters), for a row
+   *  sparkline. `unit` is the energy register unit (kWh). Empty when no energy. */
+  energy: EnergyTrend
 }
 
 export function buildTenantBoard(
@@ -29,11 +34,13 @@ export function buildTenantBoard(
   gateways: GatewayRecord[],
   meters: MeterRecord[],
   registers: RegisterRec[],
-  history: HistorySample[]
+  history: HistorySample[],
+  window: WindowToken
 ): SiteCard[] {
   const tTag = tenantTag(tenantKey)
   const tenantSites = sites.filter((s) => (s.content.tags ?? []).includes(tTag))
   const alarmByMeter = alarmCountsByMeter(registers, history)
+  const resolved = resolveWindow(window)
 
   return tenantSites
     .map((site) => {
@@ -48,6 +55,7 @@ export function buildTenantBoard(
         meterCount: siteMeters.length,
         gatewayCount: siteGateways.length,
         alarmCount,
+        energy: energyTrend(sTag, registers, history, resolved),
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))

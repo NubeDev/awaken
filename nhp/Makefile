@@ -47,7 +47,14 @@ CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 SEED ?=
 SEED_FLAG := $(if $(SEED),-- --seed-dev,)
 
-.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill
+# Where the collection registrar + check scripts POST. Defaults follow the dev
+# backend; override RUBIX_BASE / RUBIX_SUBJECT / RUBIX_SECRET (collections/client.mjs)
+# to target another server. The defaults match a `--seed-dev` server in namespace
+# `acme` (the seeded `acme_operator` holds the record-write capability).
+COLLECTIONS_DIR := collections
+export RUBIX_BASE ?= http://127.0.0.1:$(BE_PORT)
+
+.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill collections collections-check
 
 build: build-be build-ui
 
@@ -74,6 +81,18 @@ dev-ui:
 
 test:
 	cd $(UI_DIR) && pnpm test
+
+# Register the 7 NHP collection definitions (kind:"collection" records) on a
+# RUNNING rubix backend, idempotently. NHP has no backend crate — these are data
+# created over the rubix HTTP API (see ../docs/sessions/WS-02.md). Needs node and
+# a backend reachable at RUBIX_BASE. Run `make dev SEED=1` first.
+collections:
+	node $(COLLECTIONS_DIR)/register-collections.mjs
+
+# Verify the collections end-to-end: one valid + one invalid record per kind
+# (gate-enforced required/type; client-enforced enum/unique/device-limit).
+collections-check:
+	node $(COLLECTIONS_DIR)/check.mjs
 
 lint:
 	cd $(RUBIX_DIR) && cargo clippy $(CARGO_FEATURES) --all-targets -- -D warnings

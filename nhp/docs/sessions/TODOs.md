@@ -39,6 +39,25 @@ no native typed enforcement.
 `rubix/crates/rubix-core/src/collection/field.rs` + its validation (BACKEND-COLLECTIONS open
 question 3). Generic + reusable by any collection consumer — an upstream addition, approved by the
 rubix team. **NHP does not implement this.**
-**Workaround (POC, no rubix change):** model enums as `text`, enforce the allowed set via the
-collection `writeRule` + the UI dropdown. Not a blocker — WS-02 ships on the workaround.
+**Workaround (POC, no rubix change):** model enums as `text`, enforce the allowed set in the NHP
+client layer (`nhp/collections/enforce.mjs`) + the UI dropdown. Not a blocker — WS-02 ships on the
+workaround. **Correction (WS-02, 2026-06-16):** the `writeRule` route named here does NOT work —
+verified that rubix's gate evaluates no `writeRule` (`rubix-core/src/collection/def.rs` keeps it as
+raw JSON; `rubix-gate/src/command/validate.rs` enforces `required` + type only). Enums are enforced
+client-side, not by a writeRule.
+**Resolution:** _(rubix team — dated. Not required for the POC.)_
+
+### 2026-06-16 — RUBIX-TEAM — Gate enforcement of `unique` and a per-collection write predicate
+**Blocked on:** verified that the gate enforces only `required` + field TYPE. It does **not** enforce
+`unique` (`rubix-core/src/collection/validate.rs`: "Uniqueness is not checked here") and evaluates
+**no `writeRule`/access predicate** at all (`rubix-core/src/collection/def.rs` preserves `writeRule`
+as raw JSON; the validate step never reads it). So NHP cannot enforce (a) unique keys or (b) the
+per-network device limit (`network.max_devices` — reject an N+1th `meter`) at the gate.
+**Needs:** rubix team to (1) realise `unique` via `DEFINE INDEX` on collection define
+(BACKEND-COLLECTIONS open question 11) and (2) add a gate-evaluated `writeRule` predicate, generic
+and reusable (BACKEND-COLLECTIONS open question 4). Both are upstream, approved by the rubix team —
+**NHP does not implement them.**
+**Workaround (POC, no rubix change):** enforce `unique` and the device limit in the NHP client layer
+(`nhp/collections/enforce.mjs`) and the onboarding wizard (WS-06). Defence-in-depth becomes
+defence-in-one until the gate enforces it; acceptable for the POC.
 **Resolution:** _(rubix team — dated. Not required for the POC.)_

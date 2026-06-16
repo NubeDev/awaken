@@ -15,11 +15,12 @@
 
 use crate::dto::{
     BatchQueryRequest, BatchQueryResponse, CreateDeviceRequest, CreatePrincipalRequest,
-    CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto, PrincipalDto, QueryRequest,
-    QueryResponse, QuerySchemaResponse, RecordDto, RegisterDatasourceRequest, TenantDto,
-    UpdateDatasourceRequest,
+    CreateRecordRequest, CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto,
+    DatasourceDto, DeviceDto, DryRunRequest, DryRunResponse, GrantDto, LoginRequest, LoginResponse,
+    MeResponse, PreferencesDto, PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse,
+    RecordDto, RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest,
     UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
+    UpdateRuleRequest,
 };
 
 /// `POST /auth/login`.
@@ -476,3 +477,87 @@ pub fn update_device() {}
     )
 )]
 pub fn delete_device() {}
+
+/// `GET /rules`.
+#[utoipa::path(
+    get,
+    path = "/rules",
+    responses((status = 200, description = "Rules visible to the principal", body = [RuleDto]))
+)]
+pub fn list_rules() {}
+
+/// `POST /rules`.
+#[utoipa::path(
+    post,
+    path = "/rules",
+    request_body = CreateRuleRequest,
+    responses(
+        (status = 200, description = "The created rule", body = RuleDto),
+        (status = 400, description = "Invalid name, script, or binding"),
+        (status = 403, description = "Principal lacks the rule-define capability"),
+        (status = 409, description = "A rule with this name already exists")
+    )
+)]
+pub fn create_rule() {}
+
+/// `GET /rules/{name}`.
+#[utoipa::path(
+    get,
+    path = "/rules/{name}",
+    params(("name" = String, Path, description = "Rule name (the composition handle)")),
+    responses(
+        (status = 200, description = "The rule", body = RuleDto),
+        (status = 404, description = "Not found or not visible")
+    )
+)]
+pub fn get_rule() {}
+
+/// `PATCH /rules/{name}`.
+#[utoipa::path(
+    patch,
+    path = "/rules/{name}",
+    params(("name" = String, Path, description = "Rule name (the composition handle)")),
+    request_body = UpdateRuleRequest,
+    responses(
+        (status = 200, description = "The updated rule", body = RuleDto),
+        (status = 400, description = "Invalid script or binding"),
+        (status = 403, description = "Principal lacks the rule-define capability"),
+        (status = 404, description = "Not found or not visible")
+    )
+)]
+pub fn update_rule() {}
+
+/// `DELETE /rules/{name}`.
+#[utoipa::path(
+    delete,
+    path = "/rules/{name}",
+    params(("name" = String, Path, description = "Rule name (the composition handle)")),
+    responses(
+        (status = 204, description = "Deleted"),
+        (status = 403, description = "Principal lacks the rule-define capability"),
+        (status = 404, description = "Not found or not visible")
+    )
+)]
+pub fn delete_rule() {}
+
+/// `POST /rules/{name}/dryrun`.
+#[utoipa::path(
+    post,
+    path = "/rules/{name}/dryrun",
+    params(("name" = String, Path, description = "Rule name being debugged")),
+    request_body = DryRunRequest,
+    responses(
+        (status = 200, description = "The verdict and the frame the rule saw", body = DryRunResponse),
+        (status = 400, description = "Compile, binding, or window failure (engine diagnostic)")
+    )
+)]
+pub fn dryrun_rule() {}
+
+/// `GET /rules/{name}/referencing`.
+#[utoipa::path(
+    get,
+    path = "/rules/{name}/referencing",
+    params(("name" = String, Path, description = "Rule name whose composers are listed")),
+    responses((status = 200, description = "Rules that compose this one", body = [RuleDto]))
+)]
+pub fn referencing_rules() {}

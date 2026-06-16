@@ -106,7 +106,8 @@ async fn main() -> Result<()> {
 /// Build the runtime config from the environment, file-backed, carrying the
 /// selected deployment profile so the store/runtime layer sees the same choice.
 fn load_config(profile: rubix_core::Profile) -> RuntimeConfig {
-    let namespace = std::env::var("RUBIX_NAMESPACE").unwrap_or_else(|_| DEFAULT_NAMESPACE.to_owned());
+    let namespace =
+        std::env::var("RUBIX_NAMESPACE").unwrap_or_else(|_| DEFAULT_NAMESPACE.to_owned());
     let database = std::env::var("RUBIX_DATABASE").unwrap_or_else(|_| DEFAULT_DATABASE.to_owned());
     let data_dir = std::env::var("RUBIX_DATA_DIR").unwrap_or_else(|_| DEFAULT_DATA_DIR.to_owned());
     let mut config = RuntimeConfig::file_backed(data_dir, namespace, database);

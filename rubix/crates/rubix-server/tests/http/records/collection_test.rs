@@ -22,7 +22,12 @@ use fixture::app::{NS, SECRET, SUBJECT, TestApp, boot};
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -57,12 +62,15 @@ async fn register_site_collection(store: &rubix_store::StoreHandle) {
             ]
         }),
     );
-    create_record(store.raw(), &def).await.expect("register collection");
+    create_record(store.raw(), &def)
+        .await
+        .expect("register collection");
 }
 
 #[tokio::test]
 async fn invalid_collection_content_is_unprocessable() {
-    let TestApp { app, store } = boot("server_collection_invalid", &[Capability::IngestPublish]).await;
+    let TestApp { app, store } =
+        boot("server_collection_invalid", &[Capability::IngestPublish]).await;
     register_site_collection(&store).await;
 
     // Missing required `name`, and `area` is the wrong type.
@@ -80,7 +88,8 @@ async fn invalid_collection_content_is_unprocessable() {
 
 #[tokio::test]
 async fn valid_collection_content_is_created() {
-    let TestApp { app, store } = boot("server_collection_valid", &[Capability::IngestPublish]).await;
+    let TestApp { app, store } =
+        boot("server_collection_valid", &[Capability::IngestPublish]).await;
     register_site_collection(&store).await;
 
     let (status, body) = send(
@@ -116,9 +125,7 @@ async fn list_filters_by_kind() {
     assert_eq!(status, StatusCode::OK);
     let sites = sites.as_array().expect("array");
     assert_eq!(sites.len(), 2);
-    assert!(sites
-        .iter()
-        .all(|r| r["content"]["kind"] == json!("site")));
+    assert!(sites.iter().all(|r| r["content"]["kind"] == json!("site")));
 
     // The unfiltered list returns everything (plus the registered collection record).
     let (status, all) = send(&app, authed("GET", "/records", Value::Null)).await;

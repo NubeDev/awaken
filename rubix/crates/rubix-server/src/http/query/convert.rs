@@ -65,7 +65,11 @@ mod tests {
         let mut rows = vec![json!({ "temp": 100.0, "other": 100.0 })];
         convert_rows(&mut rows, &temp_map(), UnitSystem::Imperial);
         assert!((rows[0]["temp"].as_f64().unwrap() - 212.0).abs() < 1e-9);
-        assert_eq!(rows[0]["other"], json!(100.0), "undeclared column untouched");
+        assert_eq!(
+            rows[0]["other"],
+            json!(100.0),
+            "undeclared column untouched"
+        );
     }
 
     #[test]

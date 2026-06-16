@@ -76,7 +76,11 @@ pub fn from_dynamic(value: Dynamic) -> Result<Decision> {
         return Ok(Decision {
             fired,
             value: if fired { 1.0 } else { 0.0 },
-            reason: if fired { "fired".to_owned() } else { "not fired".to_owned() },
+            reason: if fired {
+                "fired".to_owned()
+            } else {
+                "not fired".to_owned()
+            },
             scores: BTreeMap::new(),
             group_id: None,
         });
@@ -161,7 +165,7 @@ mod tests {
 
     use rhai::Dynamic;
 
-    use super::{from_dynamic, Decision};
+    use super::{Decision, from_dynamic};
 
     #[test]
     fn a_bare_true_fires_with_value_one() {

@@ -24,7 +24,7 @@ use crate::rule::{Rule, resolve};
 use super::clock::now_ns;
 use super::context::EvalContext;
 use super::run::run_script;
-use super::span::{build_span, emit_and_persist, SpanFrame};
+use super::span::{SpanFrame, build_span, emit_and_persist};
 
 /// Recursively evaluate `rule`, nesting its span under `parent_span_id`.
 ///

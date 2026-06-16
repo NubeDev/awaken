@@ -21,9 +21,7 @@ use axum::extract::State;
 use rubix_agent::{MemoryRecord, persist_memory, recall_memory};
 
 use crate::auth::Authenticated;
-use crate::dto::agent::{
-    PersistRequest, PersistedDto, RecallRequest, RecalledDto, parse_kind,
-};
+use crate::dto::agent::{PersistRequest, PersistedDto, RecallRequest, RecalledDto, parse_kind};
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 

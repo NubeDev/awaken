@@ -12,7 +12,7 @@ use rubix_gate::{Change, Command, apply, read_record_on_session};
 use serde_json::Value;
 
 use crate::auth::Authenticated;
-use crate::dto::prefs::{PreferencesDto, UpdatePreferencesRequest, PREFS_KIND};
+use crate::dto::prefs::{PREFS_KIND, PreferencesDto, UpdatePreferencesRequest};
 use crate::error::{ApiError, ApiResult};
 use crate::http::records::capability::RECORD_WRITE;
 use crate::http::records::create::map_gate_error;
@@ -28,9 +28,7 @@ pub async fn patch_prefs_route(
     Json(body): Json<UpdatePreferencesRequest>,
 ) -> ApiResult<Json<PreferencesDto>> {
     let current = load_prefs(&auth).await?;
-    let merged = body
-        .merge_onto(current)
-        .map_err(ApiError::BadRequest)?;
+    let merged = body.merge_onto(current).map_err(ApiError::BadRequest)?;
 
     let id = prefs_id(auth.principal.subject.as_str());
     let content = prefs_content(&merged)?;

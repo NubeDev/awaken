@@ -69,12 +69,12 @@ pub(crate) fn map_control_error(error: ControlError) -> ApiError {
         ControlError::Datasource(DatasourceError::Denied) => {
             ApiError::Forbidden("principal lacks the datasource-register capability".to_owned())
         }
-        ControlError::Datasource(DatasourceError::Duplicate(id)) => {
-            ApiError::Conflict(format!("a datasource is already registered under id `{id}`"))
-        }
-        ControlError::Datasource(DatasourceError::Connect { id, reason }) => {
-            ApiError::BadGateway(format!("connector `{id}` could not reach its backend: {reason}"))
-        }
+        ControlError::Datasource(DatasourceError::Duplicate(id)) => ApiError::Conflict(format!(
+            "a datasource is already registered under id `{id}`"
+        )),
+        ControlError::Datasource(DatasourceError::Connect { id, reason }) => ApiError::BadGateway(
+            format!("connector `{id}` could not reach its backend: {reason}"),
+        ),
         ControlError::Datasource(DatasourceError::Unknown(_)) => ApiError::NotFound,
         other => ApiError::Internal(other.to_string()),
     }

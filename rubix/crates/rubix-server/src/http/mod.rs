@@ -14,6 +14,7 @@ mod health;
 mod prefs;
 mod query;
 mod records;
+mod rules;
 
 use axum::Router;
 use axum::routing::get;
@@ -33,4 +34,5 @@ pub fn router() -> Router<AppState> {
         .merge(datasources::router())
         .merge(admin::router())
         .merge(agent::router())
+        .merge(rules::router())
 }

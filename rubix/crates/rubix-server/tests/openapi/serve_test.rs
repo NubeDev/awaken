@@ -26,10 +26,22 @@ async fn openapi_lists_the_registered_routes() {
         .expect("route responds");
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body = response.into_body().collect().await.expect("body").to_bytes();
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let doc: Value = serde_json::from_slice(&body).expect("json document");
 
-    assert_eq!(doc["openapi"].as_str().expect("openapi version").chars().next(), Some('3'));
+    assert_eq!(
+        doc["openapi"]
+            .as_str()
+            .expect("openapi version")
+            .chars()
+            .next(),
+        Some('3')
+    );
     let paths = doc["paths"].as_object().expect("paths object");
     for route in [
         "/health",
@@ -39,6 +51,10 @@ async fn openapi_lists_the_registered_routes() {
         "/datasources",
         "/ws/records",
     ] {
-        assert!(paths.contains_key(route), "openapi missing {route}: {:?}", paths.keys());
+        assert!(
+            paths.contains_key(route),
+            "openapi missing {route}: {:?}",
+            paths.keys()
+        );
     }
 }

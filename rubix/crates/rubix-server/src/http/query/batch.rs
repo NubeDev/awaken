@@ -40,7 +40,9 @@ pub async fn run_batch_route(
     Json(body): Json<BatchQueryRequest>,
 ) -> ApiResult<Json<BatchQueryResponse>> {
     if body.queries.is_empty() {
-        return Err(ApiError::BadRequest("a batch must carry at least one query".to_owned()));
+        return Err(ApiError::BadRequest(
+            "a batch must carry at least one query".to_owned(),
+        ));
     }
     if body.queries.len() > MAX_BATCH {
         return Err(ApiError::BadRequest(format!(

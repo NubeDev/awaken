@@ -19,7 +19,10 @@ async fn cloud_boots_per_tenant_and_isolates_tenant_namespaces() {
     let profile = select("cloud").expect("cloud is compiled in");
     let state = boot("profile_cloud_boot", profile).await;
 
-    assert_eq!(state.profile.namespace_strategy, NamespaceStrategy::PerTenant);
+    assert_eq!(
+        state.profile.namespace_strategy,
+        NamespaceStrategy::PerTenant
+    );
     assert!(state.profile.is_multi_tenant());
     assert!(state.profile.auth_required);
 

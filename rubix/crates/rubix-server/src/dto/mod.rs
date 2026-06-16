@@ -12,6 +12,7 @@ pub mod datasource;
 pub mod prefs;
 pub mod query;
 pub mod record;
+pub mod rule;
 
 pub use admin::{
     CreateDeviceRequest, CreatePrincipalRequest, CreateTenantRequest, CreatedPrincipalDto,
@@ -30,3 +31,7 @@ pub use query::{
     TransformDto,
 };
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};
+pub use rule::{
+    BindingDto, BucketDto, CreateRuleRequest, DryRunRequest, DryRunResponse, ResolvedInputDto,
+    RuleDto, UpdateRuleRequest,
+};

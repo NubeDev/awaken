@@ -5,7 +5,7 @@
 // header is the drag handle (`.panel-drag`); the × removes the panel.
 
 import { useMemo } from 'react'
-import { GripVertical, X } from 'lucide-react'
+import { GripVertical, Settings2, X } from 'lucide-react'
 import type { SavedChart } from '../../api/charts'
 import type { QueryColumn } from '../../api/query'
 import { ChartRendererCore } from '../chart-builder/charts'
@@ -24,11 +24,13 @@ interface ChartPanelProps {
   chart: SavedChart
   syncId: string
   onRemove: () => void
+  /** Open the chart settings editor for this panel. Omitted → no gear shown. */
+  onEdit?: () => void
   /** This panel's slice of the board's batch query. */
   result: PanelResult
 }
 
-export function ChartPanel({ chart, syncId, onRemove, result }: ChartPanelProps) {
+export function ChartPanel({ chart, syncId, onRemove, onEdit, result }: ChartPanelProps) {
   const rows = result.rows ?? []
   // Prefer the backend's column types; fall back to sniffing the first row when a
   // panel renders before the batch lands (or for an empty result).
@@ -44,14 +46,27 @@ export function ChartPanel({ chart, syncId, onRemove, result }: ChartPanelProps)
       <div className="panel-drag flex cursor-move items-center gap-1.5 border-b border-border px-3 py-2">
         <GripVertical size={14} className="text-muted-foreground" />
         <span className="truncate text-sm font-medium">{chart.name}</span>
-        <button
-          onClick={onRemove}
-          // Excluded from drag via the grid's dragConfig.cancel selector.
-          className="panel-no-drag ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Remove panel"
-        >
-          <X size={14} />
-        </button>
+        {/* Controls live in the drag strip but opt out of dragging via
+            .panel-no-drag (the grid's dragConfig.cancel selector). */}
+        <div className="panel-no-drag ml-auto flex items-center gap-0.5">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Edit chart"
+              title="Edit chart"
+            >
+              <Settings2 size={14} />
+            </button>
+          )}
+          <button
+            onClick={onRemove}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Remove panel"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 p-3">
         {result.loading ? (

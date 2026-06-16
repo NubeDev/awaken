@@ -27,9 +27,7 @@ use crate::auth::Authenticated;
 use crate::dto::admin::{CreateTenantRequest, TenantDto, prefix_subject};
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
-use crate::tenants::{
-    StoredTenant, create_tenant, delete_tenant, get_tenant, list_tenants,
-};
+use crate::tenants::{StoredTenant, create_tenant, delete_tenant, get_tenant, list_tenants};
 
 /// `POST /tenants` — onboard a new namespace (cloud only).
 pub async fn create_tenant_route(
@@ -72,9 +70,14 @@ pub async fn create_tenant_route(
         PrincipalKind::User,
         Role::Admin,
     );
-    create_principal(state.store.raw(), &auth.principal, &admin, body.admin_secret)
-        .await
-        .map_err(|e| ApiError::Internal(e.to_string()))?;
+    create_principal(
+        state.store.raw(),
+        &auth.principal,
+        &admin,
+        body.admin_secret,
+    )
+    .await
+    .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     let now = Utc::now();
     let tenant = StoredTenant {
@@ -151,7 +154,9 @@ fn require_multi_tenant(state: &AppState) -> Result<(), ApiError> {
 fn sanitize_id(raw: &str) -> Result<String, ApiError> {
     let id = raw.trim();
     if id.is_empty() {
-        return Err(ApiError::BadRequest("tenant id must not be empty".to_owned()));
+        return Err(ApiError::BadRequest(
+            "tenant id must not be empty".to_owned(),
+        ));
     }
     if !id
         .chars()

@@ -20,7 +20,12 @@ use fixture::app::{SECRET, SUBJECT, TestApp, boot};
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -91,7 +96,11 @@ async fn a_bad_panel_reports_its_error_while_others_render() {
 
     // The good panel returns its rows + columns.
     let good = result_for(&body, "good");
-    assert_eq!(good["rows"][0]["n"], json!(2), "good panel counted both records");
+    assert_eq!(
+        good["rows"][0]["n"],
+        json!(2),
+        "good panel counted both records"
+    );
     assert!(good["columns"].is_array(), "good panel carries columns");
     assert!(good.get("error").is_none() || good["error"].is_null());
 
@@ -102,11 +111,17 @@ async fn a_bad_panel_reports_its_error_while_others_render() {
 
     // A non-read statement is rejected by the guard, per item.
     let not_read = result_for(&body, "not-read");
-    assert!(not_read["error"].is_string(), "non-read panel rejected per item");
+    assert!(
+        not_read["error"].is_string(),
+        "non-read panel rejected per item"
+    );
 
     // A bucket macro with no grain is a per-item time error, not a batch failure.
     let bad_time = result_for(&body, "bad-time");
-    assert!(bad_time["error"].is_string(), "bad-time panel has a time error");
+    assert!(
+        bad_time["error"].is_string(),
+        "bad-time panel has a time error"
+    );
 }
 
 #[tokio::test]
@@ -124,12 +139,20 @@ async fn batch_requires_the_external_query_capability() {
     )
     .await;
 
-    assert_eq!(status, StatusCode::FORBIDDEN, "no external-query grant is 403");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "no external-query grant is 403"
+    );
 }
 
 #[tokio::test]
 async fn an_empty_batch_is_rejected() {
     let TestApp { app, .. } = boot("server_batch_empty", &[Capability::ExternalQuery]).await;
-    let (status, _) = send(&app, authed("POST", "/query/batch", json!({ "queries": [] }))).await;
+    let (status, _) = send(
+        &app,
+        authed("POST", "/query/batch", json!({ "queries": [] })),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }

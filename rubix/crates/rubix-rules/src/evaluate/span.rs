@@ -136,7 +136,7 @@ mod tests {
     use crate::engine::Decision;
     use crate::rule::Rule;
 
-    use super::{build_span, SpanFrame, RULE_SPAN_NAME};
+    use super::{RULE_SPAN_NAME, SpanFrame, build_span};
 
     fn decision() -> Decision {
         Decision {

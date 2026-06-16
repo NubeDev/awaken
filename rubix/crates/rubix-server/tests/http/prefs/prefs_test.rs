@@ -20,7 +20,12 @@ use fixture::app::{SECRET, SUBJECT, TestApp, boot};
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -76,7 +81,11 @@ async fn prefs_default_then_patch_then_read_back() {
 #[tokio::test]
 async fn an_unknown_unit_system_is_rejected() {
     let TestApp { app, .. } = boot("server_prefs_bad", &[Capability::IngestPublish]).await;
-    let (status, _) = send(&app, authed("PATCH", "/prefs", json!({ "units": "furlongs" }))).await;
+    let (status, _) = send(
+        &app,
+        authed("PATCH", "/prefs", json!({ "units": "furlongs" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -108,7 +117,11 @@ async fn a_declared_quantity_column_converts_to_the_principal_unit_system() {
 
     // Switch the principal to imperial; the same query now returns 212°F — the
     // conversion is a post-read per-caller layer over raw cached metric values.
-    let (status, _) = send(&app, authed("PATCH", "/prefs", json!({ "units": "imperial" }))).await;
+    let (status, _) = send(
+        &app,
+        authed("PATCH", "/prefs", json!({ "units": "imperial" })),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, imperial) = send(&app, authed("POST", "/query", query)).await;

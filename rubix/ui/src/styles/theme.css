@@ -307,3 +307,17 @@ kbd {
   background: hsl(var(--panel3));
   border-color: hsl(var(--r1) / 0.4);
 }
+
+/* react-grid-layout: theme the resize handle + drag placeholder to the design
+   tokens. RGL's shipped styles.css positions the handle but colours its arrow
+   rgba(0,0,0,.4) (invisible on dark) and paints the drop placeholder solid red.
+   These overrides keep the positioning and recolour to the app palette. */
+.react-grid-item > .react-resizable-handle::after {
+  border-right-color: hsl(var(--muted-foreground));
+  border-bottom-color: hsl(var(--muted-foreground));
+}
+.react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary));
+  border-radius: 0.75rem;
+  opacity: 0.18;
+}

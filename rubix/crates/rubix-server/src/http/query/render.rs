@@ -64,8 +64,8 @@ pub fn columns_of(batches: &[RecordBatch]) -> Vec<ColumnDto> {
 /// A coarse, client-friendly type tag for an Arrow [`DataType`].
 fn type_tag(data_type: &DataType) -> &'static str {
     use DataType::{
-        Boolean, Date32, Date64, Float16, Float32, Float64, Int16, Int32, Int64, Int8,
-        Timestamp, UInt16, UInt32, UInt64, UInt8, Utf8, LargeUtf8,
+        Boolean, Date32, Date64, Float16, Float32, Float64, Int8, Int16, Int32, Int64, LargeUtf8,
+        Timestamp, UInt8, UInt16, UInt32, UInt64, Utf8,
     };
     match data_type {
         Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 | UInt64 | Float16 | Float32

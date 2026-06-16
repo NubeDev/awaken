@@ -60,8 +60,17 @@ impl AppState {
     /// this constructor keeps the single-namespace edge default for callers (and
     /// tests) that do not select one.
     #[must_use]
-    pub fn new(store: StoreHandle, namespace: impl Into<String>, database: impl Into<String>) -> Self {
-        Self::with_profile(store, namespace, database, crate::profile::default_profile())
+    pub fn new(
+        store: StoreHandle,
+        namespace: impl Into<String>,
+        database: impl Into<String>,
+    ) -> Self {
+        Self::with_profile(
+            store,
+            namespace,
+            database,
+            crate::profile::default_profile(),
+        )
     }
 
     /// Build state around an open store handle, namespace/database, and a selected

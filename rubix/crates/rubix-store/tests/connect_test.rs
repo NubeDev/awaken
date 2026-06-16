@@ -5,8 +5,11 @@ use rubix_core::RuntimeConfig;
 use rubix_store::StoreHandle;
 use surrealdb::types::SurrealValue;
 
+// A neutral probe row for the handle round-trip — deliberately NOT the `reading`
+// table, which `init_schema` now declares with typed `series`/`at`/`value` fields
+// (a `{ label, value }` row would fail the `at: datetime` coercion).
 #[derive(Debug, Clone, PartialEq, SurrealValue)]
-struct Reading {
+struct Probe {
     label: String,
     value: i64,
 }
@@ -23,19 +26,19 @@ async fn write_then_read_round_trips_the_stored_value() {
     let cfg = RuntimeConfig::in_memory("rubix", "round_trip");
     let handle = StoreHandle::open(&cfg).await.expect("open store");
 
-    let stored = Reading {
+    let stored = Probe {
         label: "temp".into(),
         value: 21,
     };
     let created = handle
-        .create("reading", "r1", stored.clone())
+        .create("probe", "r1", stored.clone())
         .await
         .expect("create record")
         .expect("created record returned");
     assert_eq!(created, stored);
 
-    let read: Reading = handle
-        .read("reading", "r1")
+    let read: Probe = handle
+        .read("probe", "r1")
         .await
         .expect("read record")
         .expect("record present");
@@ -50,15 +53,15 @@ async fn reading_a_missing_record_returns_none() {
     // `None` rather than a table-not-found error.
     handle
         .create(
-            "reading",
+            "probe",
             "present",
-            Reading {
+            Probe {
                 label: "seed".into(),
                 value: 0,
             },
         )
         .await
         .expect("seed record");
-    let read: Option<Reading> = handle.read("reading", "absent").await.expect("read");
+    let read: Option<Probe> = handle.read("probe", "absent").await.expect("read");
     assert!(read.is_none());
 }

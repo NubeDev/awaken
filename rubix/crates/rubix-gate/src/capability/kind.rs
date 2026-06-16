@@ -81,6 +81,64 @@ pub enum Capability {
     /// *reference* is later stored in a record's content through the normal gated
     /// write, so the command gate still sees only JSON.
     FileUpload,
+    /// Open a bulk job — submit a `POST /records/bulk` (or other bulk op) that may
+    /// promote to a long-running background job (`rubix/docs/design/BULK-AND-JOBS.md`,
+    /// "Bulk record CRUD").
+    ///
+    /// This gates the **resource** (spawning a job), not the **data**: it
+    /// authorizes only the act of opening a bulk job, never the underlying
+    /// mutations or reads. Each item in the bulk envelope still flows through
+    /// `apply()` and is checked against its own per-item capability + row-level
+    /// perms, so a principal holding `bulk-submit` but not the per-item write
+    /// capability gets a job whose every item fails authorization. The bulk cap and
+    /// the per-item caps are deliberately separate authorities.
+    BulkSubmit,
+    /// Subscribe to the in-process control event bus.
+    ///
+    /// The control event bus (`rubix-bus` in-process plane) carries
+    /// component-to-component coordination events — `record.created`,
+    /// `rule.fired`, lifecycle transitions — inside the binary, threaded to their
+    /// originating action by correlation id. A principal that holds this grant may
+    /// **observe** that stream; the seam is checked **once at subscribe**, never
+    /// re-taxed per event, the same shape as [`ZenohSubscribe`](Capability::ZenohSubscribe)
+    /// on the data plane. It is a separate authority from
+    /// [`EventPublish`](Capability::EventPublish): observing the bus and injecting
+    /// onto it are distinct rights, so a read-only/analyst extension can watch the
+    /// platform's events without being able to emit any (the same observe-vs-effect
+    /// split as `rule-invoke` vs `rule-define`). The data-change (live-query) plane
+    /// needs no capability — an extension reaches it through its own scoped session
+    /// and SurrealDB row-level permissions, like a user (reads are native).
+    EventSubscribe,
+    /// Publish onto the in-process control event bus.
+    ///
+    /// The effect counterpart to [`EventSubscribe`](Capability::EventSubscribe): a
+    /// principal that holds this grant may **emit** a control event onto the
+    /// in-process plane, driving other components. Checked **once at the publish
+    /// seam**, fail closed — an out-of-grant publisher reaches no subscriber. The
+    /// event the bus carries already threads a gate-minted correlation id back to
+    /// the action that produced it, so the audit trail is preserved through that
+    /// thread rather than by auditing each ephemeral, non-persisted publish (the
+    /// same once-checked, gate-bypassing shape as the data-plane stream
+    /// capabilities). Kept apart from `EventSubscribe` so the authority to *affect*
+    /// the platform's coordination is never an accidental side effect of the
+    /// authority to *watch* it.
+    EventPublish,
+    /// Start, stop, or disable an extension's runtime lifecycle.
+    ///
+    /// The runtime half of the extension system (`rubix/docs/design/
+    /// EXTENSION-RUNTIME.md`) turns a gated `lifecycle: start` write into a
+    /// supervised child process. Driving that lifecycle is a *distinct*
+    /// authority from registering a datasource: an operator should be able to
+    /// grant "may start/stop extensions" without also granting
+    /// [`DatasourceRegister`](Capability::DatasourceRegister). The lifecycle
+    /// command is checked against this grant fail closed *before* any process is
+    /// touched (the same before-effect discipline as every other command), so
+    /// an out-of-grant start spawns nothing. It is the runtime counterpart to
+    /// the provisioning authority a human admin holds: provisioning the
+    /// extension *principal* is an owner write, while flipping a provisioned
+    /// extension on and off is this capability — the one an operator extension
+    /// or a tenant admin can be handed.
+    ExtensionManage,
 }
 
 impl Capability {
@@ -89,7 +147,7 @@ impl Capability {
     /// The registry ([`is_registered`](crate::capability::is_registered)) and the
     /// wire round-trip both derive from this list, so adding a variant here is the
     /// single place a new capability becomes known.
-    pub const ALL: [Capability; 11] = [
+    pub const ALL: [Capability; 15] = [
         Capability::DatasourceRegister,
         Capability::RuleInvoke,
         Capability::IngestPublish,
@@ -101,6 +159,10 @@ impl Capability {
         Capability::DeviceManage,
         Capability::ReadingsAppend,
         Capability::FileUpload,
+        Capability::BulkSubmit,
+        Capability::EventSubscribe,
+        Capability::EventPublish,
+        Capability::ExtensionManage,
     ];
 
     /// The stable wire/storage string for this capability.
@@ -118,6 +180,10 @@ impl Capability {
             Capability::DeviceManage => "device-manage",
             Capability::ReadingsAppend => "readings-append",
             Capability::FileUpload => "file-upload",
+            Capability::BulkSubmit => "bulk-submit",
+            Capability::EventSubscribe => "event-subscribe",
+            Capability::EventPublish => "event-publish",
+            Capability::ExtensionManage => "extension-manage",
         }
     }
 
@@ -164,6 +230,10 @@ mod tests {
         assert_eq!(Capability::RuleDefine.as_str(), "rule-define");
         assert_eq!(Capability::DeviceManage.as_str(), "device-manage");
         assert_eq!(Capability::ReadingsAppend.as_str(), "readings-append");
+        assert_eq!(Capability::BulkSubmit.as_str(), "bulk-submit");
+        assert_eq!(Capability::EventSubscribe.as_str(), "event-subscribe");
+        assert_eq!(Capability::EventPublish.as_str(), "event-publish");
+        assert_eq!(Capability::ExtensionManage.as_str(), "extension-manage");
     }
 
     #[test]
@@ -171,7 +241,7 @@ mod tests {
         // `ALL` is the single source of truth the registry and wire round-trip
         // derive from; its length must track the variant count so a forgotten
         // entry cannot silently drop a capability out of the fail-closed set.
-        assert_eq!(Capability::ALL.len(), 11);
+        assert_eq!(Capability::ALL.len(), 15);
         for capability in Capability::ALL {
             let occurrences = Capability::ALL
                 .into_iter()

@@ -13,8 +13,9 @@
  * Refresh: a visibility-aware timer (use-refresh.ts), NOT a /ws/records live
  * subscription — the WS-07 POC-blessed simplification (documented there).
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
+import { Route } from '@/routes/_authenticated/dashboards'
 import { Main } from '@/components/layout/main'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useRegisters, useRegistersHistory, useTenants } from './query/batch'
+import {
+  useGateways,
+  useMeters,
+  useRegisters,
+  useRegistersHistory,
+  useSites,
+  useTenants,
+} from './query/batch'
 import {
   REFRESH_OPTIONS,
   useRefreshInterval,
@@ -42,7 +50,11 @@ import { Empty } from './widgets/empty'
 const WINDOWS = Object.keys(WINDOW_TOKENS) as WindowToken[]
 
 export function DashboardPage() {
+  const search = Route.useSearch()
   const tenants = useTenants()
+  const sites = useSites()
+  const gateways = useGateways()
+  const meters = useMeters()
   const [tenantKey, setTenantKey] = useState<string | null>(null)
   const [stack, setStack] = useState<Scope[]>([])
   const [window, setWindow] = useState<WindowToken>('now-24h')
@@ -59,6 +71,32 @@ export function DashboardPage() {
   useDashboardRefetch(interval)
 
   const tenantList = tenants.data ?? []
+
+  // Seed the tenant + drill stack from the URL scope (the sidebar tree deep-links
+  // here, e.g. ?tenant=acme&site=acme-plant&gateway=gw-01). Names are resolved
+  // from the loaded records; we re-seed whenever the params or the record sets
+  // change. Records the drill state derives FROM the URL, so the sidebar and the
+  // breadcrumb stay in sync.
+  useEffect(() => {
+    if (!search.tenant) return
+    setTenantKey(search.tenant)
+    const next: Scope[] = []
+    if (search.site) {
+      const s = (sites.data ?? []).find((r) => r.content.key === search.site)
+      next.push({ level: 'site', key: search.site, name: s?.content.name ?? search.site })
+    }
+    if (search.gateway) {
+      const g = (gateways.data ?? []).find((r) => r.content.key === search.gateway)
+      next.push({ level: 'gateway', key: search.gateway, name: g?.content.name ?? search.gateway })
+    }
+    if (search.meter) {
+      const m = (meters.data ?? []).find((r) => r.id === search.meter)
+      next.push({ level: 'meter', key: search.meter, name: m?.content.name ?? 'Meter' })
+    }
+    setStack(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.tenant, search.site, search.gateway, search.meter, sites.data, gateways.data, meters.data])
+
   const activeTenant = tenantKey ?? tenantList[0]?.content.key ?? null
 
   if (tenants.isLoading) return <Main><Empty message='Loading…' /></Main>

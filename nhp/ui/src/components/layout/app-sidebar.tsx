@@ -11,10 +11,12 @@ import { sidebarData } from './data/sidebar-data'
 import { nhpNavGroups } from './data/nhp-nav'
 import { NavGroup } from './nav-group'
 import { NavUser } from './nav-user'
+import { NhpPortfolioTree } from './nhp-portfolio-tree'
 
 /**
- * NHP app-shell sidebar: static, flat nav (Dashboards / Admin / Wizards) — no
- * org/site URL scope, no rubix-domain live badges. See WS-01.md.
+ * NHP app-shell sidebar: the live portfolio tree (tenant → site → gateway →
+ * meter, deep-linking into the dashboards) on top, then the static feature nav
+ * (Dashboards / Admin / Wizards). See WS-01.md + nhp-portfolio-tree.tsx.
  */
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
@@ -28,6 +30,7 @@ export function AppSidebar() {
         {nhpNavGroups.map((props) => (
           <NavGroup key={props.title} {...props} />
         ))}
+        <NhpPortfolioTree />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={sidebarData.user} />

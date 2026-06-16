@@ -68,8 +68,13 @@ async function readError(res: Response): Promise<string> {
  * (`VITE_RUBIX_SUBJECT` / `VITE_RUBIX_SECRET`) for a `--seed-dev` backend; when
  * unset the Bearer token (sign-in screen) is used instead.
  */
-const SERVICE_SUBJECT = import.meta.env.VITE_RUBIX_SUBJECT as string | undefined
-const SERVICE_SECRET = import.meta.env.VITE_RUBIX_SECRET as string | undefined
+// Read at call time (not module load) so the value reflects the current env —
+// needed for tests that stub it, and harmless in the browser where it's static.
+function serviceCreds(): { subject: string; secret: string } | undefined {
+  const subject = import.meta.env.VITE_RUBIX_SUBJECT as string | undefined
+  const secret = import.meta.env.VITE_RUBIX_SECRET as string | undefined
+  return subject && secret ? { subject, secret } : undefined
+}
 
 function buildHeaders(
   hasBody: boolean,
@@ -85,10 +90,11 @@ function buildHeaders(
     return headers
   }
   const token = currentAccessToken()
+  const creds = serviceCreds()
   if (token) headers['authorization'] = `Bearer ${token}`
-  else if (SERVICE_SUBJECT && SERVICE_SECRET) {
-    headers['x-rubix-subject'] = SERVICE_SUBJECT
-    headers['x-rubix-secret'] = SERVICE_SECRET
+  else if (creds) {
+    headers['x-rubix-subject'] = creds.subject
+    headers['x-rubix-secret'] = creds.secret
   }
   return Object.keys(headers).length > 0 ? headers : undefined
 }

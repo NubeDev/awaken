@@ -14,6 +14,7 @@ function mockFetch(status: number, body: unknown) {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   useAuthStore.getState().auth.resetAccessToken()
 })
 
@@ -60,12 +61,32 @@ describe('request', () => {
     expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer rbx_token')
   })
 
-  it('sends no Authorization header when no token is stored', async () => {
+  it('sends no bearer Authorization header when no token is stored', async () => {
+    // With no token AND no service-account env (VITE_RUBIX_SUBJECT/SECRET), the
+    // client sends no auth at all. Stub the env empty so a developer .env can't
+    // make this assert the service-account fallback instead (that path is its
+    // own test below).
+    vi.stubEnv('VITE_RUBIX_SUBJECT', '')
+    vi.stubEnv('VITE_RUBIX_SECRET', '')
     const fetchSpy = mockFetch(200, [])
     vi.stubGlobal('fetch', fetchSpy)
     await request('/api/v1/sites')
     const init = fetchSpy.mock.calls[0]![1]!
-    expect(init.headers).toBeUndefined()
+    const headers = (init.headers ?? {}) as Record<string, string>
+    expect(headers['authorization']).toBeUndefined()
+    expect(headers['x-rubix-subject']).toBeUndefined()
+  })
+
+  it('falls back to the service-account header pair when env creds are set', async () => {
+    vi.stubEnv('VITE_RUBIX_SUBJECT', 'acme_operator')
+    vi.stubEnv('VITE_RUBIX_SECRET', 'operator-demo')
+    const fetchSpy = mockFetch(200, [])
+    vi.stubGlobal('fetch', fetchSpy)
+    await request('/api/v1/sites')
+    const headers = fetchSpy.mock.calls[0]![1]!.headers as Record<string, string>
+    expect(headers['x-rubix-subject']).toBe('acme_operator')
+    expect(headers['x-rubix-secret']).toBe('operator-demo')
+    expect(headers['authorization']).toBeUndefined()
   })
 
   it('raises ApiError(401) so callers can clear the token', async () => {

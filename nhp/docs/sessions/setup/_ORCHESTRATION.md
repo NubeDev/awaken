@@ -54,8 +54,10 @@ explicit user choice.
    - The WS's **own gate commands pass** (each WS doc states them; default below).
    - **UI workstreams:** `pnpm -C nhp/ui build` succeeds and `pnpm -C nhp/ui test` (unit) is green
      if the WS added tests. Typecheck (`tsc`/`vite build`) must pass — no `// @ts-ignore` to dodge.
-   - **Backend-touching workstreams** (only the OVERVIEW gaps): `cd rubix && cargo test --workspace`
-     green and `cargo clippy --workspace --all-targets` clean.
+   - **No rubix diff:** `git status` must show ZERO changes under `rubix/` (NHP is frozen against
+     rubix). The only exception is a brand-new `rubix-ext` extension a WS spec explicitly authorised
+     — if present, `cd rubix && cargo test --workspace` green + `cargo clippy --workspace
+     --all-targets` clean. Any other diff under `rubix/` fails the gate.
    - **Data/seed workstreams:** the documented `make`/seed command runs clean and produces the
      expected records (the WS doc says how to verify).
    - The session wrote a **`Done`** status line in its own `sessions/WS-xx.md` with a finish timestamp.
@@ -120,9 +122,18 @@ HARD RULES (this is an unattended run — violating these poisons every later se
 - INCREMENTAL: implement one logical section, verify it, commit, repeat. Don't dump one giant commit.
 - Keep your WS's DONE GATE green before you call yourself done (see the gate in your WS doc /
   _ORCHESTRATION step 4). A red build/typecheck/test means you are NOT done.
-- The rubix backend is already built — if you need a backend capability that's missing, check the
-  OVERVIEW gaps list. Only the explicitly-listed gaps (Select field type, /prefs endpoint, file
-  blobs) may touch rubix, and only if your WS spec says so; anything else is a TODOs.md blocker.
+- RUBIX IS FROZEN — NHP NEVER EDITS RUBIX SOURCE. NHP is UI + data on the already-built rubix
+  binary, unchanged. If a WS finds it needs Rust:
+    * Generic & reusable by others (e.g. a Select/enum field type, a new core capability) → do NOT
+      implement it. File a **task for the rubix team** in nhp/docs/sessions/TODOs.md (it needs their
+      approval) and take the NHP-only workaround (data + writeRule + UI) for the POC. This is a
+      TODOs.md blocker entry titled `RUBIX-TEAM:`, not a code change.
+    * NHP-specific Rust behaviour → it belongs in a **rubix extension** (rubix-ext: a scoped
+      principal, control via JSON-RPC, data via Zenoh — see rubix/crates/rubix-ext/README.md), NOT
+      in rubix core. For the POC, only build an extension if a WS spec explicitly calls for one;
+      otherwise log it.
+  A DONE GATE FAILS if `git status` shows ANY diff under `rubix/` that isn't a brand-new extension a
+  WS spec authorised. Touching rubix core/crates from an NHP workstream is forbidden.
 
 SESSION LOG (mandatory): create/maintain nhp/docs/sessions/WS-xx.md with:
   - a `Status:` line (In-progress / Blocked / Done) and a `Started:` + `Finished:` UTC timestamp,

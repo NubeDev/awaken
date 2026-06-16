@@ -15,7 +15,7 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: 'Rubix',
+      name: 'NHP',
       logo: Building2,
       plan: 'Building Intelligence',
     },

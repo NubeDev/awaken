@@ -13,6 +13,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedWizardsRouteImport } from './routes/_authenticated/wizards'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedLogicStudioRouteImport } from './routes/_authenticated/logic-studio'
 import { Route as AuthenticatedDashboardsRouteImport } from './routes/_authenticated/dashboards'
 import { Route as AuthenticatedAlarmsRouteImport } from './routes/_authenticated/alarms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -50,6 +51,12 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLogicStudioRoute =
+  AuthenticatedLogicStudioRouteImport.update({
+    id: '/logic-studio',
+    path: '/logic-studio',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardsRoute = AuthenticatedDashboardsRouteImport.update({
   id: '/dashboards',
   path: '/dashboards',
@@ -152,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/alarms': typeof AuthenticatedAlarmsRoute
   '/dashboards': typeof AuthenticatedDashboardsRoute
+  '/logic-studio': typeof AuthenticatedLogicStudioRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
   '/admin/data-console': typeof AuthenticatedAdminDataConsoleRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/alarms': typeof AuthenticatedAlarmsRoute
   '/dashboards': typeof AuthenticatedDashboardsRoute
+  '/logic-studio': typeof AuthenticatedLogicStudioRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
   '/': typeof AuthenticatedIndexRoute
@@ -196,6 +205,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/alarms': typeof AuthenticatedAlarmsRoute
   '/_authenticated/dashboards': typeof AuthenticatedDashboardsRoute
+  '/_authenticated/logic-studio': typeof AuthenticatedLogicStudioRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/wizards': typeof AuthenticatedWizardsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/alarms'
     | '/dashboards'
+    | '/logic-studio'
     | '/reports'
     | '/wizards'
     | '/admin/data-console'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/alarms'
     | '/dashboards'
+    | '/logic-studio'
     | '/reports'
     | '/wizards'
     | '/'
@@ -264,6 +276,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/alarms'
     | '/_authenticated/dashboards'
+    | '/_authenticated/logic-studio'
     | '/_authenticated/reports'
     | '/_authenticated/wizards'
     | '/_authenticated/'
@@ -315,6 +328,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/logic-studio': {
+      id: '/_authenticated/logic-studio'
+      path: '/logic-studio'
+      fullPath: '/logic-studio'
+      preLoaderRoute: typeof AuthenticatedLogicStudioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboards': {
@@ -468,6 +488,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAlarmsRoute: typeof AuthenticatedAlarmsRoute
   AuthenticatedDashboardsRoute: typeof AuthenticatedDashboardsRoute
+  AuthenticatedLogicStudioRoute: typeof AuthenticatedLogicStudioRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedWizardsRoute: typeof AuthenticatedWizardsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -477,6 +498,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAlarmsRoute: AuthenticatedAlarmsRoute,
   AuthenticatedDashboardsRoute: AuthenticatedDashboardsRoute,
+  AuthenticatedLogicStudioRoute: AuthenticatedLogicStudioRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedWizardsRoute: AuthenticatedWizardsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

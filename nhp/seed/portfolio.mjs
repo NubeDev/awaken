@@ -26,6 +26,20 @@ import {
   registerTags,
 } from './tags.mjs';
 
+// Meters whose voltage we bias upward so their voltage series cross the alarm
+// ramp (meter-types.mjs: warn ≥250 V, critical ≥253 V). Scattered across both
+// tenants and three sites so the rollup has something to show at every level:
+//   acme-plant-m2  → critical (Acme Plant, already "Degraded")
+//   acme-hq-m4     → warning  (Acme HQ)
+//   globex-tower-m2→ critical (Globex Tower "Datacentre")
+// Nominal voltage is ~230 ±6 (peaks ~236); the bias lifts the whole wave so its
+// latest value lands above the threshold. PM5560 meters only (em24 has no voltage).
+const VOLTAGE_SPIKES = {
+  'acme-plant-m2': 25, // ~255 → critical
+  'acme-hq-m4': 22, // ~252 → warning
+  'globex-tower-m2': 26, // ~256 → critical
+};
+
 // Create a record unless one of its kind already carries the same `key`. Returns
 // `{ id, created }` — the record id (existing or new) so children can link to it,
 // and whether THIS run created it (the caller back-fills history only for a
@@ -57,7 +71,14 @@ async function indexByKey(kind) {
 }
 
 export async function seedPortfolio({ log = () => {} } = {}) {
+  // Floor to the top of the hour so the per-hour sample timestamps (and the
+  // single latest point for history=false registers) land on the SAME (series,
+  // at) keys on every run. The readings append is ON DUPLICATE KEY UPDATE, so a
+  // re-seed then overwrites in place instead of accumulating a fresh point each
+  // time (an un-floored `now` shifts every `at`, defeating the idempotency the
+  // deterministic reading id is meant to give).
   const now = new Date();
+  now.setMinutes(0, 0, 0);
   const tally = { tenants: 0, sites: 0, gateways: 0, networks: 0, meters: 0, registers: 0, history: 0 };
 
   // --- meter-types first (meters stamp from them) ---
@@ -196,8 +217,16 @@ export async function seedPortfolio({ log = () => {} } = {}) {
               // deterministic (series, at) reading id makes a re-append an
               // idempotent no-op, so — unlike the old keyless record path — there
               // is no need to gate on "freshly created". `series` is the register
-              // RECORD id; the samples are lean `{ at, value }`.
-              const samples = historySamples(def, now);
+              // RECORD id; the samples are lean `{ at, value }`. A history=false
+              // register still gets ONE latest point (its live value).
+              //
+              // A few scattered meters get a voltage spike so their voltage series
+              // cross the alarm ramp (warn ≥250, critical ≥253) — this is how the
+              // seed produces active alarms without a rule engine. Keyed off the
+              // meter so it's deterministic and spread across tenants/sites.
+              const samples = historySamples(def, now, {
+                spikeVolts: VOLTAGE_SPIKES[m.key] ?? 0,
+              });
               if (samples.length === 0) continue;
               const res = await appendReadings(registerId, samples);
               if (!res.ok) {

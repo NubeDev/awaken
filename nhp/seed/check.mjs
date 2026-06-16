@@ -76,15 +76,24 @@ async function run() {
   const from = new Date(Date.now() - 60 * 86400_000).toISOString();
   const to = new Date(Date.now() + 86400_000).toISOString();
   let historyCount = 0;
-  let leaked = 0;
   let firstSample = null;
+  let noHistoryRegs = 0; // history=false registers (each should carry ONE point)
+  let noHistoryWithValue = 0; // …and how many actually have their latest value
+  let alarmingVoltages = 0; // voltage series whose LATEST reading crosses the ramp
   for (const reg of registers) {
     const rows = await getReadings(reg.id, from, to);
     if (reg.content?.history) {
       historyCount += rows.length;
       if (!firstSample && rows.length) firstSample = rows[0];
     } else {
-      leaked += rows.length;
+      noHistoryRegs += 1;
+      if (rows.length >= 1) noHistoryWithValue += 1;
+    }
+    // Alarm check: the dashboards evaluate a register's LATEST value against its
+    // ramp; mirror that to confirm the seed produces active alarms (warn ≥250 V).
+    if (reg.content?.quantity === 'voltage' && rows.length) {
+      const latest = rows.reduce((a, b) => (Date.parse(b.at) > Date.parse(a.at) ? b : a));
+      if (latest.value >= 250) alarmingVoltages += 1;
     }
   }
   check(historyCount > 0, `readings present for history=true registers (got ${historyCount})`);
@@ -99,8 +108,19 @@ async function run() {
     Boolean(firstSample) && registers.some((r) => r.id === firstSample.series),
     'a reading.series matches a register record id (direct join)',
   );
-  // The poller never persists a no-history register — no readings leak onto one.
-  check(leaked === 0, `no readings for history=false registers (leaked ${leaked})`);
+  // A history=false register keeps no trend, but the seed stands in for the live
+  // poller with exactly ONE latest reading so its gauge/stat tile has a value
+  // (e.g. Power Factor renders a number, not an em-dash).
+  check(
+    noHistoryRegs > 0 && noHistoryWithValue === noHistoryRegs,
+    `every history=false register has a latest value (${noHistoryWithValue}/${noHistoryRegs})`,
+  );
+  // The seed spikes a few scattered meters' voltage over the alarm ramp so the
+  // dashboards have active alarms to roll up (warn ≥250, critical ≥253).
+  check(
+    alarmingVoltages > 0,
+    `at least one voltage series is in alarm (got ${alarmingVoltages})`,
+  );
 
   console.log(failures === 0 ? 'seed check: all passed' : `seed check: ${failures} failed`);
   process.exit(failures === 0 ? 0 : 1);

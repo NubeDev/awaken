@@ -4,6 +4,7 @@ import {
   Settings2,
   Siren,
   Wand2,
+  Workflow,
 } from 'lucide-react'
 import { type NavGroup } from '../types'
 
@@ -47,6 +48,9 @@ export const nhpNavGroups: NavGroup[] = [
           { title: 'Users', url: '/admin/users' },
         ],
       },
+      // Sedona/Niagara-style wiresheet for layering extra alarming + reporting
+      // logic over the live portfolio (features/wiresheet). Demo surface.
+      { title: 'Logic Studio', url: '/logic-studio', icon: Workflow },
       { title: 'Wizards', url: '/wizards', icon: Wand2 },
     ],
   },

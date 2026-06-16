@@ -46,6 +46,7 @@ mod bus;
 mod control;
 mod data;
 mod error;
+pub mod metrics;
 mod provision;
 pub mod supervisor;
 

@@ -22,9 +22,12 @@ async fn a_query_spans_surrealdb_and_the_registered_connector() {
     let database = "span_combined";
     let handle = open_datasource_store(database).await;
     for temp in [1, 2, 3] {
-        create_record(handle.raw(), &Record::new(NS, serde_json::json!({ "temp": temp })))
-            .await
-            .expect("seed record");
+        create_record(
+            handle.raw(),
+            &Record::new(NS, serde_json::json!({ "temp": temp })),
+        )
+        .await
+        .expect("seed record");
     }
 
     let (principal, session) = scoped_session_for(&handle, database, "alice", Role::Operator).await;
@@ -61,9 +64,15 @@ async fn the_spanning_query_is_gated_on_external_query() {
 
     let registry = Registry::with_native_default();
     let cache = ContextCache::default();
-    let err = span(&registry, handle.raw(), &session, &cache, "SELECT id FROM record")
-        .await
-        .expect_err("ungranted span must be denied");
+    let err = span(
+        &registry,
+        handle.raw(),
+        &session,
+        &cache,
+        "SELECT id FROM record",
+    )
+    .await
+    .expect_err("ungranted span must be denied");
     assert!(matches!(err, DatasourceError::Denied), "got {err:?}");
 }
 

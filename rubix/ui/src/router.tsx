@@ -16,8 +16,7 @@ import { Building } from './pages/Building'
 import { Copilot } from './pages/Copilot'
 import { AdminSchema } from './pages/admin/AdminSchema'
 import { AdminRecordsPage } from './pages/admin/AdminRecordsPage'
-import { AdminPrincipals } from './pages/admin/AdminPrincipals'
-import { AdminTeams } from './pages/admin/AdminTeams'
+import { AdminAccess } from './pages/admin/AdminAccess'
 import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminQuery } from './pages/admin/AdminQuery'
 import { AdminAudit } from './pages/admin/AdminAudit'
@@ -128,16 +127,28 @@ const adminRecordsRoute = createRoute({
   component: AdminRecordsPage,
 })
 
+// People (principals) and Teams now live under one console: /admin/access.
+const adminAccessRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'access',
+  component: AdminAccess,
+})
+
+// Old deep links still resolve — both redirect into the merged Access console.
 const adminPrincipalsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'principals',
-  component: AdminPrincipals,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/t/$tenant/admin/access', params: { tenant: params.tenant } })
+  },
 })
 
 const adminTeamsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'teams',
-  component: AdminTeams,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/t/$tenant/admin/access', params: { tenant: params.tenant } })
+  },
 })
 
 const adminAgentsRoute = createRoute({
@@ -200,6 +211,7 @@ const routeTree = rootRoute.addChildren([
       adminIndexRoute,
       adminSchemaRoute,
       adminRecordsRoute,
+      adminAccessRoute,
       adminPrincipalsRoute,
       adminTeamsRoute,
       adminAgentsRoute,

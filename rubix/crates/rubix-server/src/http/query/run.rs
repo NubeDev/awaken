@@ -25,12 +25,15 @@ use rubix_query::{
     QueryError, Transform, apply_time_scope, apply_transforms, expand_variables, now_ms,
 };
 
+use axum::response::{IntoResponse, Response};
+
 use crate::auth::Authenticated;
 use crate::dto::query::{QueryRequest, QueryResponse, QueryVariableDto, TransformDto};
 use crate::error::{ApiError, ApiResult};
 use crate::http::prefs::read::load_prefs;
 use crate::http::query::convert::convert_rows;
 use crate::http::query::render::{batches_to_rows, columns_of};
+use crate::http::query::stream::promote_query_route;
 use crate::state::AppState;
 
 /// Run the request SQL for the principal across the unified surface, as JSON rows.
@@ -43,7 +46,12 @@ pub async fn run_query_route(
     State(state): State<AppState>,
     auth: Authenticated,
     Json(body): Json<QueryRequest>,
-) -> ApiResult<Json<QueryResponse>> {
+) -> ApiResult<Response> {
+    // A streamed query promotes to a Tier-2 job (202 + WS chunks); the quick path is
+    // unchanged inline rows (200). The client handles either shape.
+    if body.stream {
+        return promote_query_route(state, auth, body).await;
+    }
     let body = resolve_request_sql(&auth, body).await?;
     let resolved = resolve_query(body).map_err(map_time_error)?;
     let registry = state.datasources.read().await;
@@ -71,7 +79,7 @@ pub async fn run_query_route(
     if let Some(quantities) = &resolved.quantities {
         convert_rows(&mut rows, quantities, caller_units(&auth).await?);
     }
-    Ok(Json(QueryResponse { rows, columns }))
+    Ok(Json(QueryResponse { rows, columns }).into_response())
 }
 
 /// A request resolved to its final SQL plus the post-read layers.
@@ -108,6 +116,7 @@ pub(crate) fn resolve_query(body: QueryRequest) -> Result<ResolvedQuery, QueryEr
         quantities,
         transforms,
         variables,
+        stream: _,
     } = body;
     let sql = match time {
         Some(time) => {

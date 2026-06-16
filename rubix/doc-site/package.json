@@ -1,0 +1,27 @@
+{
+  "name": "@rubix/doc-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rubix documentation site (Nextra)",
+  "scripts": {
+    "predev": "node scripts/sync-changelog.mjs",
+    "dev": "next dev --port 3010",
+    "prebuild": "node scripts/sync-changelog.mjs",
+    "build": "next build",
+    "start": "next start --port 3010",
+    "postbuild": "touch out/.nojekyll"
+  },
+  "dependencies": {
+    "next": "15.3.5",
+    "nextra": "^4.2.13",
+    "nextra-theme-docs": "^4.2.13",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

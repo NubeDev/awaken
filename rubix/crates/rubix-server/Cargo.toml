@@ -89,6 +89,18 @@ name = "ws_bridge"
 path = "tests/ws/bridge_test.rs"
 
 [[test]]
+name = "ws_jobs"
+path = "tests/ws/jobs_test.rs"
+
+[[test]]
+name = "http_bulk_jobs"
+path = "tests/http/bulk/jobs_test.rs"
+
+[[test]]
+name = "http_records_bulk"
+path = "tests/http/records/bulk_test.rs"
+
+[[test]]
 name = "hooks_dispatch"
 path = "tests/hooks/dispatch_test.rs"
 
@@ -128,6 +140,7 @@ rubix-trace = { workspace = true }
 rubix-datasource = { workspace = true }
 rubix-prefs = { workspace = true }
 rubix-agent = { workspace = true }
+rubix-ext = { workspace = true }
 arrow-json = "58"
 async-trait = "0.1"
 axum = { workspace = true, features = ["ws", "query", "multipart"] }
@@ -139,6 +152,7 @@ serde_json = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = "0.7"
 utoipa = { workspace = true }
 uuid = { workspace = true }
 

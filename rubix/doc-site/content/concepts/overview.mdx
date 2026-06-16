@@ -1,0 +1,67 @@
+---
+title: Concepts Overview
+---
+
+# Concepts
+
+The core ideas in Rubix. Each grows into its own page as the docs mature.
+
+## The substrate: SurrealDB
+
+SurrealDB is Rubix's single store and brain — document, graph, vector,
+time-series, and geospatial in one engine, plus auth, tenancy, and live
+queries. Rubix attaches around it rather than re-implementing these. SurrealQL
+is the first-class query language.
+
+## Scoped principals & the access gate
+
+**Everything is a scoped principal** — users and extensions authenticate and are
+authorized identically. Authorization splits into two paths that are
+deliberately not conflated:
+
+- **Commands go through the gate.** Every mutation crosses the access gate,
+  which captures audit and undo records and mints a correlation id.
+- **Reads are SurrealDB-native.** Reads (including live-query subscriptions) run
+  on a gate-issued **scoped SurrealDB session**, enforced by SurrealDB's own
+  row-level permissions — not proxied per message.
+
+This split keeps audit, undo, and tracing cheap without taxing every read.
+
+## Generic data: tags on a graph
+
+There is no baked-in domain schema. Structure comes from **tagging on a graph**:
+records carry tags, relationships are graph edges, and queries and dashboards
+work off tags rather than a fixed ontology. The platform processes *data + tags
++ rules + datasources*.
+
+## Datasources & query
+
+Datasources are pluggable connectors — SurrealDB-native, Postgres, MQTT, REST,
+and more — added Grafana-style. Each is exposed as a queryable table, and a
+unified query surface lets you query across them with vectorized aggregation.
+
+## Rules & insights
+
+The rule/insight runtime is **embedded and offline-capable** — rules fire on the
+edge with no cloud dependency, emitting insights deterministically.
+
+## Dashboards
+
+A **query → chart → board** pipeline turns query results into charts and boards.
+A board can be parameterized and reused across a fleet via page context and a
+navigation tree, so one board serves many sites without re-authoring.
+
+## Readings: a time-series plane
+
+High-volume, append-only time-series (meter readings, sensor samples) live in a
+**distinct readings plane** — written, queried, rolled up, and aged out
+separately from ordinary records.
+
+## Extensions
+
+Extensions are scoped principals with a supervised runtime: they can reach the
+whole stack but only the data their grants allow. The runtime starts, stops,
+supervises, and reports on them.
+
+> These are summaries. The authoritative design lives in the internal specs
+> under `docs/design` and is not published here.

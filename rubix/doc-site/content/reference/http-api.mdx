@@ -1,0 +1,22 @@
+---
+title: HTTP API
+---
+
+# HTTP API
+
+Rubix serves a JSON HTTP API. Every **mutation** crosses the access gate and is
+audited; **reads** run on a scoped SurrealDB session. The server generates an
+OpenAPI document — treat that as the source of truth and generate this page from
+it rather than hand-maintaining endpoint lists.
+
+## Surfaces (high level)
+
+- **Records / collections** — typed CRUD over the generic record store, with
+  tag-based listing and filtered realtime.
+- **Query** — run queries across registered datasources, with templating and
+  rendering for charts.
+- **Admin / control plane** — manage principals, capability grants, tenants, and
+  devices.
+- **Extensions** — register, start, stop, and inspect extensions.
+
+> Placeholder. Wire this page to the generated OpenAPI document when published.

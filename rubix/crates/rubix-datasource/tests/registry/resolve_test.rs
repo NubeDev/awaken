@@ -51,5 +51,8 @@ async fn the_native_id_resolves_to_no_stored_providers() {
 async fn an_unknown_id_is_denied() {
     let registry = Registry::with_native_default();
     let err = resolve(&registry, "nope").expect_err("unknown id must be denied");
-    assert!(matches!(err, DatasourceError::Unknown(ref id) if id == "nope"), "got {err:?}");
+    assert!(
+        matches!(err, DatasourceError::Unknown(ref id) if id == "nope"),
+        "got {err:?}"
+    );
 }

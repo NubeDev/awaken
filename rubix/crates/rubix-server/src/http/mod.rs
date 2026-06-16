@@ -9,7 +9,9 @@
 mod admin;
 mod agent;
 mod auth;
+mod bulk;
 mod datasources;
+mod extensions;
 mod files;
 mod health;
 mod prefs;
@@ -39,4 +41,6 @@ pub fn router() -> Router<AppState> {
         .merge(admin::router())
         .merge(agent::router())
         .merge(rules::router())
+        .merge(bulk::router())
+        .merge(extensions::router())
 }

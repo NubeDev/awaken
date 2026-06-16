@@ -17,6 +17,7 @@ use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::SchemaProvider;
 use datafusion::catalog::memory::MemorySchemaProvider;
 use datafusion::datasource::TableProvider;
+use datafusion::execution::SendableRecordBatchStream;
 use rubix_gate::{Capability, ScopedSession, check_capability};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
@@ -55,6 +56,37 @@ pub async fn span(
     authorize_query(grant_reader, session).await?;
     let ctx = build_spanning_context(registry, session, cache).await?;
     run_one(&ctx, sql).await
+}
+
+/// Like [`span`] but return a **lazy result stream** instead of collecting every
+/// batch — the streaming entry the Tier-2 query job pumps over the WS plane
+/// (`rubix/docs/design/BULK-AND-JOBS.md`, "Streaming query").
+///
+/// Building the stream is cheap (authorize + build the context + plan); the scan
+/// work happens as the caller pulls batches, so a wide timeseries read is never
+/// materialised in full at the HTTP boundary. The returned
+/// [`SendableRecordBatchStream`] owns its physical plan (via `Arc`), so it outlives
+/// the borrowed `registry`/`session`/`cache` — a spawned job can pump it after the
+/// request returns.
+///
+/// # Errors
+/// - [`DatasourceError::Denied`] / [`DatasourceError::Capability`] from the query
+///   capability check.
+/// - [`DatasourceError::Query`] if the statement is not a single read-only query.
+/// - [`DatasourceError::DataFusion`] if registration or planning fails.
+pub async fn span_stream(
+    registry: &Registry,
+    grant_reader: &Surreal<Db>,
+    session: &ScopedSession,
+    cache: &ContextCache,
+    sql: &str,
+) -> Result<SendableRecordBatchStream> {
+    authorize_query(grant_reader, session).await?;
+    let ctx = build_spanning_context(registry, session, cache).await?;
+    ensure_read_only(sql)?;
+    let dataframe = ctx.sql(sql).await?;
+    let stream = dataframe.execute_stream().await?;
+    Ok(stream)
 }
 
 /// Run several read-only statements for the principal against **one** built
@@ -126,10 +158,7 @@ pub(crate) async fn build_spanning_context(
 }
 
 /// Guard, plan, and execute one read-only statement on `ctx`.
-async fn run_one(
-    ctx: &datafusion::prelude::SessionContext,
-    sql: &str,
-) -> Result<Vec<RecordBatch>> {
+async fn run_one(ctx: &datafusion::prelude::SessionContext, sql: &str) -> Result<Vec<RecordBatch>> {
     ensure_read_only(sql)?;
     let dataframe = ctx.sql(sql).await?;
     let batches = dataframe.collect().await?;
@@ -147,10 +176,15 @@ fn register_external_tables(
     ctx: &datafusion::prelude::SessionContext,
     registry: &Registry,
 ) -> Result<()> {
-    let default_catalog = ctx.copied_config().options().catalog.default_catalog.clone();
-    let catalog = ctx
-        .catalog(&default_catalog)
-        .ok_or_else(|| DatasourceError::Query(format!("missing default catalog `{default_catalog}`")))?;
+    let default_catalog = ctx
+        .copied_config()
+        .options()
+        .catalog
+        .default_catalog
+        .clone();
+    let catalog = ctx.catalog(&default_catalog).ok_or_else(|| {
+        DatasourceError::Query(format!("missing default catalog `{default_catalog}`"))
+    })?;
 
     for (id, entry) in registry.entries() {
         let DatasourceEntry::External { tables, .. } = entry else {

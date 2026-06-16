@@ -15,13 +15,14 @@
 
 use crate::dto::{
     AppendReadingsRequest, AppendReadingsResponse, BatchQueryRequest, BatchQueryResponse,
-    CatalogResponse, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
-    CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    DryRunRequest, DryRunResponse, FileRefDto, GrantDto, LoginRequest, LoginResponse, MeResponse,
-    PreferencesDto, PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto,
-    RecordDto, RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest,
-    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
-    UpdateRuleRequest,
+    BulkPromotedResponse, BulkRecordsRequest, BulkRecordsResponse, CatalogResponse,
+    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
+    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
+    DryRunResponse, FileRefDto, GrantDto, JobAcceptedDto, JobStatusDto, LoginRequest,
+    LoginResponse, MeResponse, PreferencesDto, PrincipalDto, QueryRequest, QueryResponse,
+    QuerySchemaResponse, ReadingDto, RecordDto, RegisterDatasourceRequest, RuleDto,
+    SubmitJobRequest, TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest,
+    UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
 };
 
 /// `POST /auth/login`.
@@ -629,3 +630,70 @@ pub fn upload_file() {}
     )
 )]
 pub fn download_file() {}
+
+/// `POST /records/bulk`.
+#[utoipa::path(
+    post,
+    path = "/records/bulk",
+    request_body = BulkRecordsRequest,
+    responses(
+        (status = 200, description = "Every item's per-item status (Tier 1, synchronous)", body = BulkRecordsResponse),
+        (status = 202, description = "Promoted to a job: handle + already-committed statuses", body = BulkPromotedResponse),
+        (status = 400, description = "Empty or over-cap envelope"),
+        (status = 403, description = "Principal lacks the bulk-submit capability"),
+        (status = 429, description = "Too many running jobs for this principal/namespace")
+    )
+)]
+pub fn bulk_records() {}
+
+/// `POST /bulk/jobs`.
+#[utoipa::path(
+    post,
+    path = "/bulk/jobs",
+    request_body = SubmitJobRequest,
+    responses(
+        (status = 202, description = "Job accepted: id, ticket, and expiry", body = JobAcceptedDto),
+        (status = 403, description = "Principal lacks the bulk-submit capability"),
+        (status = 429, description = "Too many running jobs for this principal/namespace")
+    )
+)]
+pub fn submit_job() {}
+
+/// `GET /bulk/jobs/{id}`.
+#[utoipa::path(
+    get,
+    path = "/bulk/jobs/{id}",
+    params(("id" = String, Path, description = "The job id from the submission handle")),
+    responses(
+        (status = 200, description = "The job's status (and buffered result for poll-transport jobs)", body = JobStatusDto),
+        (status = 401, description = "Missing, invalid, or expired job ticket"),
+        (status = 404, description = "Job unknown (evicted past its grace window, or lost to a restart)")
+    )
+)]
+pub fn job_status() {}
+
+/// `DELETE /bulk/jobs/{id}`.
+#[utoipa::path(
+    delete,
+    path = "/bulk/jobs/{id}",
+    params(("id" = String, Path, description = "The job id from the submission handle")),
+    responses(
+        (status = 204, description = "Job cancelled and ticket revoked"),
+        (status = 401, description = "Missing, invalid, or expired job ticket"),
+        (status = 404, description = "Job unknown")
+    )
+)]
+pub fn cancel_job() {}
+
+/// `GET /ws/jobs/{id}` — observe a job over a WebSocket.
+#[utoipa::path(
+    get,
+    path = "/ws/jobs/{id}",
+    params(("id" = String, Path, description = "The job id from the submission handle")),
+    responses(
+        (status = 101, description = "Upgraded; the ticket is presented via the Sec-WebSocket-Protocol subprotocol (rubix-job-ticket, <ticket>)"),
+        (status = 401, description = "Missing, invalid, or expired job ticket"),
+        (status = 404, description = "Job unknown")
+    )
+)]
+pub fn subscribe_jobs() {}

@@ -8,8 +8,10 @@
 pub mod admin;
 pub mod agent;
 pub mod auth;
+pub mod bulk;
 pub mod datasource;
 pub mod file;
+pub mod job;
 pub mod prefs;
 pub mod query;
 pub mod reading;
@@ -25,8 +27,13 @@ pub use agent::{
     ProvisionedAgentDto, RecallRequest, RecalledDto,
 };
 pub use auth::{LoginRequest, LoginResponse, MeResponse};
+pub use bulk::{
+    BulkItemStatus, BulkMode, BulkOp, BulkPromotedResponse, BulkRecordItem, BulkRecordsRequest,
+    BulkRecordsResponse,
+};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};
 pub use file::FileRefDto;
+pub use job::{JobAcceptedDto, JobStatusDto, SubmitJobRequest};
 pub use prefs::{PreferencesDto, UpdatePreferencesRequest};
 pub use query::{
     BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, ColumnDto,

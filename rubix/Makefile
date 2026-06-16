@@ -12,15 +12,27 @@
 #   make build-be    build just the backend
 #   make build-ui    build just the UI
 #   make clean       remove build artifacts (cargo target + UI dist)
+#   make wipe        delete the dev store (rubix-data) but KEEP the cargo target
 #   make kill        free the dev ports if a previous run was left running
 #   make db-up       start a local TimescaleDB (Postgres) container
 #   make db-down     stop + remove the container (keeps the data volume)
 #   make db-clean    stop + remove the container and delete its data volume
+#   make docs        run the docs site dev server (Nextra)
+#   make docs-build  static-export the docs site to doc-site/out
+#   make docs-clean  remove the docs build output + generated changelog
 #
 # The backend is the cargo workspace in this directory; the UI is a pnpm/vite
 # app under ui/.
 
 UI_DIR := ui
+
+# Docs site (Nextra). A pnpm workspace package (`@rubix/doc-site`) that lives in
+# doc-site/ and statically exports to doc-site/out. DOCS_PORT pins the dev
+# server (package.json defaults to 3010; keep in sync or override both). The
+# docs build is independent of the cargo backend — it needs only pnpm.
+DOCS_DIR := doc-site
+DOCS_PKG := @rubix/doc-site
+DOCS_PORT ?= 3010
 
 # Dev ports — kept in sync with the code. rubix-server binds RUBIX_BIND
 # (default 127.0.0.1:8080 in crates/rubix-server/src/main.rs); the UI's vite
@@ -100,7 +112,8 @@ DB_VOLUME := rubix-timescale-data
 DB_PORT ?= 5433
 
 .PHONY: build dev dev-be dev-ui seed test test-be test-ui lint fmt \
-        build-be build-ui clean kill db-up db-down db-clean
+        build-be build-ui clean wipe kill db-up db-down db-clean \
+        docs docs-build docs-clean
 
 build: build-be build-ui
 
@@ -154,6 +167,17 @@ clean:
 	cargo clean
 	rm -rf $(UI_DIR)/dist
 	rm -rf $(RUBIX_DATA_DIR)
+
+# Wipe ONLY the dev store ($(RUBIX_DATA_DIR)) — the database, not the build. Use
+# this to reset to an empty store (e.g. after a SIGKILL wedged the WAL so the
+# backend hangs at boot) or to reclaim disk, WITHOUT paying for the full
+# `cargo clean` + recompile that `make clean` forces. Stops any running server
+# first (via `kill`) so nothing holds the store's LOCK as the dir is removed; a
+# following `make dev` then boots a fresh, empty store. To wipe AND re-seed the
+# demo portfolio in one step, use `make seed` instead.
+wipe: kill
+	rm -rf $(RUBIX_DATA_DIR)
+	@echo "wiped store $(RUBIX_DATA_DIR) (cargo target kept)"
 
 # Free the dev ports AND kill any orphaned backend/UI left behind by a crashed
 # run. The port sweep alone is not enough: when `make dev` segfaults its trap
@@ -221,6 +245,28 @@ kill:
 		sleep 0.1; \
 	done
 	@echo "freed ports $(BE_PORT)/$(UI_PORT) and killed any orphaned backend/UI"
+
+# Docs site dev server (Nextra) at http://127.0.0.1:$(DOCS_PORT). The package's
+# `predev` regenerates the Changelog page from CHANGELOG.md before starting.
+# `pnpm --filter` runs from the workspace root regardless of cwd, so this works
+# whether or not the dir argument matches; we pass it for clarity.
+docs:
+	@echo "docs → http://127.0.0.1:$(DOCS_PORT)"
+	pnpm --filter $(DOCS_PKG) install
+	pnpm --filter $(DOCS_PKG) dev --port $(DOCS_PORT)
+
+# Static-export the docs to $(DOCS_DIR)/out (no server at runtime). Set
+# DOCS_BASE_PATH/DOCS_REPO_URL in the environment for a sub-path or repo-linked
+# deploy; both default to empty/neutral. `postbuild` writes out/.nojekyll.
+docs-build:
+	pnpm --filter $(DOCS_PKG) install
+	pnpm --filter $(DOCS_PKG) build
+
+# Remove the docs build output and the generated (gitignored) changelog page.
+# Leaves node_modules in place — use a plain `pnpm` reinstall to reset those.
+docs-clean:
+	rm -rf $(DOCS_DIR)/out $(DOCS_DIR)/.next $(DOCS_DIR)/content/changelog.mdx
+	@echo "cleaned docs build output ($(DOCS_DIR)/out, .next, generated changelog)"
 
 # Build the image from the Dockerfile, run it detached on a named volume, then
 # poll pg_isready until it accepts queries — so a follow-on `make dev` finds a

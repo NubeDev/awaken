@@ -13,7 +13,7 @@ use rubix_core::{
 use rubix_gate::{define_audit_schema, define_gate_schema};
 use rubix_server::{
     AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
-    router, seed_dev, spawn_hook_dispatcher,
+    router, seed_dev, spawn_hook_dispatcher, spawn_job_sweeper,
 };
 use rubix_store::StoreHandle;
 use rubix_trace::define_trace_schema;
@@ -133,6 +133,11 @@ async fn main() -> Result<()> {
     // (BACKEND-COLLECTIONS.md, build-order step 5). It fires after the commit, so a
     // hook is a side effect, never a veto; before-hooks are out of scope.
     spawn_hook_dispatcher(state.clone());
+
+    // Start the long-running-job sweeper: it evicts terminal jobs past their grace
+    // window (revoking their tickets) and reaps expired ticket rows, bounding the
+    // in-memory registry and the ticket table (BULK-AND-JOBS.md, "The job spine").
+    spawn_job_sweeper(state.clone());
 
     let bind = std::env::var("RUBIX_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_owned());
     let listener = tokio::net::TcpListener::bind(&bind)

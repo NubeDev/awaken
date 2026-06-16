@@ -69,7 +69,12 @@ pub async fn schema_of(
     authorize_query(grant_reader, session).await?;
     let ctx = build_spanning_context(registry, session, cache).await?;
 
-    let default_catalog = ctx.copied_config().options().catalog.default_catalog.clone();
+    let default_catalog = ctx
+        .copied_config()
+        .options()
+        .catalog
+        .default_catalog
+        .clone();
     let catalog = ctx.catalog(&default_catalog).ok_or_else(|| {
         DatasourceError::Query(format!("missing default catalog `{default_catalog}`"))
     })?;

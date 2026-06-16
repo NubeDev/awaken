@@ -37,6 +37,10 @@ pub enum ApiError {
     /// The request conflicts with existing state (e.g. a duplicate datasource id).
     #[error("conflict: {0}")]
     Conflict(String),
+    /// The principal or namespace is over a resource cap (e.g. too many running
+    /// jobs); the request is refused rather than queued (`BULK-AND-JOBS.md`).
+    #[error("too many requests: {0}")]
+    TooManyRequests(String),
     /// An upstream the request depends on (e.g. an external datasource) is
     /// unreachable. The request was well-formed; the dependency is the problem.
     #[error("bad gateway: {0}")]
@@ -56,6 +60,7 @@ impl ApiError {
             ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
             ApiError::Conflict(_) => StatusCode::CONFLICT,
+            ApiError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             ApiError::BadGateway(_) => StatusCode::BAD_GATEWAY,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }

@@ -31,5 +31,5 @@ pub use register::{register, register_materialized};
 pub use remove::remove;
 pub use resolve::resolve;
 pub use schema::{ColumnSchema, TableSchema, schema_of};
-pub use span::{span, span_batch};
+pub use span::{span, span_batch, span_stream};
 pub use store::{NATIVE_SURREAL_ID, Registry};

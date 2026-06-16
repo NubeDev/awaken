@@ -77,13 +77,14 @@ async fn materialize_into<C: Connector>(registry: &mut Registry, connector: C) -
 
     let mut tables = Vec::new();
     for table in connector.tables() {
-        let provider = connector
-            .table_provider(&table)
-            .await
-            .map_err(|e| DatasourceError::Connect {
-                id: id.clone(),
-                reason: e.to_string(),
-            })?;
+        let provider =
+            connector
+                .table_provider(&table)
+                .await
+                .map_err(|e| DatasourceError::Connect {
+                    id: id.clone(),
+                    reason: e.to_string(),
+                })?;
         tables.push((table, provider));
     }
 

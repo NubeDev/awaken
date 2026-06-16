@@ -6,7 +6,7 @@
 //! name using the arrow JSON writer, the one place batch→wire conversion lives.
 
 use arrow_json::writer::{JsonArray, WriterBuilder};
-use datafusion::arrow::datatypes::DataType;
+use datafusion::arrow::datatypes::{DataType, SchemaRef};
 use datafusion::arrow::record_batch::RecordBatch;
 use serde_json::Value;
 
@@ -50,8 +50,18 @@ pub fn columns_of(batches: &[RecordBatch]) -> Vec<ColumnDto> {
     let Some(first) = batches.first() else {
         return Vec::new();
     };
-    first
-        .schema()
+    columns_of_schema(&first.schema())
+}
+
+/// Derive the result columns directly from an Arrow schema.
+///
+/// The streaming query path knows its schema from the result stream before any
+/// batch arrives (`rubix/docs/design/BULK-AND-JOBS.md`, "Streaming query"), so it
+/// can attach columns to the first chunk even when the result is empty. Shared with
+/// [`columns_of`], the collected path's entry.
+#[must_use]
+pub fn columns_of_schema(schema: &SchemaRef) -> Vec<ColumnDto> {
+    schema
         .fields()
         .iter()
         .map(|field| ColumnDto {

@@ -7,14 +7,26 @@
 //! can share it across handlers (`rubix/STACK-DEISGN.md`, `rubix-server` row).
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use rubix_blob::{BlobStore, LocalFsBlobStore};
 use rubix_datasource::Registry;
+use rubix_ext::runtime::ExtensionRuntime;
 use rubix_query::ContextCache;
 use rubix_store::StoreHandle;
 use tokio::sync::RwLock;
 
+use crate::jobs::JobRegistry;
 use crate::profile::Profile;
+
+/// The soft deadline a Tier-1 bulk op runs against before promoting to a Tier-2
+/// job (`rubix/docs/design/BULK-AND-JOBS.md`, OQ1: "start conservative ~10s").
+///
+/// Measured per request; an op that has not finished all items by this point
+/// promotes the remainder to a background job, returning `202` with the
+/// already-committed statuses. Tests override this (e.g. to zero) to force
+/// promotion deterministically.
+pub const DEFAULT_BULK_DEADLINE: Duration = Duration::from_secs(10);
 
 /// The datasource registry shared across handlers.
 ///
@@ -58,6 +70,19 @@ pub struct AppState {
     /// namespace strategy to resolve a request's tenant; routes read its
     /// `auth_required`/`sync_enabled` defaults from one place.
     pub profile: Profile,
+    /// The in-memory long-running job registry (`BULK-AND-JOBS.md`). Bulk ops that
+    /// promote to a background job register here; the WS job channel and the status
+    /// poll read from it. Cloneable (an `Arc` bump), so it is shared across handlers
+    /// and survives an `AppState` clone as the *same* registry.
+    pub jobs: JobRegistry,
+    /// The Tier-1 bulk soft deadline before a bulk op promotes to a Tier-2 job.
+    pub bulk_deadline: Duration,
+    /// The extension runtime: the live supervisor map + metrics registry the
+    /// `/extensions*` admin surface reads and the gated lifecycle route drives
+    /// (`rubix/docs/design/EXTENSION-RUNTIME.md`). Cloneable (an `Arc` bump per
+    /// inner registry), so an `AppState` clone shares the *same* live runtime —
+    /// the boot reconciler and every request handler see one world.
+    pub extensions: ExtensionRuntime,
 }
 
 impl AppState {
@@ -104,6 +129,9 @@ impl AppState {
             context_cache: Arc::new(ContextCache::default()),
             blobs: default_blob_store(),
             profile,
+            jobs: JobRegistry::default(),
+            bulk_deadline: DEFAULT_BULK_DEADLINE,
+            extensions: ExtensionRuntime::new(),
         }
     }
 }

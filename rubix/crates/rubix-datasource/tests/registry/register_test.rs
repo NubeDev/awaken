@@ -77,7 +77,10 @@ async fn a_duplicate_id_is_refused() {
     )
     .await
     .expect_err("duplicate id must be refused");
-    assert!(matches!(err, DatasourceError::Duplicate(ref id) if id == "mirror"), "got {err:?}");
+    assert!(
+        matches!(err, DatasourceError::Duplicate(ref id) if id == "mirror"),
+        "got {err:?}"
+    );
 }
 
 #[tokio::test]

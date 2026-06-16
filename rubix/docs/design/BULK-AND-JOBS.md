@@ -290,6 +290,9 @@ an external consumer specifically demands GraphQL; it is not on the path.
 - `rubix-gate`: `job_ticket` issue/resolve/revoke round-trip, expiry, namespace
   isolation, `job_id` mismatch rejection, **resolve-fails-when-job-absent** (restart
   safety), and the expired-row sweep; `Capability` registry covers `bulk-submit`.
+- `rubix-gate`: `job_ticket` issue/resolve/revoke round-trip, expiry, namespace
+  isolation, `job_id` mismatch rejection, **resolve-fails-when-job-absent** (restart
+  safety), and the expired-row sweep; `Capability` registry covers `bulk-submit`.
 - `rubix-server`: job registry lifecycle + eviction; **terminal job stays pollable
   through the grace window, then 404s**; ticket survives completion and is revoked
   only on eviction/expiry/`DELETE`; concurrency cap returns `429`; job runs to
@@ -300,3 +303,69 @@ an external consumer specifically demands GraphQL; it is not on the path.
   cap yields all-items-forbidden**; deadline promotion returns `202` with
   already-committed statuses + ticket; streaming-query poll is status-only while the
   WS carries chunked frames + terminal `done`.
+
+## Decisions taken during build
+
+These are the forks the spec did not fully pin, resolved during implementation in
+favour of the long-term-cleanest, most fail-closed option (per the build mandate).
+
+1. **The registry-existence check lives in the server, not the gate.**
+   `resolve_job_ticket` (in `rubix-gate`) validates only the cryptographic half —
+   hash match + unexpired + `job_id` match — because the gate cannot see the
+   in-memory registry, which is the server's. The server's `resolve_observer`
+   (`jobs/access.rs`) composes that with the **registry-existence** and
+   **namespace-match** checks. Together they are the full validation the design
+   requires; the seam keeps the gate ignorant of server-only state. A ticket valid
+   at the gate but whose job is absent (restart, eviction) → `404` "job unknown".
+
+2. **Eviction does *not* eagerly revoke the ticket; the expired-row sweep reaps it.**
+   The spec said the sweeper revokes a ticket on eviction, but its own test surface
+   says a post-grace poll **404s**. These conflict: an eagerly-revoked ticket
+   resolves to `None` → `401`, not `404`. Resolved in favour of one consistent,
+   fail-closed contract: **once a job is gone (by eviction *or* restart) a ticket
+   holder always gets `404` "job unknown"**, never an ambiguous `401`. So eviction
+   removes the job from the registry but leaves the now-orphan ticket row for the
+   periodic `sweep_expired_job_tickets` to reap once its short TTL lapses (it
+   resolves to `404` meanwhile — no security or resource cost). **Explicit `DELETE`
+   still revokes the ticket eagerly** (an intentional, immediate kill → `401`),
+   preserving "revoke on `DELETE`/expiry, not on completion".
+
+3. **Ticket revocation is keyed by `job_id`, not the raw value.** Unlike
+   `session_token` (whose logout presents the raw token), the server holds the
+   `job_id` — the raw ticket was returned to the client once and never stored. So
+   `revoke_job_ticket(db, job_id)` deletes by job, which is what `DELETE` and the
+   sweeper have in hand.
+
+4. **Promotion is server-decided by a soft deadline, with an explicit `mode:"async"`
+   escape; streaming query is an opt-in `stream:true` flag.** A bulk envelope
+   promotes when the wall-clock soft deadline (`AppState::bulk_deadline`, default
+   10s) is exceeded *after* committing an item — so a promotion always carries at
+   least the item that tripped it, keeping the `202`-body ∪ WS-stream union complete
+   and gap-free. A caller that knows the work is heavy can force a job from the start
+   with `mode:"async"`. For queries, promotion is an explicit `stream:true` on
+   `POST /query` rather than a transparent wall-clock race: racing a started
+   `collect()` against a timeout would have to **re-run the scan** as a stream after
+   the timeout (double execution); an explicit opt-in builds the lazy
+   `execute_stream` plan once (cheap) and the heavy scan happens only in the job.
+   The transparent-deadline promotion for queries remains a future tuning (OQ1).
+
+5. **`bulk-submit` also gates the streamed-query job**, in addition to
+   `external-query` (which gates the read inside `span_stream`). Opening *any*
+   background job is the bulk-submit authority; the per-plane caps still gate the
+   data. The inline `POST /query` path is unchanged and needs only `external-query`.
+
+6. **The streamed query opens its lazy stream in the request, then moves it into the
+   job.** `DataFrame::execute_stream` yields a `SendableRecordBatchStream` that owns
+   its physical plan via `Arc`, so it outlives the borrowed registry/session/cache.
+   Building it is cheap (authorize + plan), so the `202` returns promptly; the heavy
+   scan happens as the spawned job pumps batches into `chunk` frames. An empty result
+   still emits one columns-only chunk so the client gets the schema.
+
+7. **Cancellation is cooperative + a hard `select!` ceiling.** `drive()` races the
+   work future against the cancel token and a wall-clock `sleep`; work loops also
+   poll `is_cancelled()` between items so a `DELETE` stops them promptly rather than
+   only at the next await. A dropped WS never touches the cancel token, so a
+   half-committed mutation always runs to completion.
+
+8. **A new `ApiError::TooManyRequests` → `429`** was added for the over-cap refusal
+   (submission is refused, never silently queued).

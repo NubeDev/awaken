@@ -19,6 +19,7 @@ mod authenticate;
 pub mod capability;
 mod command;
 mod error;
+mod job_ticket;
 mod permission;
 mod principal;
 mod read;
@@ -42,6 +43,10 @@ pub use capability::{
 };
 pub use command::{Applied, CapturedChange, Change, Command, apply};
 pub use error::{GateError, Result};
+pub use job_ticket::{
+    DEFAULT_JOB_TICKET_TTL_SECONDS, IssuedJobTicket, ResolvedJobTicket, issue_job_ticket,
+    resolve_job_ticket, revoke_job_ticket, sweep_expired_job_tickets,
+};
 pub use permission::define_gate_schema;
 pub use principal::{
     create_principal, delete_principal, get_principal, list_principals, provision_principal,

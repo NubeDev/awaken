@@ -84,6 +84,10 @@ name = "auth_token"
 path = "tests/auth/token_test.rs"
 
 [[test]]
+name = "job_ticket"
+path = "tests/auth/job_ticket_test.rs"
+
+[[test]]
 name = "audit_append"
 path = "tests/audit/append_test.rs"
 

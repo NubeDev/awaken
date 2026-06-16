@@ -34,7 +34,10 @@ async fn warehouse(url: &str) -> PostgresConnector {
         WAREHOUSE,
         "Demo Warehouse",
         url,
-        vec!["sensor_readings".to_owned(), "rubix_datasource_probe".to_owned()],
+        vec![
+            "sensor_readings".to_owned(),
+            "rubix_datasource_probe".to_owned(),
+        ],
     )
     .await
     .expect("connect to Postgres")
@@ -54,9 +57,14 @@ async fn a_query_spans_surrealdb_and_live_postgres() {
     grant(&handle, &principal, Capability::ExternalQuery).await;
 
     let mut registry = Registry::with_native_default();
-    register(&mut registry, handle.raw(), &principal, warehouse(&url).await)
-        .await
-        .expect("register the warehouse connector");
+    register(
+        &mut registry,
+        handle.raw(),
+        &principal,
+        warehouse(&url).await,
+    )
+    .await
+    .expect("register the warehouse connector");
 
     // Count the seeded telemetry rows across the federation boundary. A column
     // aggregate (`count(measure)`) is used rather than `count(*)`: the latter
@@ -120,14 +128,20 @@ async fn the_span_query_fails_closed_without_external_query() {
 
     let database = "pg_span_denied";
     let handle = open_datasource_store(database).await;
-    let (principal, session) = scoped_session_for(&handle, database, "mallory", Role::Operator).await;
+    let (principal, session) =
+        scoped_session_for(&handle, database, "mallory", Role::Operator).await;
     // Granted register but NOT external-query: registration succeeds, the query denies.
     grant(&handle, &principal, Capability::DatasourceRegister).await;
 
     let mut registry = Registry::with_native_default();
-    register(&mut registry, handle.raw(), &principal, warehouse(&url).await)
-        .await
-        .expect("register the warehouse connector");
+    register(
+        &mut registry,
+        handle.raw(),
+        &principal,
+        warehouse(&url).await,
+    )
+    .await
+    .expect("register the warehouse connector");
 
     let cache = ContextCache::default();
     let err = span(

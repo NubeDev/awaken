@@ -19,6 +19,7 @@
 use axum::Router;
 use rubix_core::{Id, Principal, PrincipalKind, Role, RuntimeConfig};
 use rubix_gate::{Capability, PrincipalToken, authenticate, create_grant, provision_principal};
+use rubix_server::jobs::{JobLimits, JobRegistry};
 use rubix_server::profile::Profile;
 use rubix_server::{AppState, router};
 use rubix_store::StoreHandle;
@@ -82,6 +83,65 @@ pub async fn boot(database: &str, capabilities: &[Capability]) -> TestApp {
 
     let app = router(AppState::new(store.clone(), NS, database));
     TestApp { app, store }
+}
+
+/// A booted transport plus the live `AppState`, for the long-running-job tests.
+///
+/// The job tests need to reach into the registry directly (to force a sweep with a
+/// zero grace, or assert a job's status) and to control the bulk soft deadline and
+/// the concurrency caps, so this returns the assembled state alongside the router
+/// rather than only the router.
+pub struct TestJobApp {
+    /// The assembled transport router.
+    pub app: Router,
+    /// The shared application state (the same registry the router serves).
+    pub state: AppState,
+}
+
+/// Boot the transport for the job tests with explicit [`JobLimits`] and a chosen
+/// bulk soft deadline, granting the principal `capabilities`.
+///
+/// Mirrors [`boot`] but threads custom job limits + deadline into `AppState` so a
+/// test can force promotion (deadline zero), trip the concurrency cap (small caps),
+/// or evict on demand (zero grace) without sleeping.
+pub async fn boot_jobs(
+    database: &str,
+    capabilities: &[Capability],
+    limits: JobLimits,
+    bulk_deadline: std::time::Duration,
+) -> TestJobApp {
+    let cfg = RuntimeConfig::in_memory(NS, database);
+    let store = StoreHandle::open(&cfg).await.expect("open in-memory store");
+    rubix_gate::define_gate_schema(store.raw())
+        .await
+        .expect("define gate schema");
+    rubix_gate::define_audit_schema(store.raw())
+        .await
+        .expect("define audit schema");
+
+    let principal = Principal::new(
+        Id::from_raw(SUBJECT),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
+    provision_principal(store.raw(), &principal, SECRET)
+        .await
+        .expect("provision principal");
+
+    let admin = Principal::new(Id::from_raw("admin"), NS, PrincipalKind::User, Role::Admin);
+    for capability in capabilities {
+        create_grant(store.raw(), &admin, &principal, *capability)
+            .await
+            .expect("grant capability");
+    }
+
+    let mut state = AppState::new(store, NS, database);
+    state.jobs = JobRegistry::new(limits);
+    state.bulk_deadline = bulk_deadline;
+
+    let app = router(state.clone());
+    TestJobApp { app, state }
 }
 
 /// The admin principal's **API-local** subject for the admin-surface tests.

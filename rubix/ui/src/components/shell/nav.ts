@@ -12,7 +12,6 @@ import {
   FileBarChart,
   Settings,
   Table2,
-  KeyRound,
   Users,
   Bot,
   TerminalSquare,
@@ -55,8 +54,7 @@ export const NAV: NavGroup[] = [
     items: [
       { label: 'Schema', to: '/t/$tenant/admin/schema', icon: DatabaseIcon },
       { label: 'Records', to: '/t/$tenant/admin/records', icon: Table2 },
-      { label: 'Principals', to: '/t/$tenant/admin/principals', icon: KeyRound },
-      { label: 'Teams', to: '/t/$tenant/admin/teams', icon: Users },
+      { label: 'People & Teams', to: '/t/$tenant/admin/access', icon: Users },
       { label: 'Agents', to: '/t/$tenant/admin/agents', icon: Bot },
       { label: 'Query', to: '/t/$tenant/admin/query', icon: TerminalSquare },
       { label: 'Audit', to: '/t/$tenant/admin/audit', icon: ScrollText },

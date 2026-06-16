@@ -49,7 +49,10 @@ async fn the_schema_lists_native_and_external_tables() {
         .find(|t| t.table == "record" && t.schema != "mirror")
         .expect("native record table is listed");
     let columns: Vec<&str> = record.columns.iter().map(|c| c.name.as_str()).collect();
-    assert_eq!(columns, ["id", "namespace", "created", "updated", "content"]);
+    assert_eq!(
+        columns,
+        ["id", "namespace", "created", "updated", "content"]
+    );
     // Coarse type tags match the result-column vocabulary.
     let created = record.columns.iter().find(|c| c.name == "created").unwrap();
     assert_eq!(created.kind, "timestamp");

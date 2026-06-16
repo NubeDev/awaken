@@ -1,0 +1,39 @@
+---
+title: Get Started
+---
+
+# Get Started
+
+This page gets a local Rubix server running.
+
+## Prerequisites
+
+- A Rust toolchain (see `rust-toolchain.toml` in the repo).
+- SurrealDB — Rubix's single store and brain. (Embedded or external depending
+  on configuration.)
+
+## Run the server
+
+From the workspace root:
+
+```sh
+make run
+```
+
+The server starts the HTTP API and the SurrealDB live-query WebSocket. It runs
+as a single binary — the same build serves a single edge device or a
+multi-tenant cloud; only configuration differs.
+
+## First steps
+
+Once it's up:
+
+1. **Authenticate** as a scoped principal (a user or an extension). Every
+   principal is authorized the same way and sees only what its grants allow.
+2. **Register a datasource** — SurrealDB-native, Postgres, MQTT, REST, … Each
+   becomes a queryable table. See [Concepts → Datasources & query](/concepts/overview#datasources--query).
+3. **Query** across datasources through the unified query surface, and render
+   the results as charts on a board.
+
+> This is a starter page. Replace the commands above with the exact,
+> copy-pasteable steps for your setup, and add a worked first-query example.

@@ -1,0 +1,44 @@
+---
+title: Introduction
+---
+
+# Rubix
+
+Rubix is a generic, AI-ready, **edge-to-cloud data processing platform** built on
+SurrealDB. It ingests data from any source, transforms and pre-processes it in
+flight, runs rules and emits insights, and serves unified dashboards — the same
+binary on a single edge device or in a multi-tenant cloud.
+
+The domain is **not** baked in. There is no equipment / site / point schema;
+structure comes from tagging on a graph. Rubix processes *data + tags + rules +
+datasources*, not a fixed ontology.
+
+## Principles
+
+- **One binary, edge to cloud.** The same build runs on a Pi, a Windows box, or
+  in the cloud. The difference is configuration, not code.
+- **SurrealDB is the store and the brain.** Document, graph, vector,
+  time-series, and geospatial in one engine — plus auth, tenancy, and live
+  queries. SurrealQL first.
+- **Rules fire offline.** The rule and insight runtime is embedded and needs no
+  cloud dependency.
+- **Everything is a scoped principal.** Users and extensions authenticate and
+  are authorized the same way — each reaches only the data its grants allow.
+- **Commands go through the gate; reads are SurrealDB-native.** Every mutation
+  crosses the access gate (audit, undo, correlation id); reads run on a scoped
+  SurrealDB session enforced by row-level permissions.
+- **AI-ready by construction.** Vectors live beside the same data the rules and
+  dashboards use — semantic search and agent memory need no separate store.
+
+## Where to go next
+
+- **[Get Started](/get-started)** — run the server and make your first query.
+- **[Concepts](/concepts/overview)** — the substrate, the access gate,
+  datasources, rules, and dashboards.
+- **[Reference](/reference)** — HTTP API and configuration.
+- **[Changelog](/changelog)** — what changed between versions.
+
+## Status
+
+Rubix is pre-1.0 (`0.1.0`). APIs and schemas may change between minor versions;
+breaking changes are recorded in the [Changelog](/changelog).

@@ -45,28 +45,33 @@ pub struct LifecycleOutcome {
 /// Drive a `lifecycle` control request through the gate, then bring the
 /// supervisor into agreement with it.
 ///
-/// `spec` is the [`ProcessSpec`] read off the extension's config record (only
-/// consulted for a `start`); `identity` is the principal's credentials the child
-/// authenticates with (Open question 2 — supplied by the caller, never minted
-/// here). On `start` of a non-process flavour the supervisor is not engaged (no
-/// child to spawn) and `state` is `None`.
+/// `actor` is the principal whose authority the gate checks and audits — the
+/// extension itself when self-managing, or a tenant admin/operator when driving
+/// it from the admin surface (both must hold `extension-manage`). `target` is the
+/// extension whose supervisor and metrics are driven, kept separate so an admin
+/// command never keys the runtime by the *admin's* identity. `spec` is the
+/// [`ProcessSpec`] read off the extension's config record (only consulted for a
+/// `start`); `identity` is the child's credentials (Open question 2 — supplied by
+/// the caller, never minted here). On `start` of a non-process flavour the
+/// supervisor is not engaged and `state` is `None`.
 ///
 /// # Errors
-/// Returns [`ExtError::Denied`] if the extension lacks `extension-manage` (before
-/// any process is touched), [`ExtError::Request`] on a malformed request, or
+/// Returns [`ExtError::Denied`] if `actor` lacks `extension-manage` (before any
+/// process is touched), [`ExtError::Request`] on a malformed request, or
 /// [`ExtError::Command`] if the gated write or the spawn fails.
 pub async fn drive_lifecycle(
     rt: &ExtensionRuntime,
     db: &Surreal<Db>,
-    extension: &Principal,
+    actor: &Principal,
+    target: &ExtensionId,
     request: &ControlRequest,
     spec: ProcessSpec,
     identity: Identity,
 ) -> Result<LifecycleOutcome> {
-    let id = ExtensionId::from(extension);
+    let id = target.clone();
     let counters = rt.metrics.counters(&id);
 
-    let outcome = match crate::lifecycle(db, extension, request).await {
+    let outcome = match crate::lifecycle(db, actor, request).await {
         Ok(outcome) => {
             counters.record_command();
             outcome

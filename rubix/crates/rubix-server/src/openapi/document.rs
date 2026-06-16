@@ -12,13 +12,15 @@ use utoipa::openapi::OpenApi as OpenApiDoc;
 use crate::dto::{
     AgentDto, AppendReadingsRequest, AppendReadingsResponse, AskRequest, AskResponse,
     BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, BindingDto, BucketDto,
-    CatalogResponse, ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
-    CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    DryRunRequest, DryRunResponse, FileRefDto, FilterFacetDto, GrantDto, LoginRequest,
-    LoginResponse, MeResponse, PersistRequest, PersistedDto, PreferencesDto, PrincipalDto,
-    ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse, QuerySchemaResponse,
-    QueryVariableDto, ReadingDto, ReadingSampleDto, RecallRequest, RecalledDto, RecordDto,
-    RegisterDatasourceRequest, ResolvedInputDto, RuleDto, TableSchemaDto, TenantDto, TimeBoundDto,
+    BulkItemStatus, BulkMode, BulkOp, BulkPromotedResponse, BulkRecordItem, BulkRecordsRequest,
+    BulkRecordsResponse, CatalogResponse, ColumnDto, CreateDeviceRequest, CreatePrincipalRequest,
+    CreateRecordRequest, CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto,
+    DatasourceDto, DeviceDto, DryRunRequest, DryRunResponse, FileRefDto, FilterFacetDto, GrantDto,
+    JobAcceptedDto, JobStatusDto, LoginRequest, LoginResponse, MeResponse, PersistRequest,
+    PersistedDto, PreferencesDto, PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto,
+    QueryRequest, QueryResponse, QuerySchemaResponse, QueryVariableDto, ReadingDto,
+    ReadingSampleDto, RecallRequest, RecalledDto, RecordDto, RegisterDatasourceRequest,
+    ResolvedInputDto, RuleDto, SubmitJobRequest, TableSchemaDto, TenantDto, TimeBoundDto,
     TimeScopeDto, TransformDto, UpdateDatasourceRequest, UpdateDeviceRequest,
     UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
 };
@@ -78,7 +80,12 @@ use crate::dto::{
         crate::openapi::paths::referencing_rules,
         crate::openapi::paths::rules_catalog,
         crate::openapi::paths::upload_file,
-        crate::openapi::paths::download_file
+        crate::openapi::paths::download_file,
+        crate::openapi::paths::bulk_records,
+        crate::openapi::paths::submit_job,
+        crate::openapi::paths::job_status,
+        crate::openapi::paths::cancel_job,
+        crate::openapi::paths::subscribe_jobs
     ),
     components(schemas(
         LoginRequest,
@@ -138,7 +145,17 @@ use crate::dto::{
         FilterFacetDto,
         ResolvedInputDto,
         BucketDto,
-        FileRefDto
+        FileRefDto,
+        BulkRecordsRequest,
+        BulkRecordItem,
+        BulkOp,
+        BulkMode,
+        BulkItemStatus,
+        BulkRecordsResponse,
+        BulkPromotedResponse,
+        SubmitJobRequest,
+        JobAcceptedDto,
+        JobStatusDto
     ))
 )]
 pub struct ApiDoc;

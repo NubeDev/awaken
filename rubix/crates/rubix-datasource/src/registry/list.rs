@@ -14,5 +14,8 @@ use super::store::Registry;
 /// Every declared datasource's identity, in unspecified order.
 #[must_use]
 pub fn list(registry: &Registry) -> Vec<&DatasourceConfig> {
-    registry.entries().map(|(_, entry)| entry.config()).collect()
+    registry
+        .entries()
+        .map(|(_, entry)| entry.config())
+        .collect()
 }

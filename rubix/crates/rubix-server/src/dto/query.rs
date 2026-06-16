@@ -58,6 +58,13 @@ pub struct QueryRequest {
     /// boundary. Absent/empty → the SQL is run as authored.
     #[serde(default)]
     pub variables: Option<Vec<QueryVariableDto>>,
+    /// Run as a **streamed Tier-2 job** rather than inline (`BULK-AND-JOBS.md`,
+    /// "Streaming query"): the response is a `202` job handle, and the result rows
+    /// arrive as chunked WS frames (the poll is status-only). For a wide timeseries
+    /// scan whose result will not fit one JSON body. Absent/false → the unchanged
+    /// inline path.
+    #[serde(default)]
+    pub stream: bool,
 }
 
 /// One resolved dashboard variable on the wire: a name and its selected value(s).
@@ -352,6 +359,9 @@ impl BatchQueryItem {
                 quantities: self.quantities,
                 transforms: self.transforms,
                 variables: self.variables,
+                // A batch item always runs inline on the shared context; the
+                // streamed-job path is the single-query route only.
+                stream: false,
             },
         )
     }

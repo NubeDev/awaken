@@ -12,6 +12,7 @@ pub(crate) mod convert;
 pub(crate) mod render;
 pub(crate) mod run;
 mod schema;
+mod stream;
 
 use axum::Router;
 use axum::routing::{get, post};

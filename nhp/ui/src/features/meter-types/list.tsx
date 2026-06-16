@@ -6,7 +6,7 @@
  * editor. All reads/writes go through the rubix records API.
  */
 import { useState } from 'react'
-import { Copy, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Copy, Pencil, Plus, QrCode, RefreshCw, Trash2 } from 'lucide-react'
 import type { MeterTypeRecord } from '@/api/records'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { BarcodeLabel } from './barcode-label'
 import { MeterTypeEditor, type EditMode } from './edit'
 import {
   useDeleteMeterType,
@@ -39,6 +40,9 @@ export function MeterTypeList() {
   const [editing, setEditing] = useState<EditMode | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<MeterTypeRecord | null>(null)
   const [reapplyTarget, setReapplyTarget] = useState<MeterTypeRecord | null>(
+    null
+  )
+  const [barcodeTarget, setBarcodeTarget] = useState<MeterTypeRecord | null>(
     null
   )
 
@@ -151,6 +155,14 @@ export function MeterTypeList() {
                         <Button
                           variant='ghost'
                           size='icon'
+                          title='Show / print scan barcode'
+                          onClick={() => setBarcodeTarget(t)}
+                        >
+                          <QrCode className='size-4' />
+                        </Button>
+                        <Button
+                          variant='ghost'
+                          size='icon'
                           title='Re-apply to a meter'
                           disabled={roll.total === 0}
                           onClick={() => setReapplyTarget(t)}
@@ -194,6 +206,14 @@ export function MeterTypeList() {
               onSuccess: () => setDeleteTarget(null),
             })
           }
+        />
+      ) : null}
+
+      {barcodeTarget ? (
+        <BarcodeLabel
+          type={barcodeTarget}
+          open={true}
+          onOpenChange={(o) => !o && setBarcodeTarget(null)}
         />
       ) : null}
 

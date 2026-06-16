@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import type { MeterType, MeterTypeRecord, RegisterDef } from '@/api/records'
+import { encodeBarcode } from '@/enums/barcode'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,6 +51,21 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
   const [name, setName] = useState(start.name)
   const [manufacturer, setManufacturer] = useState(start.manufacturer ?? '')
   const [registers, setRegisters] = useState<RegisterDef[]>(start.registers)
+  // The scan code (WS-09). By default it tracks the key (`nhp-mt:<key>`) so the
+  // printed label stays stable + resolvable; an admin can override. `barcodeCustom`
+  // freezes auto-tracking once they type their own value.
+  const [barcode, setBarcode] = useState(start.barcode ?? '')
+  const [barcodeCustom, setBarcodeCustom] = useState(
+    Boolean(start.barcode && start.barcode !== encodeBarcode(start.key))
+  )
+  const effectiveBarcode = barcodeCustom
+    ? barcode
+    : encodeBarcode(key.trim() || 'meter-type')
+
+  const onKeyChange = (next: string) => {
+    setKey(next)
+    if (!barcodeCustom) setBarcode(encodeBarcode(next.trim()))
+  }
 
   const create = useCreateMeterType()
   const update = useUpdateMeterType()
@@ -68,6 +84,7 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
         key,
         name,
         manufacturer,
+        barcode: effectiveBarcode,
         registers,
         // editing bumps the version (DOMAIN-MODEL §versioning)
         version: state.record.content.version + 1,
@@ -80,6 +97,7 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
       key,
       name,
       manufacturer,
+      barcode: effectiveBarcode,
       version: 1,
       registers,
     }
@@ -109,7 +127,7 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
           <Input
             id='mt-key'
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={(e) => onKeyChange(e.target.value)}
             placeholder='acme-pm5560'
           />
         </div>
@@ -131,6 +149,26 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
             placeholder='Acme'
           />
         </div>
+      </div>
+
+      <div className='grid max-w-2xl gap-1'>
+        <Label htmlFor='mt-barcode'>Scan barcode</Label>
+        <Input
+          id='mt-barcode'
+          value={effectiveBarcode}
+          onChange={(e) => {
+            setBarcodeCustom(true)
+            setBarcode(e.target.value)
+          }}
+          placeholder='nhp-mt:acme-pm5560'
+          className='font-mono text-xs'
+        />
+        <p className='text-muted-foreground text-xs'>
+          The printable scan code for this type (WS-09). Defaults to{' '}
+          <code>nhp-mt:&lt;key&gt;</code> and tracks the key; the scan-to-add wizard
+          decodes it back to this meter-type. Print the label from the meter-type
+          list.
+        </p>
       </div>
 
       <div>

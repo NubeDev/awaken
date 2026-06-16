@@ -111,6 +111,10 @@ export interface Site {
   key: string
   name: string
   tenant?: string
+  address?: string
+  /** IANA tz; dashboards render site-local time (DOMAIN-MODEL §site). */
+  timezone?: string
+  geo?: string
   tags?: string[]
 }
 

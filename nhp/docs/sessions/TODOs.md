@@ -76,3 +76,20 @@ array (written over the normal records API); WS-03's `seed/tags.mjs` is the sing
 WS-07's auto-build reads `content.tags`. Functionally sufficient for the POC — the cost is that tag
 filtering can't use rubix's tag-graph query, only content filtering. Not a blocker.
 **Resolution:** _(rubix team — dated. Not required for the POC.)_
+
+---
+
+## 2026-06-16 (WS-07) — `POST /query/batch` claimed-but-absent; only `POST /query` exists
+**Doc drift, not a code gap.** OVERVIEW.md build-status and WS-07.md "Current state" both assert
+`POST /query/batch` (≤50) is built. The frozen rubix tree has ONLY `POST /query`
+(`rubix/crates/rubix-server/src/http/query/mod.rs` routes just `/query`; `run.rs` is a single
+read-only SQL statement gated on the `external-query` capability; `dto/query.rs` is `{sql}`→`{rows}`,
+no batch shape). There is no batch route, no batch DTO, no per-item-error envelope.
+**Needs:** rubix team to add the generic `POST /query/batch` per DASHBOARDS-SCOPE §3 (keyed,
+order-independent, per-item errors, same guard/scope), or correct the docs. Generic + reusable →
+upstream, approved by the rubix team. **NHP does not implement this.**
+**Workaround (POC, no rubix change):** WS-07's dashboards read the seeded data over the plain
+`/records` API and do windowing/grouping/aggregation client-side (`nhp/ui/src/features/dashboards/
+query/batch.ts` is the one fetcher). The pure auto-build + widget layers don't change when a real
+batch lands — only that file's fetch swaps onto it.
+**Resolution:** _(rubix team — dated. Not required for the POC.)_

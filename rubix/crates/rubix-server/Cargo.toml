@@ -77,6 +77,10 @@ name = "http_admin_crud"
 path = "tests/http/admin/crud_test.rs"
 
 [[test]]
+name = "http_extensions_admin"
+path = "tests/http/extensions/admin_test.rs"
+
+[[test]]
 name = "http_admin_tenant_cloud"
 path = "tests/http/admin/tenant_cloud_test.rs"
 

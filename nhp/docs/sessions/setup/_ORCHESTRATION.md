@@ -120,6 +120,10 @@ HARD RULES (this is an unattended run — violating these poisons every later se
   shell, a shared types file, the Makefile) only as a minimal additive change. If a contract you
   depend on is missing, that's a TODOs.md blocker — do not redefine it.
 - INCREMENTAL: implement one logical section, verify it, commit, repeat. Don't dump one giant commit.
+- CLEAN UP TEST ARTIFACTS: if you boot a throwaway rubix backend to smoke-test, its SurrealDB writes
+  to a `rubix-data/` dir. Point it inside `rubix/` (already gitignored as `/rubix-data`) via the data
+  path env/flag, OR `rm -rf` the stray `rubix-data/` before you finish. Never leave an untracked
+  `rubix-data/` at the worktree root, and never commit one.
 - Keep your WS's DONE GATE green before you call yourself done (see the gate in your WS doc /
   _ORCHESTRATION step 4). A red build/typecheck/test means you are NOT done.
 - RUBIX IS FROZEN — NHP NEVER EDITS RUBIX SOURCE. NHP is UI + data on the already-built rubix

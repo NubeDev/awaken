@@ -20,6 +20,15 @@ export default defineConfig({
     // VITE_UI_PORT / VITE_API_PROXY are pinned by nhp/Makefile (BE_PORT 8094 /
     // UI_PORT 5194) so the dev server and its proxy always follow the backend.
     port: Number(process.env.VITE_UI_PORT) || 5194,
+    // Watch fallback. Vite puts an inotify watch on every source file; on a
+    // shared box where `fs.inotify.max_user_watches` is exhausted by other
+    // processes, that crashes the dev server with `ENOSPC: file watchers
+    // reached`. Set VITE_POLL=1 (the Makefile does this for `make dev-poll`) to
+    // watch by polling instead — no inotify watches at all, at the cost of a
+    // little idle CPU. Unset = native inotify (the fast default).
+    watch: process.env.VITE_POLL
+      ? { usePolling: true, interval: 300 }
+      : undefined,
     // rubix-server serves flat, unprefixed routes (/records, /query, /auth/...,
     // /principals, /health, /ws/..., see rubix crates/rubix-server/src/http/
     // mod.rs). Proxy those to the backend so the UI calls them same-origin

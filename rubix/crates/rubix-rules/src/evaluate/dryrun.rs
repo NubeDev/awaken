@@ -21,7 +21,7 @@ use std::pin::Pin;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 
-use rubix_query::{BucketRollup, rollup_window};
+use rubix_query::{BucketRollup, SeriesFilter, rollup_window_filtered};
 
 use crate::engine::Decision;
 use crate::error::{Result, RuleError};
@@ -134,9 +134,14 @@ fn run_dry<'a>(
 /// from the most recent bucket. An empty series is a [`RuleError::Binding`], not a
 /// silent zero — a rule never dry-runs on a value that was never observed.
 async fn resolve_input(session: &Surreal<Db>, binding: &Binding) -> Result<ResolvedInput> {
-    let buckets = rollup_window(session, binding.table, &binding.field, binding.grain)
-        .await
-        .map_err(|e| RuleError::Window(e.to_string()))?;
+    let filter = binding
+        .filter
+        .as_ref()
+        .map(|(key, value)| SeriesFilter { key, value });
+    let buckets =
+        rollup_window_filtered(session, binding.table, &binding.field, binding.grain, filter)
+            .await
+            .map_err(|e| RuleError::Window(e.to_string()))?;
     let latest = buckets.last().ok_or_else(|| {
         RuleError::Binding(format!(
             "no window bucket for '{}' from content.{}",

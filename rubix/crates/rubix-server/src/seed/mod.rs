@@ -13,6 +13,7 @@
 mod cast;
 mod history;
 mod portfolio;
+mod rules;
 
 use std::collections::HashSet;
 use std::fmt;
@@ -92,7 +93,10 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
             };
             println!("{:<20} {:<14} {}", cred.subject, cred.secret, grants);
         }
-        let tally = seed_tenant(db, namespace, &operator, now, &mut tags).await?;
+        let mut tally = seed_tenant(db, namespace, &operator, now, &mut tags).await?;
+        // The worked set of demo rules over that tenant's readings — what the
+        // rules studio opens onto (simple thresholds → composed → scored).
+        tally.rules = rules::seed_rules(db, namespace, &operator).await?;
         tallies.push(tally);
     }
 
@@ -104,11 +108,11 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
 fn report(tallies: &[TenantTally]) {
     let mut total = 0usize;
     for t in tallies {
-        let count = t.sites + t.nodes + t.readings;
+        let count = t.sites + t.nodes + t.readings + t.rules;
         total += count;
         println!(
-            "  {}: {} sites, {} nodes, {} readings ({} records)",
-            t.namespace, t.sites, t.nodes, t.readings, count
+            "  {}: {} sites, {} nodes, {} readings, {} rules ({} records)",
+            t.namespace, t.sites, t.nodes, t.readings, t.rules, count
         );
     }
     println!(

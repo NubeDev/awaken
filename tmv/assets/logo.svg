@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" width="360" height="110">
+  <!-- Simple Nube iO wordmark (placeholder company branding, ref: nube-io.com) -->
+  <g font-family="'Helvetica Neue', Arial, sans-serif">
+    <!-- droplet / node mark -->
+    <path d="M44 14 C 60 36, 70 50, 70 64 a 26 26 0 1 1 -52 0 C 18 50, 28 36, 44 14 Z"
+          fill="#0098A6"/>
+    <circle cx="44" cy="62" r="9" fill="#ffffff" opacity="0.9"/>
+    <!-- wordmark -->
+    <text x="92" y="74" font-size="58" font-weight="700" fill="#1F2D3D" letter-spacing="-1">nube</text>
+    <text x="250" y="74" font-size="58" font-weight="700" fill="#0098A6" letter-spacing="-1">iO</text>
+  </g>
+</svg>

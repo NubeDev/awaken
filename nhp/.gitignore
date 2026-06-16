@@ -1,0 +1,4 @@
+# NHP-private rubix-server store, written by `make dev`/`make dev-be` (see
+# RUBIX_DATA_DIR in the Makefile). Kept separate from rubix's own rubix-data/ so
+# the two backends never fight over the same store LOCK. `make clean` removes it.
+/nhp-data

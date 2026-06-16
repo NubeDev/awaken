@@ -39,7 +39,7 @@ export default defineConfig({
     // what produced the "Unexpected token '<'" JSON parse error. `/api` is kept
     // for the future versioned surface (client.ts TENANT_ROUTES_LIVE).
     proxy: {
-      '^/(api|records|query|auth|datasources|principals|tenants|devices|health|api-docs)(/|\\?|$)': {
+      '^/(api|records|query|rules|auth|prefs|agent|datasources|principals|tenants|devices|health|api-docs)(/|\\?|$)': {
         target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8092',
         changeOrigin: true,
       },

@@ -36,6 +36,10 @@ name = "cross_namespace_denied"
 path = "tests/read/cross_namespace_denied_test.rs"
 
 [[test]]
+name = "reading_scope"
+path = "tests/read/reading_scope_test.rs"
+
+[[test]]
 name = "capability_check"
 path = "tests/capability/check_test.rs"
 

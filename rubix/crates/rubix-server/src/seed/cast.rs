@@ -51,6 +51,10 @@ const CAST: &[DemoPrincipal] = &[
             // The query console is an operator-facing tool; without this the
             // default operator login 403s on POST /query (external-query gate).
             Capability::ExternalQuery,
+            // Authoring rules in the studio is an operator action; the seed also
+            // writes the demo rules as the operator, so it needs this grant
+            // (`/rules` mutations gate on RuleDefine, distinct from RuleInvoke).
+            Capability::RuleDefine,
         ],
     },
     DemoPrincipal {

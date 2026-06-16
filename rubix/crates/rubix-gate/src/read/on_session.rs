@@ -9,8 +9,11 @@
 
 use std::collections::HashMap;
 
+use surrealdb::types::Datetime;
+
 use rubix_core::{
-    Id, Record, list_record_tags, list_records, list_records_filtered, read_record,
+    Id, Reading, Record, list_record_tags, list_records, list_records_filtered, read_record,
+    read_readings_window,
 };
 
 use crate::error::{GateError, Result};
@@ -45,6 +48,28 @@ pub async fn read_records_on_session_filtered(
     tags: &[String],
 ) -> Result<Vec<Record>> {
     list_records_filtered(session.connection(), kind, tags)
+        .await
+        .map_err(GateError::Read)
+}
+
+/// Read one series' readings in `[from, to]` on `session`, ordered by `at`.
+///
+/// The historian's windowed, series-scoped read on the data plane
+/// (`rubix/docs/design/READINGS-TIMESERIES.md`). It runs on the scoped session, so
+/// SurrealDB's `reading` row-level permission confines the result to the
+/// principal's namespace — a series in another namespace yields no rows, the
+/// denial engine-native, never an app filter (contract #1). Bucketing on `at`
+/// happens above this; here the rows come back raw, in measurement-time order.
+///
+/// # Errors
+/// Returns [`GateError::Read`] if the underlying scoped query fails.
+pub async fn read_readings_on_session(
+    session: &ScopedSession,
+    series: &str,
+    from: &Datetime,
+    to: &Datetime,
+) -> Result<Vec<Reading>> {
+    read_readings_window(session.connection(), series, from, to)
         .await
         .map_err(GateError::Read)
 }

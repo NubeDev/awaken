@@ -5,13 +5,18 @@ import { SignOutDialog } from './sign-out-dialog'
 
 const navigate = vi.fn()
 const resetAccessToken = vi.fn()
+const logout = vi.fn()
 
 const MOCK_HREF = 'https://app.test/dashboard?tab=1'
 
 vi.mock('@/stores/auth-store', () => ({
   useAuthStore: () => ({
-    auth: { resetAccessToken },
+    auth: { accessToken: 'rbx_session', resetAccessToken },
   }),
+}))
+
+vi.mock('@/api/auth', () => ({
+  logout: (token: string) => logout(token),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -35,6 +40,7 @@ describe('SignOutDialog', () => {
 
     await userEvent.click(getByRole('button', { name: /^Sign out$/i }))
 
+    expect(logout).toHaveBeenCalledWith('rbx_session')
     expect(resetAccessToken).toHaveBeenCalledOnce()
     expect(navigate).toHaveBeenCalledWith({
       to: '/sign-in',

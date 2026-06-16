@@ -23,6 +23,10 @@ name = "record_create"
 path = "tests/record/create_test.rs"
 
 [[test]]
+name = "reading_append"
+path = "tests/reading/append_test.rs"
+
+[[test]]
 name = "record_update"
 path = "tests/record/update_test.rs"
 

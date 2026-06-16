@@ -25,7 +25,15 @@ pub async fn open_memory_db() -> Surreal<Db> {
     db.query(
         "DEFINE TABLE IF NOT EXISTS record SCHEMALESS;\n\
          DEFINE TABLE IF NOT EXISTS tag SCHEMALESS;\n\
-         DEFINE TABLE IF NOT EXISTS tagged TYPE RELATION SCHEMALESS;",
+         DEFINE TABLE IF NOT EXISTS tagged TYPE RELATION SCHEMALESS;\n\
+         DEFINE TABLE IF NOT EXISTS reading SCHEMALESS;\n\
+         DEFINE FIELD IF NOT EXISTS series ON reading TYPE record;\n\
+         DEFINE FIELD IF NOT EXISTS at ON reading TYPE datetime;\n\
+         DEFINE FIELD IF NOT EXISTS value ON reading TYPE number;\n\
+         DEFINE FIELD IF NOT EXISTS namespace ON reading TYPE string;\n\
+         DEFINE FIELD IF NOT EXISTS created ON reading TYPE datetime DEFAULT time::now();\n\
+         DEFINE INDEX IF NOT EXISTS reading_ns_series_at ON reading FIELDS namespace, series, at;\n\
+         DEFINE INDEX IF NOT EXISTS reading_ns_at ON reading FIELDS namespace, at;",
     )
     .await
     .expect("define tables")

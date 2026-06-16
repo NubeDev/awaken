@@ -13,6 +13,8 @@
 //! but trying a draft against one's own visible data is not a mutation. The
 //! `rubix-rules` dry-run is side-effect-free by construction.
 
+use std::collections::HashSet;
+
 use axum::Json;
 use axum::extract::Path;
 use rubix_rules::{RuleError, RuleRegistry, dry_run};
@@ -50,10 +52,19 @@ pub async fn dryrun_rule_route(
     .map_err(|reason| ApiError::BadRequest(format!("binding: {reason}")))?;
     registry.insert(draft);
 
+    // Load the draft's sub-rules from storage — transitively, since a composed
+    // rule may itself compose others (building-alert → comfort-risk → leaves). A
+    // breadth-first walk over the `subrules` closure registers every rule the
+    // evaluation can `invoke`, so a rule tree of any depth resolves.
     if !body.subrules.is_empty() {
         let stored = read_rules(&auth.session).await?;
-        for sub_name in &body.subrules {
-            let sub = stored.iter().find(|r| r.name == *sub_name).ok_or_else(|| {
+        let mut pending: Vec<String> = body.subrules.clone();
+        let mut loaded: HashSet<String> = HashSet::new();
+        while let Some(sub_name) = pending.pop() {
+            if !loaded.insert(sub_name.clone()) {
+                continue;
+            }
+            let sub = stored.iter().find(|r| r.name == sub_name).ok_or_else(|| {
                 ApiError::BadRequest(format!("sub-rule `{sub_name}` is not a stored rule"))
             })?;
             let rule = build_rule(
@@ -67,6 +78,8 @@ pub async fn dryrun_rule_route(
                 ApiError::BadRequest(format!("sub-rule `{sub_name}` binding: {reason}"))
             })?;
             registry.insert(rule);
+            // Queue this sub-rule's own sub-rules for loading.
+            pending.extend(sub.subrules.iter().cloned());
         }
     }
 

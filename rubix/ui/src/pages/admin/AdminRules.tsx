@@ -83,15 +83,21 @@ const route = getRouteApi('/t/$tenant/admin/rules')
 
 const NEW_SCRIPT = `// A rule reads each binding by name and returns a decision.
 // Return a bool, or a map { fired, value, reason }.
-#{ fired: temp > 25.0, value: temp, reason: "too hot" }
+#{ fired: temp > 24.0, value: temp, reason: "zone above 24°C" }
 `
 
+// Default to the field readings actually carry in this app: a reading record
+// stores its numeric value at content.value, with content.measure naming the
+// metric. A binding rolls up content.<field>, so read `value` and narrow it to one
+// measure (`temp`) via the filter — otherwise the series blends every metric.
 const NEW_BINDING = (): Binding => ({
   name: 'temp',
   table: 'records',
-  field: 'temperature',
-  grain: 'minute',
+  field: 'value',
+  grain: 'hour',
   aggregate: 'avg',
+  filter_field: 'measure',
+  filter_value: 'temp',
 })
 
 // The draft the editor edits and the debugger dry-runs. `null` rule + creating =
@@ -533,6 +539,24 @@ function BindingsEditor({
               onChange={(v) => set(i, { aggregate: v as Aggregate })}
               width="w-[96px]"
             />
+            {/* Optional filter: narrow the shared `value` series to one category,
+                e.g. content.measure = temp. Empty = the whole series. */}
+            <span className="text-[10.5px] text-muted-foreground">where</span>
+            <Input
+              value={b.filter_field ?? ''}
+              onChange={(e) => set(i, { filter_field: e.target.value })}
+              placeholder="measure"
+              className="mono h-8 w-24 text-[12px]"
+              aria-label="filter field"
+            />
+            <span className="text-[10.5px] text-muted-foreground">=</span>
+            <Input
+              value={b.filter_value ?? ''}
+              onChange={(e) => set(i, { filter_value: e.target.value })}
+              placeholder="temp"
+              className="mono h-8 w-24 text-[12px]"
+              aria-label="filter value"
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -778,7 +802,10 @@ function FrameView({ data }: { data: DryRunResponse }) {
 
 // ── SQL workbench tab ────────────────────────────────────────────────────────
 
-const DEFAULT_SQL = "SELECT json_get(content, 'temperature') AS temperature FROM record LIMIT 20"
+const DEFAULT_SQL =
+  "SELECT json_get(json_get(content, 'content'), 'measure') AS measure, " +
+  "json_get(json_get(content, 'content'), 'value') AS value FROM record " +
+  "WHERE json_get(json_get(content, 'content'), 'kind') = 'reading' LIMIT 20"
 
 // A lightweight query console so an author can explore the rows a binding reads
 // before writing the rule. Reuses the shared SqlEditor and the POST /query path.

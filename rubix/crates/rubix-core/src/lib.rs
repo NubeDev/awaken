@@ -10,6 +10,7 @@ mod error;
 mod hook;
 mod id;
 mod principal;
+mod reading;
 mod record;
 mod tag;
 
@@ -24,6 +25,9 @@ pub use error::{Error, Result, ResultExt};
 pub use hook::{HOOK_KIND, Hook, HookEvent, HookParseError, find_hooks};
 pub use id::Id;
 pub use principal::{Principal, PrincipalKind, Role};
+pub use reading::{
+    Reading, append_readings, list_readings, read_reading, read_readings_window, reading_id,
+};
 pub use record::{
     Record, RecordTags, create_record, decode_record, delete_record, list_record_tags,
     list_records, list_records_filtered, read_record, update_record,

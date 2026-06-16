@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronsUpDown, LogOut, Settings } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
 import useDialogState from '@/hooks/use-dialog-state'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -30,9 +31,14 @@ type NavUserProps = {
 export function NavUser({ user }: NavUserProps) {
   const { isMobile } = useSidebar()
   const [open, setOpen] = useDialogState()
-  // Neutral initials: no decoded principal is on the wire, so the stored token
-  // signs in as a generic operator (see stores/auth-store.ts).
-  const initials = (user.name.slice(0, 2) || 'OP').toUpperCase()
+  const { auth } = useAuthStore()
+  // Prefer the signed-in principal reflected from /auth/me; fall back to the
+  // static label only before a session exists (see stores/auth-store.ts).
+  const name = auth.identity?.subject ?? user.name
+  const email = auth.identity?.role
+    ? `${auth.identity.role} · ${auth.identity.namespace}`
+    : user.email
+  const initials = (name.slice(0, 2) || 'OP').toUpperCase()
 
   return (
     <>
@@ -45,15 +51,15 @@ export function NavUser({ user }: NavUserProps) {
                 className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
               >
                 <Avatar className='h-8 w-8 rounded-lg'>
-                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarImage src={user.avatar} alt={name} />
                   <AvatarFallback className='rounded-lg'>
                     {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-start text-sm leading-tight'>
-                  <span className='truncate font-semibold'>{user.name}</span>
-                  {user.email ? (
-                    <span className='truncate text-xs'>{user.email}</span>
+                  <span className='truncate font-semibold'>{name}</span>
+                  {email ? (
+                    <span className='truncate text-xs'>{email}</span>
                   ) : null}
                 </div>
                 <ChevronsUpDown className='ms-auto size-4' />
@@ -68,13 +74,18 @@ export function NavUser({ user }: NavUserProps) {
               <DropdownMenuLabel className='p-0 font-normal'>
                 <div className='flex items-center gap-2 px-1 py-1.5 text-start text-sm'>
                   <Avatar className='h-8 w-8 rounded-lg'>
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user.avatar} alt={name} />
                     <AvatarFallback className='rounded-lg'>
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div className='grid flex-1 text-start text-sm leading-tight'>
-                    <span className='truncate font-semibold'>{user.name}</span>
+                    <span className='truncate font-semibold'>{name}</span>
+                    {email ? (
+                      <span className='text-muted-foreground truncate text-xs'>
+                        {email}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </DropdownMenuLabel>

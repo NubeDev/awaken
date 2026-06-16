@@ -18,8 +18,8 @@ export function SignIn() {
         <CardHeader>
           <CardTitle className='text-lg tracking-tight'>Sign in</CardTitle>
           <CardDescription>
-            Paste a rubix API token to authenticate this session. A configured
-            OIDC sign-in flow is a deployment follow-up.
+            Sign in with your rubix username and password, or pick a demo role
+            below. A configured OIDC sign-in flow is a deployment follow-up.
           </CardDescription>
         </CardHeader>
         <CardContent>

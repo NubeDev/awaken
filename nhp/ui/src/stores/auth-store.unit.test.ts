@@ -42,4 +42,31 @@ describe('useAuthStore', () => {
     useAuthStore.getState().auth.setAccessToken('rbx_live')
     expect(currentAccessToken()).toBe('rbx_live')
   })
+
+  it('setSession persists the token and identity together', async () => {
+    const { useAuthStore } = await importAuthStore()
+    const identity = { subject: 'acme_admin', namespace: 'acme', role: 'admin' }
+    useAuthStore.getState().auth.setSession('rbx_sess', identity)
+
+    vi.resetModules()
+    const { useAuthStore: reloaded } = await importAuthStore()
+    expect(reloaded.getState().auth.accessToken).toBe('rbx_sess')
+    expect(reloaded.getState().auth.identity).toEqual(identity)
+  })
+
+  it('resetAccessToken clears the persisted identity too', async () => {
+    const { useAuthStore } = await importAuthStore()
+    useAuthStore
+      .getState()
+      .auth.setSession('rbx_sess', {
+        subject: 'acme_admin',
+        namespace: 'acme',
+        role: 'admin',
+      })
+    useAuthStore.getState().auth.resetAccessToken()
+
+    vi.resetModules()
+    const { useAuthStore: reloaded } = await importAuthStore()
+    expect(reloaded.getState().auth.identity).toBeNull()
+  })
 })

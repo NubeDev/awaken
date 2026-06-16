@@ -23,6 +23,11 @@ export interface Binding {
   grain: Grain
   /** The bucket aggregate the rule decides on. */
   aggregate: Aggregate
+  /** Optional `content` key to narrow the series on (e.g. `"measure"`). Both
+   *  filter halves must be set for the filter to apply. */
+  filter_field?: string
+  /** The exact value `content.<filter_field>` must equal. */
+  filter_value?: string
 }
 
 export type CanonicalTable = 'records' | 'tags' | 'audit' | 'insights' | 'trace_summary'

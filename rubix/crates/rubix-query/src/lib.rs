@@ -22,7 +22,9 @@ mod search;
 mod time;
 mod transform;
 
-pub use aggregate::{BucketRollup, Grain, Sample, rollup_window};
+pub use aggregate::{
+    BucketRollup, Grain, Sample, SeriesFilter, rollup_window, rollup_window_filtered,
+};
 pub use error::{QueryError, Result};
 pub use provider::{
     CanonicalTable, ContextCache, ScopeIdentity, build_context, build_context_cached,

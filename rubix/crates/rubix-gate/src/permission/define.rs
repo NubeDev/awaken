@@ -19,6 +19,15 @@
 //! - the `record` table's `PERMISSIONS FOR select` clause keys on
 //!   `$auth.namespace`, so the engine returns only the session principal's
 //!   namespace data;
+//! - the `reading` table (the time-series data plane,
+//!   `rubix/docs/design/READINGS-TIMESERIES.md`) is scoped exactly like `record`:
+//!   `FOR select WHERE namespace = $auth.namespace`, and `FOR create, update,
+//!   delete NONE` so no principal writes through its scoped session — appends run
+//!   on the root/owner handle after a once-per-request capability check. A table
+//!   with no `PERMISSIONS` is invisible-or-leaky on a scoped session, so this
+//!   overwrite is correctness, not decoration. Its existence/fields/indexes are
+//!   declared in `rubix-store`'s `init_schema`; `OVERWRITE` here sets only the
+//!   table-level permissions and leaves those field/index definitions intact;
 //! - the `tag` and `tagged` tables carry scoped-session `select` permissions so a
 //!   principal can traverse the classification graph (`record→tagged→tag`) it owns:
 //!   `tag` nodes are shared, non-sensitive names (`FOR select FULL`), while a
@@ -67,6 +76,10 @@ DEFINE TABLE OVERWRITE tag SCHEMALESS\n\
 DEFINE TABLE OVERWRITE tagged SCHEMALESS\n\
   PERMISSIONS\n\
     FOR select WHERE in.namespace = $auth.namespace\n\
+    FOR create, update, delete NONE;\n\
+DEFINE TABLE OVERWRITE reading SCHEMALESS\n\
+  PERMISSIONS\n\
+    FOR select WHERE namespace = $auth.namespace\n\
     FOR create, update, delete NONE;";
 
 /// Apply the gate's access method and record permissions on the root handle.

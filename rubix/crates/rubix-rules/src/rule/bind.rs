@@ -13,7 +13,7 @@
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 
-use rubix_query::{BucketRollup, CanonicalTable, Grain, rollup_window};
+use rubix_query::{BucketRollup, CanonicalTable, Grain, SeriesFilter, rollup_window_filtered};
 
 use crate::error::{Result, RuleError};
 
@@ -74,11 +74,19 @@ pub struct Binding {
     pub grain: Grain,
     /// Which bucket aggregate the rule decides on.
     pub aggregate: Aggregate,
+    /// An optional `(content key, value)` equality narrowing the series.
+    ///
+    /// Many rows can share the numeric `field` across categories — every reading
+    /// stores its number at `content.value` regardless of `content.measure`. A
+    /// filter of `("measure", "temp")` restricts the rollup to one category so the
+    /// rule decides on just that metric rather than a blend. `None` reads the
+    /// whole series.
+    pub filter: Option<(String, String)>,
 }
 
 impl Binding {
     /// Declare a binding of `name` to the `aggregate` of `field` at `grain` over
-    /// `table`.
+    /// `table`, reading the whole series (no filter).
     #[must_use]
     pub fn new(
         name: impl Into<String>,
@@ -93,7 +101,19 @@ impl Binding {
             field: field.into(),
             grain,
             aggregate,
+            filter: None,
         }
+    }
+
+    /// Narrow this binding's series to rows whose `content.<key>` equals `value`.
+    ///
+    /// The composable way to target one category of a shared numeric field — e.g.
+    /// `Binding::new(…, "value", …).filtered_by("measure", "temp")` rolls up only
+    /// the temperature readings. Returns the updated binding.
+    #[must_use]
+    pub fn filtered_by(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.filter = Some((key.into(), value.into()));
+        self
     }
 }
 
@@ -111,7 +131,11 @@ impl Binding {
 /// Returns [`RuleError::Window`] if the rollup scan fails, or
 /// [`RuleError::Binding`] if the series yielded no bucket to read.
 pub async fn resolve(session: &Surreal<Db>, binding: &Binding) -> Result<f64> {
-    let buckets = rollup_window(session, binding.table, &binding.field, binding.grain)
+    let filter = binding
+        .filter
+        .as_ref()
+        .map(|(key, value)| SeriesFilter { key, value });
+    let buckets = rollup_window_filtered(session, binding.table, &binding.field, binding.grain, filter)
         .await
         .map_err(|e| RuleError::Window(e.to_string()))?;
     let latest = buckets.last().ok_or_else(|| {

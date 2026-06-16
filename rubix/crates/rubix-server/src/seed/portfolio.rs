@@ -246,6 +246,8 @@ pub struct TenantTally {
     pub nodes: usize,
     /// Number of reading records written.
     pub readings: usize,
+    /// Number of demo rule records written (filled by the rule seed).
+    pub rules: usize,
 }
 
 /// Write the full portfolio for one tenant as `operator`, returning the tally.
@@ -267,6 +269,7 @@ pub async fn seed_tenant(
         sites: 0,
         nodes: 0,
         readings: 0,
+        rules: 0,
     };
 
     for (site_key, site_name) in sites {

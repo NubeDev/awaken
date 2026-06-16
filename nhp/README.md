@@ -48,9 +48,25 @@ make -C nhp seed
 make -C nhp seed-check
 ```
 
-Then open **http://127.0.0.1:5194**. The sign-in screen takes a rubix bearer
-token; for the seeded demo you can leave it blank/continue — the UI falls back to
-the `VITE_RUBIX_*` service-account credentials above when no token is set.
+Then open **http://127.0.0.1:5194**. The sign-in screen takes a **username and
+password** — no raw API token to paste. It posts to `POST /auth/login`, which
+verifies the credentials and mints an opaque bearer token the UI carries
+thereafter (revoked on sign-out via `POST /auth/logout`).
+
+For the seeded `--seed-dev` demo, the sign-in screen also offers **one-click
+role buttons** for the cast provisioned in namespace `acme`
+(`rubix/crates/rubix-server/src/seed/cast.rs`):
+
+| Role     | Username (subject) | Password       |
+| -------- | ------------------ | -------------- |
+| Admin    | `acme_admin`       | `admin-demo`   |
+| Operator | `acme_operator`    | `operator-demo`|
+| Viewer   | `acme_viewer`      | `viewer-demo`  |
+
+These are DEMO credentials baked into a `--seed-dev` backend; a real deployment
+provisions its own principals and the demo buttons fall away. (Without a backend
+token the UI can still fall back to the `VITE_RUBIX_*` service-account
+credentials above, but signing in as an admin is what the admin surface needs.)
 
 ### One-command smoke (no UI, gates the POC)
 
@@ -64,6 +80,27 @@ make -C nhp smoke
 ```
 
 See [docs/DEMO.md](docs/DEMO.md) for the stakeholder click-path.
+
+### Troubleshooting
+
+**`Error: ENOSPC: System limit for number of file watchers reached`** — vite puts
+an inotify watch on every source file, and on a shared box the system limit
+(`fs.inotify.max_user_watches`) can be exhausted by other processes (IDEs, other
+workspaces). Vite then crashes on boot and takes the backend down with it.
+
+- Quick fix (no root): `make dev POLL=1` — vite watches by polling instead of
+  inotify, so it uses no watches at all (a little idle CPU; HMR still works).
+- Permanent fix (needs root): raise the limit once, system-wide:
+  ```sh
+  sudo sysctl -w fs.inotify.max_user_watches=524288
+  echo 'fs.inotify.max_user_watches=524288' | sudo tee /etc/sysctl.d/90-inotify-watches.conf
+  ```
+
+**`Database at …/LOCK is already locked`** — a previous backend is still running
+and holding the store. `make kill` now clears it (it targets the NHP backend by
+its `--nhp` marker and the UI port, sparing the sibling rubix backend). NHP uses
+its own store dir (`RUBIX_DATA_DIR=nhp-data`) so it can never clash with rubix's
+own `rubix-data/`.
 
 ## Demo walkthrough (short)
 

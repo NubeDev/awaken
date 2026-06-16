@@ -40,6 +40,17 @@ pub struct BindingDto {
     pub grain: String,
     /// The bucket aggregate (`avg`/`min`/`max`/`sum`/`count`/`first`/`last`).
     pub aggregate: String,
+    /// An optional `content` key to narrow the series on (e.g. `"measure"`).
+    ///
+    /// When set together with [`filter_value`](BindingDto::filter_value), the
+    /// rollup is restricted to rows whose `content.<filter_field>` equals it — so
+    /// a binding on the shared `value` field can target one `measure`. Both must
+    /// be present for the filter to apply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_field: Option<String>,
+    /// The exact value `content.<filter_field>` must equal for the filter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter_value: Option<String>,
 }
 
 impl BindingDto {
@@ -49,13 +60,21 @@ impl BindingDto {
     /// Returns the offending value as `Err` when `table`, `grain`, or `aggregate`
     /// is not one of the known variants — the caller maps it to a `400`.
     pub fn to_binding(&self) -> Result<Binding, String> {
-        Ok(Binding::new(
+        let binding = Binding::new(
             self.name.clone(),
             parse_table(&self.table)?,
             self.field.clone(),
             parse_grain(&self.grain)?,
             parse_aggregate(&self.aggregate)?,
-        ))
+        );
+        // A filter applies only when both halves are present; a lone field or
+        // value is treated as no filter rather than an error.
+        match (&self.filter_field, &self.filter_value) {
+            (Some(key), Some(value)) if !key.is_empty() => {
+                Ok(binding.filtered_by(key.clone(), value.clone()))
+            }
+            _ => Ok(binding),
+        }
     }
 }
 

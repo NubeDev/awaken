@@ -19,6 +19,7 @@ use crate::error::Result;
 use crate::provider::CanonicalTable;
 
 pub use rollup::{BucketRollup, Sample};
+pub use series::SeriesFilter;
 pub use window::Grain;
 
 use rollup::rollup;
@@ -40,6 +41,26 @@ pub async fn rollup_window(
     field: &str,
     grain: Grain,
 ) -> Result<Vec<BucketRollup>> {
-    let samples = read_series(session, table, field).await?;
+    rollup_window_filtered(session, table, field, grain, None).await
+}
+
+/// Like [`rollup_window`], but narrows the series to rows passing `filter`.
+///
+/// A single numeric field can be shared across categories — every reading stores
+/// its number at `content.value` regardless of `content.measure`. A
+/// [`SeriesFilter`] (`measure == "temp"`) restricts the rollup to one category so
+/// a rule decides on just that metric rather than a blend of all of them. A
+/// `None` filter is exactly [`rollup_window`].
+///
+/// # Errors
+/// Returns a [`QueryError`](crate::QueryError) if the scoped scan fails.
+pub async fn rollup_window_filtered(
+    session: &Surreal<Db>,
+    table: CanonicalTable,
+    field: &str,
+    grain: Grain,
+    filter: Option<SeriesFilter<'_>>,
+) -> Result<Vec<BucketRollup>> {
+    let samples = read_series(session, table, field, filter).await?;
     Ok(rollup(&samples, grain))
 }

@@ -66,7 +66,7 @@ SEED_DIR := seed
 COLLECTIONS_DIR := collections
 export RUBIX_BASE ?= http://127.0.0.1:$(BE_PORT)
 
-.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill collections collections-check seed seed-nhp seed-check
+.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill collections collections-check seed seed-nhp seed-check smoke
 
 build: build-be build-ui
 
@@ -120,6 +120,14 @@ seed seed-nhp:
 # 4 sites, a full register set, meters tagged, history present).
 seed-check:
 	node $(SEED_DIR)/check.mjs
+
+# End-to-end smoke (WS-08): boot a THROWAWAY rubix --seed-dev backend (data dir in
+# rubix/, gitignored, removed on exit) → register collections → seed → seed-check →
+# records-check (the dashboard data pipeline returns rows) → pnpm build →
+# pnpm test:unit. One entrypoint wiring the existing checks; gates the POC. Needs
+# nothing running first — it owns its own backend. See scripts/smoke.sh.
+smoke:
+	bash scripts/smoke.sh
 
 lint:
 	cd $(RUBIX_DIR) && cargo clippy $(CARGO_FEATURES) --all-targets -- -D warnings

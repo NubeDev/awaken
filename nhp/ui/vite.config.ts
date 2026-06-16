@@ -36,7 +36,7 @@ export default defineConfig({
     // `/api` is kept for any future versioned surface. Override the target with
     // VITE_API_PROXY.
     proxy: {
-      '^/(api|records|query|auth|datasources|principals|tenants|devices|health|api-docs)(/|\\?|$)':
+      '^/(api|records|readings|query|auth|datasources|principals|tenants|devices|health|api-docs)(/|\\?|$)':
         {
           target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8094',
           changeOrigin: true,

@@ -68,7 +68,18 @@ export function UserAuthForm({
           : null
       )
       toast.success(`Signed in${me ? ` as ${me.subject}` : ''}`)
-      navigate({ to: redirectTo || '/', replace: true })
+      // Never bounce back to the sign-in page: a 401 redirect can nest the
+      // `?redirect=` param (…/sign-in?redirect=/sign-in?redirect=/dashboards),
+      // which would loop us straight back here. Decode and reject any target
+      // that still points at sign-in, falling through to the app root.
+      let target = redirectTo || '/'
+      try {
+        target = decodeURIComponent(target)
+      } catch {
+        // keep the raw value if it is not percent-encoded
+      }
+      if (!target.startsWith('/') || target.startsWith('/sign-in')) target = '/'
+      navigate({ to: target, replace: true })
     } catch (err) {
       const msg =
         err instanceof ApiError && err.status === 401

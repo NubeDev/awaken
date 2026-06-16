@@ -75,11 +75,27 @@ export function useRegisters() {
 /** Default trailing window for a historian read: 7 days. */
 const DEFAULT_WINDOW_MS = 7 * 24 * 3600_000
 
+/**
+ * Bucket size for the default trailing-window end (1 minute). The default `to` is
+ * "now", but a raw `Date.now()` changes every millisecond — and `to` is part of
+ * the readings query key. An unbucketed value re-keys EVERY register's query on
+ * EVERY render, so the cache never hits and the dashboard re-fans ~100 `/readings`
+ * fetches in a render storm (observed: 2000+ requests in seconds, exhausting the
+ * connection pool). Snapping "now" down to a 1-minute boundary keeps the key
+ * stable across renders within the minute, so React Query serves cached data and
+ * only refetches when the bucket actually advances. A bucket ≤ the refresh
+ * interval costs no data freshness.
+ */
+const NOW_BUCKET_MS = 60_000
+
 /** Resolve an optional `{from,to}` to an RFC3339 pair, defaulting to the trailing
- *  `DEFAULT_WINDOW_MS` ending now (READINGS-TIMESERIES.md §"UI changes"). */
+ *  `DEFAULT_WINDOW_MS` ending at the current minute (READINGS-TIMESERIES.md
+ *  §"UI changes"). The default end is bucketed to keep the query key STABLE across
+ *  renders — see NOW_BUCKET_MS. */
 function resolveReadingWindow(opts?: { from?: string; to?: string }): { from: string; to: string } {
-  const to = opts?.to ?? new Date().toISOString()
-  const from = opts?.from ?? new Date(Date.now() - DEFAULT_WINDOW_MS).toISOString()
+  const nowBucketed = Math.floor(Date.now() / NOW_BUCKET_MS) * NOW_BUCKET_MS
+  const to = opts?.to ?? new Date(nowBucketed).toISOString()
+  const from = opts?.from ?? new Date(nowBucketed - DEFAULT_WINDOW_MS).toISOString()
   return { from, to }
 }
 

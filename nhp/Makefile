@@ -73,8 +73,17 @@ SEED_DIR := seed
 # `--seed-dev`), but the marker tags the NHP backend on its command line so
 # `make kill` can pkill ONLY this server and never the sibling rubix project's
 # backend (which has no port/data-dir on its cmdline to grep — both are env-only).
-# `--seed-dev` is appended when SEED=1.
-RUN_ARGS := -- --nhp $(if $(SEED),--seed-dev,)
+#
+# `--seed-dev` is appended only when SEED=1 AND the store is fresh. rubix's
+# `--seed-dev` is NOT idempotent: it re-provisions principals on every boot and
+# dies with "principal:acme_admin already exists" the second time. So we seed only
+# when $(RUBIX_DATA_DIR) doesn't exist yet — a store that's already there is
+# already seeded. This makes `make dev SEED=1` safe to run over and over: first run
+# seeds, later runs just boot. To force a re-seed, `make clean` (wipes the store)
+# then `make dev SEED=1`.
+STORE_EXISTS := $(wildcard $(RUBIX_DATA_DIR))
+SEED_DEV := $(if $(SEED),$(if $(STORE_EXISTS),,--seed-dev),)
+RUN_ARGS := -- --nhp $(SEED_DEV)
 
 # Where the collection registrar + check scripts POST. Defaults follow the dev
 # backend; override RUBIX_BASE / RUBIX_SUBJECT / RUBIX_SECRET (collections/client.mjs)

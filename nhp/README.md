@@ -29,6 +29,11 @@ are the principals rubix `--seed-dev` casts in namespace `acme`:
 
 ### Run order (established by WS-03)
 
+> **Both steps are required.** `make dev SEED=1` alone gives you a working login
+> but an **empty dashboard** ("No tenants. Seed a portfolio first."). The portfolio
+> — tenants, gateways, meters, history — is written by the separate **`make seed`**
+> step. Run step 1, wait for the backend, then run step 2.
+
 `--seed-dev` provisions the `acme`/`globex` namespaces and the operator/admin
 principals NHP authenticates as — it is a **prerequisite** for the NHP seed, which
 is a separate step that writes the portfolio over the HTTP records API.

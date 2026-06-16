@@ -81,6 +81,11 @@ export interface MeterType {
   manufacturer?: string
   version: number
   registers: RegisterDef[]
+  /**
+   * The printable scan code "on the box" (WS-09). Optional: existing types have no
+   * stored value and fall back to one derived from `key` — see enums/barcode.ts.
+   */
+  barcode?: string
   tags?: string[]
 }
 

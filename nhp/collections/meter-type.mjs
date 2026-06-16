@@ -15,6 +15,11 @@ export const meterType = {
     { name: 'name', type: 'text', required: true },
     { name: 'manufacturer', type: 'text' },
     { name: 'version', type: 'number', required: true },
+    // The printable scan code "on the box" (WS-09): `nhp-mt:<key>`. Optional —
+    // existing types fall back to a value derived from `key` so no migration is
+    // needed (nhp/ui/src/enums/barcode.ts). NOT `unique` at the gate: the gate does
+    // not enforce unique (WS-02 finding) and the code tracks the already-unique key.
+    { name: 'barcode', type: 'text' },
     // `registers` is a free-form JSON array of register-defs — see module doc.
   ],
 };

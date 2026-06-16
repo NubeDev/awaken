@@ -31,11 +31,6 @@ export interface SiteBoard {
   powerPanel: TrendWidget | null
 }
 
-function defKey(key: string): string {
-  const i = key.indexOf('--')
-  return i >= 0 ? key.slice(i + 2) : key
-}
-
 export function buildSiteBoard(
   siteKey: string,
   gateways: GatewayRecord[],
@@ -74,14 +69,13 @@ export function buildSiteBoard(
   )
   const series: Series[] = powerRegs
     .map((reg) => {
-      const def = defKey(reg.content.key)
       const samples = withinWindow(
-        history.filter((h) => h.meter === reg.content.meter && h.register === def),
+        history.filter((h) => h.series === reg.id),
         resolved
       )
       return {
         label: meterById.get(reg.content.meter) ?? reg.content.name,
-        points: samples.map((s) => ({ t: Date.parse(s.ts), v: s.value })),
+        points: samples.map((s) => ({ t: Date.parse(s.at), v: s.value })),
       }
     })
     .filter((s) => s.points.length > 0)

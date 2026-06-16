@@ -4,11 +4,12 @@
  * registers, an alarm panel, and the meter's status + last_seen. Pure builder
  * (meter-board.ts) over the meter's registers + its history series.
  *
- * The meter's `register` records are matched by `content.meter` === meter id; the
- * history series is fetched for just this meter (query/batch.ts useMeterHistory).
+ * The meter's `register` records are matched by `content.meter` === meter id; each
+ * such register IS a series, so the trend is read windowed and series-scoped by
+ * fanning a /readings query out over the meter's register ids (useRegistersHistory).
  */
 import { Card } from '@/components/ui/card'
-import { useMeterHistory, useMeters, useRegisters } from '../query/batch'
+import { useMeters, useRegisters, useRegistersHistory } from '../query/batch'
 import { buildMeterBoard } from '../auto-build/meter-board'
 import type { WindowToken } from '../query/time-window'
 import { AlarmPanel } from '../widgets/alarm-panel'
@@ -20,14 +21,14 @@ import { Empty } from '../widgets/empty'
 export function MeterPage({ meterId, window }: { meterId: string; window: WindowToken }) {
   const meters = useMeters()
   const registers = useRegisters()
-  const history = useMeterHistory(meterId)
+  const meterRegisters = (registers.data ?? []).filter((r) => r.content.meter === meterId)
+  const history = useRegistersHistory(meterRegisters)
 
   const meter = (meters.data ?? []).find((m) => m.id === meterId)
   const timezone = undefined // site tz is resolved at the site level; meter page uses browser-local
 
   if (registers.isLoading || history.isLoading) return <Empty message='Loading…' />
 
-  const meterRegisters = (registers.data ?? []).filter((r) => r.content.meter === meterId)
   const board = buildMeterBoard(meterRegisters, history.data ?? [], window, timezone)
 
   return (

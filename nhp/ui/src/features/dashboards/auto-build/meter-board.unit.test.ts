@@ -37,10 +37,11 @@ function reg(key: string, over: Partial<RegisterRec['content']> = {}): RegisterR
   } as RegisterRec
 }
 
+// Readings join by `series` === register record id (reg('k').id === `id-${k}`).
 const history: HistorySample[] = [
-  { kind: 'history', meter: 'meter-1', register: 'voltage_l1', ts: iso(2), value: 230 },
-  { kind: 'history', meter: 'meter-1', register: 'voltage_l1', ts: iso(1), value: 231 },
-  { kind: 'history', meter: 'meter-1', register: 'voltage_l2', ts: iso(1), value: 254 }, // critical
+  { series: 'id-voltage_l1', at: iso(2), value: 230 },
+  { series: 'id-voltage_l1', at: iso(1), value: 231 },
+  { series: 'id-voltage_l2', at: iso(1), value: 254 }, // critical
 ]
 
 describe('buildMeterBoard', () => {

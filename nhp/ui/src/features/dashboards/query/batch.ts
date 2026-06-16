@@ -21,7 +21,7 @@
  * edges — meaning the server-side `?tag=` filter does NOT see them). We therefore
  * fetch each kind whole and filter by `content.tags` in the builders.
  */
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import {
   listRecords,
   type GatewayRecord,
@@ -30,18 +30,17 @@ import {
   type RegisterRec,
   type SiteRecord,
 } from '@/api/records'
+import { getReadings, type Reading } from '@/api/readings'
 
-/** A `kind:"history"` sample (seed/history.mjs shape). No `content.tags`; it is
- *  tied to its series by `meter` + `register`. */
-export interface HistorySample {
-  kind: 'history'
-  meter: string
-  register: string
-  quantity?: string
-  unit?: string
-  ts: string
-  value: number
-}
+/**
+ * One readings-plane sample (READINGS-TIMESERIES.md). Lean: just the series it
+ * belongs to, its MEASUREMENT instant `at` (RFC3339, not write time), and the
+ * numeric value. The display metadata that used to be duplicated on every row
+ * (`quantity`/`unit`/`meter`/`register`) now lives ONCE on the series/register and
+ * is reached via `series` (= the register RECORD ID). Same shape as the API
+ * `Reading`; re-exported here because the dashboard builders import the type.
+ */
+export type HistorySample = Reading
 
 /** A `kind:"tenant"` record. */
 export interface Tenant {
@@ -73,27 +72,60 @@ export function useRegisters() {
   return useQuery({ queryKey: ['dash', 'register'], queryFn: () => listRecords('register') as Promise<RegisterRec[]>, staleTime: STALE })
 }
 
-/**
- * Every `kind:"history"` sample. The seed is small (≈4k rows) so one whole-kind
- * read serves the alarm rollup on the tenant/site cards (alarm-eval.ts evaluates
- * the latest value per register) AND the meter trend charts — fetched ONCE and
- * shared (the §7 "one place fetches" discipline). A real backend would push the
- * `meter`/`ts` filter into the query (the §3 batch path we fall back from).
- */
-export function useAllHistory() {
-  return useQuery({
-    queryKey: ['dash', 'history'],
-    staleTime: STALE,
-    queryFn: async () => {
-      const all = await listRecords<HistorySample>('history')
-      return all.map((r) => r.content)
-    },
-  })
+/** Default trailing window for a historian read: 7 days. */
+const DEFAULT_WINDOW_MS = 7 * 24 * 3600_000
+
+/** Resolve an optional `{from,to}` to an RFC3339 pair, defaulting to the trailing
+ *  `DEFAULT_WINDOW_MS` ending now (READINGS-TIMESERIES.md §"UI changes"). */
+function resolveReadingWindow(opts?: { from?: string; to?: string }): { from: string; to: string } {
+  const to = opts?.to ?? new Date().toISOString()
+  const from = opts?.from ?? new Date(Date.now() - DEFAULT_WINDOW_MS).toISOString()
+  return { from, to }
 }
 
-/** This meter's samples, sliced from the shared whole-history read. */
-export function useMeterHistory(meterId: string | undefined) {
-  const all = useAllHistory()
-  const samples = (all.data ?? []).filter((h) => h.meter === meterId)
-  return { data: meterId ? samples : [], isLoading: all.isLoading }
+/**
+ * Windowed, series-scoped historian read for ONE series (READINGS-TIMESERIES.md
+ * §"UI changes": replaces the whole-collection `useAllHistory`). Calls
+ * `GET /readings?series&from&to` over a trailing window (default: last 7 days).
+ * Disabled and empty when `series` is undefined. Returns `{ data, isLoading }`.
+ */
+export function useSeriesHistory(
+  series: string | undefined,
+  opts?: { from?: string; to?: string }
+): { data: HistorySample[]; isLoading: boolean } {
+  const { from, to } = resolveReadingWindow(opts)
+  const q = useQuery({
+    queryKey: ['dash', 'readings', series, from, to],
+    staleTime: STALE,
+    enabled: series !== undefined,
+    queryFn: () => getReadings(series as string, from, to),
+  })
+  return { data: q.data ?? [], isLoading: series !== undefined && q.isLoading }
+}
+
+/**
+ * Windowed historian read for MANY series at once: fans out one
+ * `GET /readings?series&from&to` per register id (React Query `useQueries`) over a
+ * trailing window (default: last 7 days) and returns a flat `HistorySample[]` —
+ * each sample carries its own `series`, so the board builders join by
+ * `sample.series === register.id`. This fan-out is the windowed replacement for the
+ * whole-collection read READINGS-TIMESERIES.md calls out as the thing that falls
+ * over at volume: each series is bounded by the window, nothing pulls the entire
+ * `reading` table. `isLoading` is aggregate (true while ANY series is loading).
+ */
+export function useRegistersHistory(
+  registers: { id: string }[],
+  opts?: { from?: string; to?: string }
+): { data: HistorySample[]; isLoading: boolean } {
+  const { from, to } = resolveReadingWindow(opts)
+  const results = useQueries({
+    queries: registers.map((r) => ({
+      queryKey: ['dash', 'readings', r.id, from, to],
+      staleTime: STALE,
+      queryFn: () => getReadings(r.id, from, to),
+    })),
+  })
+  const data = results.flatMap((res) => res.data ?? [])
+  const isLoading = results.some((res) => res.isLoading)
+  return { data, isLoading }
 }

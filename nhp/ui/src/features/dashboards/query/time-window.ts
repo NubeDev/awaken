@@ -2,10 +2,11 @@
  * Time windows for trend charts (DASHBOARDS-SCOPE §5: UTC windows + relative
  * tokens; charts show site-local time using the site `timezone`).
  *
- * The POC reads history over the plain `/records` API (see batch.ts for WHY no
- * `/query/batch`), so the window is applied CLIENT-SIDE: a relative token like
- * `now-24h` resolves to an absolute UTC `[from,to)` at read time, and rows whose
- * `ts` falls in the window are kept. Tokens (not absolute instants) live in board
+ * History is read windowed and series-scoped through the historian (see batch.ts:
+ * useSeriesHistory / useRegistersHistory). The board-state token is still applied
+ * CLIENT-SIDE to the returned samples: a relative token like `now-24h` resolves to
+ * an absolute UTC `[from,to)` at read time, and samples whose MEASUREMENT instant
+ * `at` falls in the window are kept. Tokens (not absolute instants) live in board
  * state so "last 24h" stays fresh across refreshes — the §5 relative-token rule.
  */
 
@@ -30,17 +31,18 @@ export function resolveWindow(token: WindowToken, now = Date.now()): ResolvedWin
   return { from: now - WINDOW_TOKENS[token] * 3600_000, to: now }
 }
 
-/** Keep only the samples whose ISO `ts` falls in `[from,to)`, ascending by ts. */
-export function withinWindow<T extends { ts: string }>(
+/** Keep only the samples whose measurement instant `at` falls in `[from,to)`,
+ *  ascending by `at`. */
+export function withinWindow<T extends { at: string }>(
   rows: T[],
   window: ResolvedWindow
 ): T[] {
   return rows
     .filter((r) => {
-      const t = Date.parse(r.ts)
+      const t = Date.parse(r.at)
       return t >= window.from && t < window.to
     })
-    .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
 }
 
 /**

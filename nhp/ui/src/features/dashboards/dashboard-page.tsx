@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useAllHistory, useTenants } from './query/batch'
+import { useRegisters, useRegistersHistory, useTenants } from './query/batch'
 import {
   REFRESH_OPTIONS,
   useRefreshInterval,
@@ -48,10 +48,14 @@ export function DashboardPage() {
   const [window, setWindow] = useState<WindowToken>('now-24h')
   const [refresh, setRefresh] = useState<RefreshMs>(0)
 
-  // The shared whole-history read; the refresh interval re-runs the dashboard
-  // queries on each visible tick (paused while the tab is hidden).
+  // The shared WINDOWED history read: fan one /readings query out per register over
+  // the default trailing window (READINGS-TIMESERIES.md §"UI changes" — this is the
+  // windowed replacement for the whole-collection read that falls over at volume).
+  // The refresh interval re-runs the dashboard queries on each visible tick (paused
+  // while the tab is hidden).
   const interval = useRefreshInterval(refresh)
-  const history = useAllHistory()
+  const registers = useRegisters()
+  const history = useRegistersHistory(registers.data ?? [])
   useDashboardRefetch(interval)
 
   const tenantList = tenants.data ?? []

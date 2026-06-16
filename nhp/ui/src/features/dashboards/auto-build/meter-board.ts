@@ -10,9 +10,9 @@
  * tile from its latest live value. The alarm panel evaluates each register's ramp
  * against its latest sample (see alarm-panel.tsx for the POC rule).
  *
- * Join note (seed shape): a register record's `content.meter` is the meter RECORD
- * ID and its `content.key` is `<meterKey>--<defKey>`; a history sample's `register`
- * is the bare `<defKey>`. So a series matches on `meter` id + def-key suffix.
+ * Join note (readings plane): a sample's `series` IS the register RECORD ID, so a
+ * register's series is matched by a direct `sample.series === register.id`. Chart
+ * x-axis and recency read the measurement instant `at`.
  */
 import type { Alarm, RegisterRec } from '@/api/records'
 import { severityFor } from '../_shared/field-config'
@@ -27,21 +27,14 @@ export interface MeterBoard {
   alarms: AlarmRow[]
 }
 
-/** The bare def-key a register history series joins on. */
-function defKey(register: RegisterRec): string {
-  const k = register.content.key
-  const i = k.indexOf('--')
-  return i >= 0 ? k.slice(i + 2) : k
-}
-
-/** Latest sample value for a register def under a meter, or null. */
-function latest(history: HistorySample[], def: string): { value: number; ts: string } | null {
+/** Latest sample value for a register's series (by register id), or null. */
+function latest(history: HistorySample[], seriesId: string): { value: number; at: string } | null {
   let best: HistorySample | null = null
   for (const h of history) {
-    if (h.register !== def) continue
-    if (!best || Date.parse(h.ts) > Date.parse(best.ts)) best = h
+    if (h.series !== seriesId) continue
+    if (!best || Date.parse(h.at) > Date.parse(best.at)) best = h
   }
-  return best ? { value: best.value, ts: best.ts } : null
+  return best ? { value: best.value, at: best.at } : null
 }
 
 export function buildMeterBoard(
@@ -59,8 +52,7 @@ export function buildMeterBoard(
 
   for (const reg of registers) {
     const c = reg.content
-    const def = defKey(reg)
-    const last = latest(history, def)
+    const last = latest(history, reg.id)
 
     // Alarm evaluation over the latest value (shared ramp; POC client-side rule).
     if (last) {
@@ -98,14 +90,13 @@ export function buildMeterBoard(
   const trends: TrendWidget[] = []
   for (const [groupKey, regs] of groups) {
     const series: Series[] = regs.map((reg) => {
-      const def = defKey(reg)
       const samples = withinWindow(
-        history.filter((h) => h.register === def),
+        history.filter((h) => h.series === reg.id),
         resolved
       )
       return {
         label: reg.content.name,
-        points: samples.map((s) => ({ t: Date.parse(s.ts), v: s.value })),
+        points: samples.map((s) => ({ t: Date.parse(s.at), v: s.value })),
         alarm: reg.content.alarm as Alarm | undefined,
       }
     })

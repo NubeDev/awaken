@@ -61,3 +61,18 @@ and reusable (BACKEND-COLLECTIONS open question 4). Both are upstream, approved 
 (`nhp/collections/enforce.mjs`) and the onboarding wizard (WS-06). Defence-in-depth becomes
 defence-in-one until the gate enforces it; acceptable for the POC.
 **Resolution:** _(rubix team — dated. Not required for the POC.)_
+
+### 2026-06-16 — RUBIX-TEAM — HTTP route to attach tag-graph edges to a record
+**Blocked on:** rubix tags are graph edges (`record→tagged→tag`) and the list read projects them onto
+`RecordDto.tags`, but the HTTP records API exposes **no route to WRITE a tag edge**
+(`rubix/crates/rubix-server/src/http/records/` has create/get/list/update/delete only; the seed
+library attaches tags via the gate directly, which NHP cannot call). So an HTTP-only client (NHP)
+cannot create true tag-graph edges.
+**Needs:** rubix team to add a generic tag-attach/detach HTTP surface (e.g.
+`PUT/DELETE /records/:id/tags/:tag`) routed through the gate, reusable by any record consumer —
+upstream, approved by the rubix team. **NHP does not implement this.**
+**Workaround (POC, no rubix change):** NHP carries its standard tags in the record's `content.tags`
+array (written over the normal records API); WS-03's `seed/tags.mjs` is the single source of truth and
+WS-07's auto-build reads `content.tags`. Functionally sufficient for the POC — the cost is that tag
+filtering can't use rubix's tag-graph query, only content filtering. Not a blocker.
+**Resolution:** _(rubix team — dated. Not required for the POC.)_

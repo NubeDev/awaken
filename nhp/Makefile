@@ -40,12 +40,24 @@ export VITE_UI_PORT ?= $(UI_PORT)
 FEATURES ?=
 CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 
-# Dev portfolio seed. Off by default: a fresh DB starts empty. SEED=1 populates
-# the demo portfolio through the gate and runs the live-value ticker (WS-03 owns
-# the NHP seed; until it lands this forwards to rubix's own --seed-dev). It
-# repopulates on every boot, so deleting the DB only clears it until the next run.
+# Dev portfolio seed. Off by default: a fresh DB starts empty.
+#
+# SEED=1 turns on rubix's own --seed-dev, which is a PREREQUISITE for the NHP seed,
+# not the NHP portfolio itself: it creates the `acme`/`globex` namespaces and the
+# operator/admin/agent principals the NHP seed authenticates as (there is no HTTP
+# path to provision identities — they precede any scoped session). The NHP mock
+# portfolio + faked poller data is a SEPARATE step (`make seed`) that writes data
+# over the HTTP records API against the already-running, --seed-dev'd backend.
+#
+# Required order (WS-03):
+#   1. make dev SEED=1     # boot rubix --seed-dev (namespace + principals) + UI
+#   2. make seed           # (in another shell) register collections + portfolio
+#   3. make seed-check     # confirm the expected counts
+# It repopulates on a re-run but is idempotent-ish (records carry stable keys and
+# are skipped if present); deleting the DB clears it until the next seeded run.
 SEED ?=
 SEED_FLAG := $(if $(SEED),-- --seed-dev,)
+SEED_DIR := seed
 
 # Where the collection registrar + check scripts POST. Defaults follow the dev
 # backend; override RUBIX_BASE / RUBIX_SUBJECT / RUBIX_SECRET (collections/client.mjs)
@@ -54,7 +66,7 @@ SEED_FLAG := $(if $(SEED),-- --seed-dev,)
 COLLECTIONS_DIR := collections
 export RUBIX_BASE ?= http://127.0.0.1:$(BE_PORT)
 
-.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill collections collections-check
+.PHONY: build dev dev-be dev-ui test lint fmt build-be build-ui clean kill collections collections-check seed seed-nhp seed-check
 
 build: build-be build-ui
 
@@ -93,6 +105,21 @@ collections:
 # (gate-enforced required/type; client-enforced enum/unique/device-limit).
 collections-check:
 	node $(COLLECTIONS_DIR)/check.mjs
+
+# Seed the NHP mock portfolio + faked poller data on a RUNNING --seed-dev'd rubix
+# backend (WS-03). Registers the collections first, then writes
+# tenant→site→gateway→network→meter→register records (stamped from the meter-types,
+# tagged for dashboard auto-build) plus history for history=true registers and
+# faked status/last_seen. Idempotent-ish; needs node + a reachable RUBIX_BASE.
+# Run `make dev SEED=1` first (it provisions the namespace + principals). `seed-nhp`
+# is an alias matching SEED.md's naming.
+seed seed-nhp:
+	node $(SEED_DIR)/seed.mjs
+
+# Confirm the seeded portfolio meets the WS-03 done-gate counts (2 tenants,
+# 4 sites, a full register set, meters tagged, history present).
+seed-check:
+	node $(SEED_DIR)/check.mjs
 
 lint:
 	cd $(RUBIX_DIR) && cargo clippy $(CARGO_FEATURES) --all-targets -- -D warnings

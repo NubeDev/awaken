@@ -4,21 +4,20 @@
  *  - a stable categorical series palette (multi-series charts: V L1/L2/L3),
  *  - the alarm severity ramp (DOMAIN-MODEL §Alarms: ok/warning/critical), which is
  *    the SAME ramp that both fires alarms and colours a chart.
- * Kept as literal hsl strings (not CSS-var lookups) so recharts `stroke`/`fill`
- * props take them directly; light enough for the POC, swap to theme vars later.
+ * Series colours are the theme's `--chart-1..5` CSS vars so the charts track
+ * light/dark mode (styles/theme.css); recharts `stroke`/`fill` accept `var(--x)`
+ * directly. Severity/status stay literal — they are SEMANTIC (ok/warn/critical,
+ * online/offline) and must read the same in any theme.
  */
 import type { AlarmSeverity } from '@/api/records'
 
-/** Categorical series colours, cycled by series index. */
+/** Categorical series colours, cycled by series index — theme-driven (--chart-N). */
 export const SERIES_COLORS = [
-  '#2563eb', // blue
-  '#16a34a', // green
-  '#ea580c', // orange
-  '#9333ea', // violet
-  '#0891b2', // cyan
-  '#dc2626', // red
-  '#ca8a04', // amber
-  '#4f46e5', // indigo
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ] as const
 
 export function seriesColor(index: number): string {

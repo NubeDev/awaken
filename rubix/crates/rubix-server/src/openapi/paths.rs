@@ -14,13 +14,13 @@
 #![allow(dead_code)]
 
 use crate::dto::{
-    BatchQueryRequest, BatchQueryResponse, CreateDeviceRequest, CreatePrincipalRequest,
-    CreateRecordRequest, CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto,
-    DatasourceDto, DeviceDto, DryRunRequest, DryRunResponse, GrantDto, LoginRequest, LoginResponse,
-    MeResponse, PreferencesDto, PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse,
-    RecordDto, RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest,
-    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
-    UpdateRuleRequest,
+    AppendReadingsRequest, AppendReadingsResponse, BatchQueryRequest, BatchQueryResponse,
+    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
+    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
+    DryRunResponse, GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto,
+    PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto, RecordDto,
+    RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest,
+    UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
 };
 
 /// `POST /auth/login`.
@@ -89,6 +89,32 @@ pub fn list_records() {}
     )
 )]
 pub fn create_record() {}
+
+/// `GET /readings`.
+#[utoipa::path(
+    get,
+    path = "/readings",
+    params(
+        ("series" = String, Query, description = "The series-defining record id to read"),
+        ("from" = String, Query, description = "Inclusive window start (RFC 3339, UTC)"),
+        ("to" = String, Query, description = "Inclusive window end (RFC 3339, UTC)")
+    ),
+    responses((status = 200, description = "Readings in the window, at-ordered", body = [ReadingDto]))
+)]
+pub fn read_readings() {}
+
+/// `POST /readings`.
+#[utoipa::path(
+    post,
+    path = "/readings",
+    request_body = AppendReadingsRequest,
+    responses(
+        (status = 200, description = "How many readings were appended", body = AppendReadingsResponse),
+        (status = 403, description = "Principal lacks the readings-append capability"),
+        (status = 400, description = "A sample timestamp is not RFC 3339")
+    )
+)]
+pub fn append_readings() {}
 
 /// `GET /records/{id}`.
 #[utoipa::path(

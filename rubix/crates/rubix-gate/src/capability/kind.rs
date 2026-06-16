@@ -58,6 +58,18 @@ pub enum Capability {
     /// its label/class/metadata) and actuating a registered device must be two
     /// grants (`rubix/docs/design/ADMIN-API.md`, Surface 4).
     DeviceManage,
+    /// Bulk-append readings into the time-series data plane.
+    ///
+    /// The fail-closed grant the `POST /readings` bulk-append endpoint checks
+    /// **once per request** before writing on the root/owner handle
+    /// (`rubix/docs/design/READINGS-TIMESERIES.md`, "Bulk append endpoint"). It is
+    /// **not** `ingest-publish`: that authorizes the Zenoh ingest stream (where the
+    /// once-per-stream check lives at subscribe), while this authorizes a
+    /// non-Zenoh batch writer (the seed, backfills). Both are gate-bypassing
+    /// data-plane writes — distinct authorities so a batch backfill and a live
+    /// stream can be granted apart. Readings never enter the command gate, audit,
+    /// or undo (SCOPE: "readings … never undone").
+    ReadingsAppend,
 }
 
 impl Capability {
@@ -66,7 +78,7 @@ impl Capability {
     /// The registry ([`is_registered`](crate::capability::is_registered)) and the
     /// wire round-trip both derive from this list, so adding a variant here is the
     /// single place a new capability becomes known.
-    pub const ALL: [Capability; 9] = [
+    pub const ALL: [Capability; 10] = [
         Capability::DatasourceRegister,
         Capability::RuleInvoke,
         Capability::IngestPublish,
@@ -76,6 +88,7 @@ impl Capability {
         Capability::DeviceActuate,
         Capability::RuleDefine,
         Capability::DeviceManage,
+        Capability::ReadingsAppend,
     ];
 
     /// The stable wire/storage string for this capability.
@@ -91,6 +104,7 @@ impl Capability {
             Capability::DeviceActuate => "device-actuate",
             Capability::RuleDefine => "rule-define",
             Capability::DeviceManage => "device-manage",
+            Capability::ReadingsAppend => "readings-append",
         }
     }
 
@@ -133,6 +147,7 @@ mod tests {
         assert_eq!(Capability::DeviceActuate.as_str(), "device-actuate");
         assert_eq!(Capability::RuleDefine.as_str(), "rule-define");
         assert_eq!(Capability::DeviceManage.as_str(), "device-manage");
+        assert_eq!(Capability::ReadingsAppend.as_str(), "readings-append");
     }
 
     #[test]
@@ -140,7 +155,7 @@ mod tests {
         // `ALL` is the single source of truth the registry and wire round-trip
         // derive from; its length must track the variant count so a forgotten
         // entry cannot silently drop a capability out of the fail-closed set.
-        assert_eq!(Capability::ALL.len(), 9);
+        assert_eq!(Capability::ALL.len(), 10);
         for capability in Capability::ALL {
             let occurrences = Capability::ALL
                 .into_iter()

@@ -37,16 +37,27 @@ pub enum CanonicalTable {
     /// `num_spans`, `total_tokens`, …) live in the `content` JSON and are reached
     /// with `json_get`, the same as the other canonical tables.
     TraceSummary,
+    /// The time-series data plane (`rubix-core` `reading`,
+    /// `rubix/docs/design/READINGS-TIMESERIES.md`).
+    ///
+    /// Unlike the other tables, a reading is not a free-form document: its hot
+    /// columns are typed. So this table carries its **own** 6-column Arrow
+    /// schema (`id/namespace/series/at/value/created`) rather than the shared
+    /// structural-plus-`content` shape — the query layer buckets on the
+    /// measurement instant `at` and the numeric `value` directly, closing the
+    /// trend-collapse bug that buckets on write time.
+    Readings,
 }
 
 impl CanonicalTable {
     /// Every canonical table the surface exposes, in declaration order.
-    pub const ALL: [CanonicalTable; 5] = [
+    pub const ALL: [CanonicalTable; 6] = [
         CanonicalTable::Records,
         CanonicalTable::Tags,
         CanonicalTable::Audit,
         CanonicalTable::Insights,
         CanonicalTable::TraceSummary,
+        CanonicalTable::Readings,
     ];
 
     /// The SurrealDB table name scanned for this canonical table.
@@ -58,6 +69,7 @@ impl CanonicalTable {
             CanonicalTable::Audit => "audit",
             CanonicalTable::Insights => "insight",
             CanonicalTable::TraceSummary => "trace_summary",
+            CanonicalTable::Readings => "reading",
         }
     }
 
@@ -80,26 +92,48 @@ impl CanonicalTable {
 
     /// The Arrow schema this table is scanned into.
     ///
-    /// All canonical tables share the structural columns; `content` carries the
+    /// Most canonical tables share the structural columns; `content` carries the
     /// free-form document as JSON text so no domain shape is baked into the
-    /// schema (`rubix/docs/SCOPE.md`, principle 4).
+    /// schema (`rubix/docs/SCOPE.md`, principle 4). [`CanonicalTable::Readings`]
+    /// is the exception: a reading's hot columns are typed, so it gets its own
+    /// 6-column schema with the measurement instant `at` and numeric `value`
+    /// surfaced directly (`rubix/docs/design/READINGS-TIMESERIES.md`, "Read
+    /// path").
     #[must_use]
     pub fn arrow_schema(self) -> Arc<Schema> {
-        Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Utf8, false),
-            Field::new("namespace", DataType::Utf8, true),
-            Field::new(
-                "created",
-                DataType::Timestamp(TimeUnit::Microsecond, None),
-                true,
-            ),
-            Field::new(
-                "updated",
-                DataType::Timestamp(TimeUnit::Microsecond, None),
-                true,
-            ),
-            Field::new("content", DataType::Utf8, true),
-        ]))
+        match self {
+            CanonicalTable::Readings => Arc::new(Schema::new(vec![
+                Field::new("id", DataType::Utf8, false),
+                Field::new("namespace", DataType::Utf8, true),
+                Field::new("series", DataType::Utf8, true),
+                Field::new(
+                    "at",
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    true,
+                ),
+                Field::new("value", DataType::Float64, true),
+                Field::new(
+                    "created",
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    true,
+                ),
+            ])),
+            _ => Arc::new(Schema::new(vec![
+                Field::new("id", DataType::Utf8, false),
+                Field::new("namespace", DataType::Utf8, true),
+                Field::new(
+                    "created",
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    true,
+                ),
+                Field::new(
+                    "updated",
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    true,
+                ),
+                Field::new("content", DataType::Utf8, true),
+            ])),
+        }
     }
 }
 
@@ -124,5 +158,12 @@ mod tests {
         let schema = CanonicalTable::Records.arrow_schema();
         let names: Vec<&str> = schema.fields().iter().map(|f| f.name().as_str()).collect();
         assert_eq!(names, ["id", "namespace", "created", "updated", "content"]);
+    }
+
+    #[test]
+    fn readings_carries_its_own_typed_time_series_columns() {
+        let schema = CanonicalTable::Readings.arrow_schema();
+        let names: Vec<&str> = schema.fields().iter().map(|f| f.name().as_str()).collect();
+        assert_eq!(names, ["id", "namespace", "series", "at", "value", "created"]);
     }
 }

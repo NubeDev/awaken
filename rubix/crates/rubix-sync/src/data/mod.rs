@@ -13,6 +13,7 @@ pub mod dedup;
 pub mod order;
 pub mod replay;
 pub mod ship;
+pub mod ship_reading;
 
 pub use dedup::SeenSet;
 pub use order::in_apply_order;
@@ -20,4 +21,8 @@ pub use replay::Outbox;
 pub use ship::{
     SYNC_DATA_ROOT, apply_batch, apply_record, decode_record, encode_record, publish_record,
     ship_key,
+};
+pub use ship_reading::{
+    SYNC_READING_ROOT, apply_reading, apply_reading_batch, decode_reading, encode_reading,
+    publish_reading, reading_ship_key,
 };

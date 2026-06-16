@@ -10,16 +10,17 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    AgentDto, AskRequest, AskResponse, BatchQueryItem, BatchQueryRequest, BatchQueryResponse,
-    BatchQueryResult, BindingDto, BucketDto, ColumnDto, CreateDeviceRequest,
-    CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest, CreateTenantRequest,
-    CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest, DryRunResponse, GrantDto,
-    LoginRequest, LoginResponse, MeResponse, PersistRequest, PersistedDto, PreferencesDto,
-    PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse,
-    QuerySchemaResponse, RecallRequest, RecalledDto, RecordDto, RegisterDatasourceRequest,
-    ResolvedInputDto, RuleDto, TableSchemaDto, TenantDto, TimeBoundDto, TimeScopeDto, TransformDto,
-    UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest,
-    UpdateRecordRequest, UpdateRuleRequest,
+    AgentDto, AppendReadingsRequest, AppendReadingsResponse, AskRequest, AskResponse,
+    BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, BindingDto, BucketDto,
+    ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
+    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
+    DryRunResponse, GrantDto, LoginRequest, LoginResponse, MeResponse, PersistRequest,
+    PersistedDto, PreferencesDto, PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto,
+    QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto, ReadingSampleDto, RecallRequest,
+    RecalledDto, RecordDto, RegisterDatasourceRequest, ResolvedInputDto, RuleDto, TableSchemaDto,
+    TenantDto, TimeBoundDto, TimeScopeDto, TransformDto, UpdateDatasourceRequest,
+    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
+    UpdateRuleRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.
@@ -36,6 +37,8 @@ use crate::dto::{
         crate::openapi::paths::me,
         crate::openapi::paths::list_records,
         crate::openapi::paths::create_record,
+        crate::openapi::paths::read_readings,
+        crate::openapi::paths::append_readings,
         crate::openapi::paths::get_record,
         crate::openapi::paths::update_record,
         crate::openapi::paths::delete_record,
@@ -81,6 +84,10 @@ use crate::dto::{
         RecordDto,
         CreateRecordRequest,
         UpdateRecordRequest,
+        AppendReadingsRequest,
+        AppendReadingsResponse,
+        ReadingSampleDto,
+        ReadingDto,
         QueryRequest,
         QueryResponse,
         QuerySchemaResponse,

@@ -11,7 +11,9 @@
 
 use std::sync::Arc;
 
-use datafusion::arrow::array::{ArrayRef, StringArray, TimestampMicrosecondArray};
+use datafusion::arrow::array::{
+    ArrayRef, Float64Array, StringArray, TimestampMicrosecondArray,
+};
 use datafusion::arrow::record_batch::RecordBatch;
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
@@ -60,7 +62,15 @@ fn is_missing_table(error: &surrealdb::Error) -> bool {
 }
 
 /// Project decoded JSON rows into the table's Arrow schema.
+///
+/// [`CanonicalTable::Readings`] has its own typed time-series shape, so it is
+/// projected into the 6-column reading schema (`id/namespace/series/at/value/
+/// created`); every other table uses the shared structural-plus-`content`
+/// projection (`rubix/docs/design/READINGS-TIMESERIES.md`, "Read path").
 fn build_batch(table: CanonicalTable, rows: &[serde_json::Value]) -> Result<RecordBatch> {
+    if table == CanonicalTable::Readings {
+        return build_reading_batch(table, rows);
+    }
     let mut ids: Vec<String> = Vec::with_capacity(rows.len());
     let mut namespaces: Vec<Option<String>> = Vec::with_capacity(rows.len());
     let mut created: Vec<Option<i64>> = Vec::with_capacity(rows.len());
@@ -81,6 +91,44 @@ fn build_batch(table: CanonicalTable, rows: &[serde_json::Value]) -> Result<Reco
         Arc::new(TimestampMicrosecondArray::from(created)),
         Arc::new(TimestampMicrosecondArray::from(updated)),
         Arc::new(StringArray::from(content)),
+    ];
+
+    RecordBatch::try_new(table.arrow_schema(), columns).map_err(|e| QueryError::DataFusion(e.into()))
+}
+
+/// Project decoded JSON rows into the 6-column reading schema.
+///
+/// A reading's hot columns are typed, so this surfaces `series`, the
+/// measurement instant `at`, and the numeric `value` as their own Arrow columns
+/// rather than burying them in a `content` blob. `at`/`created` are read with
+/// the shared [`micros_field`] datetime helper; `value` as an f64; `series` as
+/// the bare register id with its `record:` prefix and `⟨⟩` brackets stripped so
+/// it matches a register's id (`rubix/docs/design/READINGS-TIMESERIES.md`,
+/// "Read path").
+fn build_reading_batch(table: CanonicalTable, rows: &[serde_json::Value]) -> Result<RecordBatch> {
+    let mut ids: Vec<String> = Vec::with_capacity(rows.len());
+    let mut namespaces: Vec<Option<String>> = Vec::with_capacity(rows.len());
+    let mut series: Vec<Option<String>> = Vec::with_capacity(rows.len());
+    let mut at: Vec<Option<i64>> = Vec::with_capacity(rows.len());
+    let mut value: Vec<Option<f64>> = Vec::with_capacity(rows.len());
+    let mut created: Vec<Option<i64>> = Vec::with_capacity(rows.len());
+
+    for row in rows {
+        ids.push(row_id(row));
+        namespaces.push(string_field(row, "namespace"));
+        series.push(series_field(row, "series"));
+        at.push(micros_field(row, "at"));
+        value.push(f64_field(row, "value"));
+        created.push(micros_field(row, "created"));
+    }
+
+    let columns: Vec<ArrayRef> = vec![
+        Arc::new(StringArray::from(ids)),
+        Arc::new(StringArray::from(namespaces)),
+        Arc::new(StringArray::from(series)),
+        Arc::new(TimestampMicrosecondArray::from(at)),
+        Arc::new(Float64Array::from(value)),
+        Arc::new(TimestampMicrosecondArray::from(created)),
     ];
 
     RecordBatch::try_new(table.arrow_schema(), columns).map_err(|e| QueryError::DataFusion(e.into()))
@@ -116,9 +164,31 @@ fn micros_field(row: &serde_json::Value, field: &str) -> Option<i64> {
     }
 }
 
+/// Read a numeric field by name as an f64, `None` when absent or non-numeric.
+fn f64_field(row: &serde_json::Value, field: &str) -> Option<f64> {
+    row.get(field).and_then(serde_json::Value::as_f64)
+}
+
+/// Read a `series` record link as its bare id string.
+///
+/// SurrealDB renders a record link as `record:abc` or, when the key is a UUID or
+/// otherwise non-identifier, `record:⟨…⟩` (the U+27E8/U+27E9 angle brackets). The
+/// reading's `series` must match a register's bare id, so this strips a leading
+/// `record:` table prefix and any surrounding `⟨ ⟩` brackets. A non-string value
+/// (e.g. an object link) is `None`.
+fn series_field(row: &serde_json::Value, field: &str) -> Option<String> {
+    let raw = row.get(field).and_then(serde_json::Value::as_str)?;
+    let bare = raw.split_once(':').map_or(raw, |(_, key)| key);
+    let bare = bare
+        .strip_prefix('\u{27e8}')
+        .and_then(|s| s.strip_suffix('\u{27e9}'))
+        .unwrap_or(bare);
+    Some(bare.to_string())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::build_batch;
+    use super::{build_batch, series_field};
     use crate::provider::schema::CanonicalTable;
 
     #[test]
@@ -139,5 +209,64 @@ mod tests {
         })];
         let batch = build_batch(CanonicalTable::Records, &rows).unwrap();
         assert_eq!(batch.num_rows(), 1);
+    }
+
+    #[test]
+    fn an_empty_readings_table_builds_a_zero_row_six_col_batch() {
+        let batch = build_batch(CanonicalTable::Readings, &[]).unwrap();
+        assert_eq!(batch.num_rows(), 0);
+        assert_eq!(batch.num_columns(), 6);
+    }
+
+    #[test]
+    fn a_reading_row_projects_its_series_at_and_value_columns() {
+        use datafusion::arrow::array::{
+            Float64Array, StringArray, TimestampMicrosecondArray,
+        };
+
+        let rows = vec![serde_json::json!({
+            "id": "reading:abc",
+            "namespace": "tenant-a",
+            "series": "record:reg1",
+            "at": "1970-01-01T00:01:00Z",
+            "value": 21.5,
+            "created": "1970-01-01T00:00:00Z"
+        })];
+        let batch = build_batch(CanonicalTable::Readings, &rows).unwrap();
+        assert_eq!(batch.num_rows(), 1);
+        assert_eq!(batch.num_columns(), 6);
+
+        let series = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(series.value(0), "reg1");
+
+        let at = batch
+            .column(3)
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+            .unwrap();
+        assert_eq!(at.value(0), 60 * 1_000_000);
+
+        let value = batch
+            .column(4)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert!((value.value(0) - 21.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn series_field_strips_the_record_prefix_and_angle_brackets() {
+        let plain = serde_json::json!({ "series": "record:reg1" });
+        assert_eq!(series_field(&plain, "series"), Some("reg1".to_string()));
+
+        let bracketed = serde_json::json!({ "series": "record:\u{27e8}abc-123\u{27e9}" });
+        assert_eq!(series_field(&bracketed, "series"), Some("abc-123".to_string()));
+
+        let missing = serde_json::json!({});
+        assert_eq!(series_field(&missing, "series"), None);
     }
 }

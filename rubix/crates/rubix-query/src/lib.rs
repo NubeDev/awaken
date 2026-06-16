@@ -23,7 +23,8 @@ mod time;
 mod transform;
 
 pub use aggregate::{
-    BucketRollup, Grain, Sample, SeriesFilter, rollup_window, rollup_window_filtered,
+    BucketRollup, Grain, Sample, SeriesFilter, rollup_reading_window, rollup_window,
+    rollup_window_filtered,
 };
 pub use error::{QueryError, Result};
 pub use provider::{

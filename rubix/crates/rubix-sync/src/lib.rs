@@ -30,7 +30,8 @@ pub use config::{
     reconcile_ambiguous,
 };
 pub use data::{
-    Outbox, SYNC_DATA_ROOT, SeenSet, apply_batch, apply_record, decode_record, encode_record,
-    in_apply_order, publish_record, ship_key,
+    Outbox, SYNC_DATA_ROOT, SYNC_READING_ROOT, SeenSet, apply_batch, apply_reading,
+    apply_reading_batch, apply_record, decode_reading, decode_record, encode_reading,
+    encode_record, in_apply_order, publish_reading, publish_record, reading_ship_key, ship_key,
 };
 pub use error::{Result, SyncError};

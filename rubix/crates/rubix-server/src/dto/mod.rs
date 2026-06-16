@@ -11,6 +11,7 @@ pub mod auth;
 pub mod datasource;
 pub mod prefs;
 pub mod query;
+pub mod reading;
 pub mod record;
 pub mod rule;
 
@@ -30,6 +31,7 @@ pub use query::{
     QueryRequest, QueryResponse, QuerySchemaResponse, TableSchemaDto, TimeBoundDto, TimeScopeDto,
     TransformDto,
 };
+pub use reading::{AppendReadingsRequest, AppendReadingsResponse, ReadingDto, ReadingSampleDto};
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};
 pub use rule::{
     BindingDto, BucketDto, CreateRuleRequest, DryRunRequest, DryRunResponse, ResolvedInputDto,

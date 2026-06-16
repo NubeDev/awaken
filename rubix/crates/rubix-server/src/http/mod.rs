@@ -13,6 +13,7 @@ mod datasources;
 mod health;
 mod prefs;
 mod query;
+mod readings;
 mod records;
 mod rules;
 
@@ -29,6 +30,7 @@ pub fn router() -> Router<AppState> {
         .route("/health", get(health))
         .merge(auth::router())
         .merge(records::router())
+        .merge(readings::router())
         .merge(query::router())
         .merge(prefs::router())
         .merge(datasources::router())

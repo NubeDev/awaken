@@ -44,22 +44,22 @@ async fn published_samples_flow_through_preprocessing_and_persist() {
     let mut pipeline = Pipeline::new()
         .with_decimator(Decimator::new(2))
         .with_filter(Filter::new(|s| {
-            s.content.get("temp").and_then(serde_json::Value::as_f64).is_some_and(|t| t < 100.0)
+            s.content.get("value").and_then(serde_json::Value::as_f64).is_some_and(|t| t < 100.0)
         }));
 
     let temps = [20.0_f64, 21.0, 150.0, 22.0];
-    for (n, temp) in temps.into_iter().enumerate() {
+    for (n, value) in temps.into_iter().enumerate() {
         publish(
             &publisher,
-            "rubix/ingest/edge-7/temp",
-            &serde_json::json!({ "n": n, "temp": temp }),
+            "rubix/ingest/edge-7/reg-temp",
+            &serde_json::json!({ "n": n, "value": value }),
         )
         .await;
     }
 
     // Receive each published sample, pre-process, and persist the survivors.
     // Decimation keeps indices 0 and 2; index 2 (150.0) is filtered out, so a
-    // single record should land.
+    // single reading should land.
     let mut persisted = Vec::new();
     for _ in 0..temps.len() {
         let sample = tokio::time::timeout(std::time::Duration::from_secs(5), subscriber.recv())
@@ -67,15 +67,16 @@ async fn published_samples_flow_through_preprocessing_and_persist() {
             .expect("receive within timeout")
             .expect("decode sample");
         if let Some(survivor) = pipeline.admit(sample) {
-            let record = append_sample(handle.raw(), &principal, &survivor)
+            let reading = append_sample(handle.raw(), &principal, &survivor)
                 .await
                 .expect("append survivor");
-            persisted.push(record);
+            persisted.push(reading);
         }
     }
 
     assert_eq!(persisted.len(), 1, "decimate+filter should leave one survivor");
-    let record = &persisted[0];
-    assert_eq!(record.namespace, NS, "record lands in the edge partition");
-    assert_eq!(record.content.get("temp"), Some(&serde_json::json!(20.0)));
+    let reading = &persisted[0];
+    assert_eq!(reading.namespace, NS, "reading lands in the edge partition");
+    assert_eq!(reading.series, "reg-temp", "series resolved from the key");
+    assert!((reading.value - 20.0).abs() < f64::EPSILON);
 }

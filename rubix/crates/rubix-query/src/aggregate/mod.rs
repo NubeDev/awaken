@@ -8,6 +8,7 @@
 //! aggregation fold ([`rollup`]) are pure and unit-tested; [`series`] is the
 //! scoped scan that produces the samples.
 
+mod reading;
 mod rollup;
 mod series;
 mod window;
@@ -22,6 +23,7 @@ pub use rollup::{BucketRollup, Sample};
 pub use series::SeriesFilter;
 pub use window::Grain;
 
+use reading::read_reading_series;
 use rollup::rollup;
 use series::read_series;
 
@@ -62,5 +64,28 @@ pub async fn rollup_window_filtered(
     filter: Option<SeriesFilter<'_>>,
 ) -> Result<Vec<BucketRollup>> {
     let samples = read_series(session, table, field, filter).await?;
+    Ok(rollup(&samples, grain))
+}
+
+/// Roll the `reading` time-series plane up into per-bucket aggregates at
+/// `grain`, scoped to the principal of `session`.
+///
+/// This is the readings analogue of [`rollup_window`], reading the dedicated
+/// `reading` table rather than generic `record` rows. The series is read through
+/// the scoped session (SurrealDB permissions decide the rows, contract #1), then
+/// folded into epoch-aligned buckets in ascending order. Crucially the buckets
+/// are aligned on each row's measurement instant `at`, not its `created` write
+/// time, and the value is the typed `value` column — the trend-collapse fix
+/// (`rubix/docs/design/READINGS-TIMESERIES.md`, "Read path"). Rows missing `at`
+/// or a numeric `value` are excluded, so the rollup reflects only real readings.
+/// An empty series yields no buckets.
+///
+/// # Errors
+/// Returns a [`QueryError`](crate::QueryError) if the scoped scan fails.
+pub async fn rollup_reading_window(
+    session: &Surreal<Db>,
+    grain: Grain,
+) -> Result<Vec<BucketRollup>> {
+    let samples = read_reading_series(session).await?;
     Ok(rollup(&samples, grain))
 }

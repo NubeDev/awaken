@@ -1,8 +1,9 @@
 //! Append-only, edge-partitioned persistence of ingested samples.
 //!
-//! A pre-processed sample is [`append`]ed as a fresh record into the partition
-//! keyed by the edge identity ([`partition`]), so two edges never write the same
-//! records (`rubix/STACK-DEISGN.md`, contract #5).
+//! A pre-processed sample is [`append`]ed as a [`Reading`](rubix_core::Reading)
+//! into the `reading` data plane, in the partition keyed by the edge identity
+//! ([`partition`]), so two edges never write the same rows
+//! (`rubix/STACK-DEISGN.md`, contract #5; `rubix/docs/design/READINGS-TIMESERIES.md`).
 
 mod append;
 mod partition;

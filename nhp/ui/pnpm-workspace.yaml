@@ -1,0 +1,9 @@
+# NHP UI is a self-contained pnpm root, deliberately NOT a member of the
+# repo-root workspace (awaken/pnpm-workspace.yaml). Declaring an empty workspace
+# here stops pnpm walking up, so `cd nhp/ui && pnpm install` (as the Makefile
+# runs it) resolves this package's own dependencies. Mirrors rubix/ui.
+packages: []
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

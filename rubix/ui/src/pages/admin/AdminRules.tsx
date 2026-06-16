@@ -83,21 +83,21 @@ const route = getRouteApi('/t/$tenant/admin/rules')
 
 const NEW_SCRIPT = `// A rule reads each binding by name and returns a decision.
 // Return a bool, or a map { fired, value, reason }.
-#{ fired: temp > 24.0, value: temp, reason: "zone above 24°C" }
+#{ fired: temp > 23.5, value: temp, reason: "zone above 23.5°C" }
 `
 
-// Default to the field readings actually carry in this app: a reading record
-// stores its numeric value at content.value, with content.measure naming the
-// metric. A binding rolls up content.<field>, so read `value` and narrow it to one
-// measure (`temp`) via the filter — otherwise the series blends every metric.
+// Default to a reading-table binding: the typed time-series `value`, rolled up
+// over the window and scoped to one series (a point id) via the filter. `week`
+// rolls the whole trailing window into one bucket. Edit the series to a real
+// point id (see the seeded rules for examples, e.g. acme--hq--ahu-1--zone-temp).
 const NEW_BINDING = (): Binding => ({
   name: 'temp',
-  table: 'records',
+  table: 'readings',
   field: 'value',
-  grain: 'hour',
-  aggregate: 'avg',
-  filter_field: 'measure',
-  filter_value: 'temp',
+  grain: 'week',
+  aggregate: 'max',
+  filter_field: 'series',
+  filter_value: 'acme--hq--ahu-1--zone-temp',
 })
 
 // The draft the editor edits and the debugger dry-runs. `null` rule + creating =
@@ -539,13 +539,14 @@ function BindingsEditor({
               onChange={(v) => set(i, { aggregate: v as Aggregate })}
               width="w-[96px]"
             />
-            {/* Optional filter: narrow the shared `value` series to one category,
-                e.g. content.measure = temp. Empty = the whole series. */}
+            {/* Optional filter: scope a reading binding to one series
+                (where series = <point id>), or narrow a record series to one
+                category (where measure = temp). Empty = the whole table. */}
             <span className="text-[10.5px] text-muted-foreground">where</span>
             <Input
               value={b.filter_field ?? ''}
               onChange={(e) => set(i, { filter_field: e.target.value })}
-              placeholder="measure"
+              placeholder={b.table === 'readings' ? 'series' : 'measure'}
               className="mono h-8 w-24 text-[12px]"
               aria-label="filter field"
             />
@@ -553,8 +554,8 @@ function BindingsEditor({
             <Input
               value={b.filter_value ?? ''}
               onChange={(e) => set(i, { filter_value: e.target.value })}
-              placeholder="temp"
-              className="mono h-8 w-24 text-[12px]"
+              placeholder={b.table === 'readings' ? 'site--equip--point' : 'temp'}
+              className="mono h-8 w-40 text-[12px]"
               aria-label="filter value"
             />
             <Button
@@ -802,10 +803,9 @@ function FrameView({ data }: { data: DryRunResponse }) {
 
 // ── SQL workbench tab ────────────────────────────────────────────────────────
 
-const DEFAULT_SQL =
-  "SELECT json_get(json_get(content, 'content'), 'measure') AS measure, " +
-  "json_get(json_get(content, 'content'), 'value') AS value FROM record " +
-  "WHERE json_get(json_get(content, 'content'), 'kind') = 'reading' LIMIT 20"
+// Readings live in the typed `reading` table with top-level `series`/`value`/`at`
+// columns — explore them here to find a series id for a rule binding.
+const DEFAULT_SQL = 'SELECT series, value, at FROM reading ORDER BY at DESC LIMIT 20'
 
 // A lightweight query console so an author can explore the rows a binding reads
 // before writing the rule. Reuses the shared SqlEditor and the POST /query path.

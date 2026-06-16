@@ -20,10 +20,14 @@
 
 mod append;
 mod list;
+mod migrate;
 mod row;
+mod sweep;
 
 pub use append::append_readings;
 pub use list::{list_readings, read_reading, read_readings_window};
+pub use migrate::{HistoryMigration, migrate_history_to_readings};
+pub use sweep::sweep_readings_before;
 
 pub(crate) use row::ReadingRow;
 

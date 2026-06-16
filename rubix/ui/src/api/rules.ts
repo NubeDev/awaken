@@ -23,18 +23,22 @@ export interface Binding {
   grain: Grain
   /** The bucket aggregate the rule decides on. */
   aggregate: Aggregate
-  /** Optional `content` key to narrow the series on (e.g. `"measure"`). Both
-   *  filter halves must be set for the filter to apply. */
+  /** Optional key to scope the series on. For a `readings` binding this is
+   *  `"series"` (matching a point id); for a record table it is a `content` key
+   *  like `"measure"`. Both filter halves must be set for the filter to apply. */
   filter_field?: string
-  /** The exact value `content.<filter_field>` must equal. */
+  /** The exact value the filter field must equal (e.g. a series/point id). */
   filter_value?: string
 }
 
-export type CanonicalTable = 'records' | 'tags' | 'audit' | 'insights' | 'trace_summary'
+export type CanonicalTable = 'readings' | 'records' | 'tags' | 'audit' | 'insights' | 'trace_summary'
 export type Grain = 'minute' | 'hour' | 'day' | 'week'
 export type Aggregate = 'avg' | 'min' | 'max' | 'sum' | 'count' | 'first' | 'last'
 
-export const TABLES: CanonicalTable[] = ['records', 'tags', 'audit', 'insights', 'trace_summary']
+// `readings` is the typed time-series table: bind its `value` scoped to one
+// `series` (a point id) via the filter. Every other table is generic records
+// whose value lives in `content.<field>`.
+export const TABLES: CanonicalTable[] = ['readings', 'records', 'tags', 'audit', 'insights', 'trace_summary']
 export const GRAINS: Grain[] = ['minute', 'hour', 'day', 'week']
 export const AGGREGATES: Aggregate[] = ['avg', 'min', 'max', 'sum', 'count', 'first', 'last']
 

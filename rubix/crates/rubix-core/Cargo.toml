@@ -27,6 +27,14 @@ name = "reading_append"
 path = "tests/reading/append_test.rs"
 
 [[test]]
+name = "reading_sweep"
+path = "tests/reading/sweep_test.rs"
+
+[[test]]
+name = "reading_migrate"
+path = "tests/reading/migrate_test.rs"
+
+[[test]]
 name = "record_update"
 path = "tests/record/update_test.rs"
 

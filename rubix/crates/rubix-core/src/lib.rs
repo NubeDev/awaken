@@ -26,7 +26,8 @@ pub use hook::{HOOK_KIND, Hook, HookEvent, HookParseError, find_hooks};
 pub use id::Id;
 pub use principal::{Principal, PrincipalKind, Role};
 pub use reading::{
-    Reading, append_readings, list_readings, read_reading, read_readings_window, reading_id,
+    HistoryMigration, Reading, append_readings, list_readings, migrate_history_to_readings,
+    read_reading, read_readings_window, reading_id, sweep_readings_before,
 };
 pub use record::{
     Record, RecordTags, create_record, decode_record, delete_record, list_record_tags,

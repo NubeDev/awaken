@@ -2,7 +2,8 @@
 #
 #   make build       build backend + UI
 #   make dev         run backend + UI together (Ctrl-C stops both)
-#   make dev SEED=1  ...and populate the demo portfolio (off by default)
+#   make dev SEED=1  ...seeding the demo portfolio if the store is empty
+#   make seed        wipe the store and boot a freshly-seeded dev stack
 #   make dev-be      run just the backend
 #   make dev-ui      run just the UI
 #   make test        run backend + UI tests
@@ -39,6 +40,13 @@ export RUBIX_BIND ?= 127.0.0.1:$(BE_PORT)
 export VITE_API_PROXY ?= http://127.0.0.1:$(BE_PORT)
 export VITE_UI_PORT ?= $(UI_PORT)
 
+# Backend store directory. The server reads RUBIX_DATA_DIR (defaulting to
+# `rubix-data`, see crates/rubix-server/src/main.rs); pin it here so the seed
+# guard below can test whether the store already exists, and so `make kill` and
+# `make seed` know which dir holds the lock. The backend runs with cwd = this
+# directory, so a relative path lands right here next to the Makefile.
+export RUBIX_DATA_DIR ?= rubix-data
+
 # Backend cargo feature profile. Empty = the default `edge` build (SQLite,
 # on-box drivers, no auth). Set FEATURES=cloud to compile the Postgres store
 # backend + DataFusion Postgres federation surface, then point RUBIX_DB at a
@@ -48,12 +56,25 @@ FEATURES ?=
 CARGO_FEATURES := $(if $(FEATURES),--features $(FEATURES),)
 
 # Dev portfolio seed. Off by default: a fresh DB starts empty. Set SEED=1 to
-# populate the demo "acme" portfolio (4 sites + equips/points/history) and run
-# the live-value ticker — handy for UI work, but it repopulates on every boot,
-# so deleting the DB only clears it until the next seeded run. Example:
+# populate the demo "acme"/"globex" portfolio (sites + equips/points/readings +
+# rules). Handy for UI work. Example:
 #   make dev-be SEED=1
+#
+# `--seed-dev` is NOT idempotent: seed_dev() re-provisions principals + records on
+# every boot and dies on a non-fresh store ("already exists" / duplicate ids — see
+# crates/rubix-server/src/seed/mod.rs). So we append it ONLY when SEED=1 AND the
+# store dir doesn't exist yet (a store that's already there is already seeded).
+# This makes `make dev SEED=1` safe to run repeatedly: first run seeds, later runs
+# just boot. To force a fresh re-seed, run `make seed` (it wipes the store first).
 SEED ?=
-SEED_FLAG := $(if $(SEED),-- --seed-dev,)
+STORE_EXISTS := $(wildcard $(RUBIX_DATA_DIR))
+SEED_DEV := $(if $(SEED),$(if $(STORE_EXISTS),,--seed-dev),)
+# Program args after cargo's `--`. We ALWAYS pass the `--rubix` marker: main.rs
+# only scans argv for `--seed-dev`/`--migrate-history` and ignores anything else,
+# but the marker tags this server on its command line so `make kill` can pkill
+# ONLY this project's backend and never the sibling nhp backend (which runs the
+# same binary from this same workspace, tagged `--nhp`).
+RUN_ARGS := -- --rubix $(SEED_DEV)
 
 # Embedded agent. Off by default (the server boots with RUBIX_AI=0). Set AI=1 to
 # turn on /agent/chat, spark dispatch, and the agent status surface. The model
@@ -78,7 +99,7 @@ DB_CONTAINER := rubix-timescaledb
 DB_VOLUME := rubix-timescale-data
 DB_PORT ?= 5433
 
-.PHONY: build dev dev-be dev-ui test test-be test-ui lint fmt \
+.PHONY: build dev dev-be dev-ui seed test test-be test-ui lint fmt \
         build-be build-ui clean kill db-up db-down db-clean
 
 build: build-be build-ui
@@ -94,12 +115,21 @@ build-ui:
 dev:
 	@echo "backend → http://$(RUBIX_BIND)   ui → http://127.0.0.1:$(UI_PORT)"
 	@trap 'kill 0' EXIT INT TERM; \
-	( cargo run --bin rubix-server $(CARGO_FEATURES) $(SEED_FLAG) ) & \
+	( cargo run --bin rubix-server $(CARGO_FEATURES) $(RUN_ARGS) ) & \
 	( cd $(UI_DIR) && pnpm dev --port $(UI_PORT) ) & \
 	wait
 
 dev-be:
-	cargo run --bin rubix-server $(CARGO_FEATURES) $(SEED_FLAG)
+	cargo run --bin rubix-server $(CARGO_FEATURES) $(RUN_ARGS)
+
+# Wipe the store and boot a freshly-seeded dev stack. rubix has no separate seed
+# step (the demo portfolio is written at boot behind `--seed-dev`, not over HTTP),
+# so "seed" means: clear the store, then `make dev` with the seed forced on. Use
+# this when you want a guaranteed-clean demo portfolio; for an ordinary boot that
+# only seeds an empty store, use `make dev SEED=1`.
+seed:
+	rm -rf $(RUBIX_DATA_DIR)
+	$(MAKE) dev SEED=1
 
 dev-ui:
 	cd $(UI_DIR) && pnpm dev
@@ -123,14 +153,26 @@ fmt:
 clean:
 	cargo clean
 	rm -rf $(UI_DIR)/dist
+	rm -rf $(RUBIX_DATA_DIR)
 
-# Free the dev ports if a previous run was killed ungracefully and left a
-# listener behind. Best-effort: fuser exits non-zero when nothing is bound, so
-# the leading '-' keeps make from failing.
+# Free the dev ports AND kill any orphaned backend/UI left behind by a crashed
+# run. The port sweep alone is not enough: when `make dev` segfaults its trap
+# never fires, the children reparent to init, and an orphaned rubix-server keeps
+# holding `$(RUBIX_DATA_DIR)/LOCK` (and contends on the shared cargo target lock)
+# even after it loses its port — so the next boot blocks on the lock, not the
+# port. fuser is also absent on some boxes, so we also drive the kill off pkill.
+#
+# pkill -f matches THIS project's signatures only: the UI's `--port $(UI_PORT)`
+# and the backend's `--rubix` marker (see RUN_ARGS). Targeting the marker — not
+# the bare binary name — is what keeps this from killing the sibling nhp backend,
+# which runs the same binary from this same workspace (tagged `--nhp`). The '-'
+# prefixes keep make from failing when a tool is missing or nothing matches.
 kill:
 	-@fuser -k -KILL $(BE_PORT)/tcp 2>/dev/null || true
 	-@fuser -k -KILL $(UI_PORT)/tcp 2>/dev/null || true
-	@echo "freed ports $(BE_PORT) and $(UI_PORT)"
+	-@pkill -KILL -f -- '--port $(UI_PORT)' 2>/dev/null || true
+	-@pkill -KILL -f 'rubix-server --rubix' 2>/dev/null || true
+	@echo "freed ports $(BE_PORT)/$(UI_PORT) and killed any orphaned backend/UI"
 
 # Build the image from the Dockerfile, run it detached on a named volume, then
 # poll pg_isready until it accepts queries — so a follow-on `make dev` finds a

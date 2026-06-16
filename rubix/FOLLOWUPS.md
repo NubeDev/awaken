@@ -17,9 +17,14 @@ slots into the historian seam landed here without a refactor.
 - **Rollup sync.** No rollups ship or recompute cloud-side yet (design OQ7). Raw
   readings already ship via the `WireReading` path; rollups would either ship as
   data or recompute from the shipped raw rows behind the same seam.
-- **Retention sweeper.** `reading_ns_at` makes `DELETE FROM reading WHERE
-  namespace = $ns AND at < $cutoff` a range delete, but no sweep job or TTL policy
-  is wired (design OQ9: per-series vs per-namespace vs global).
+- **Retention sweeper — *policy/scheduling* still deferred (primitive now built).**
+  The range-delete primitive `sweep_readings_before(db, namespace, cutoff)` is
+  landed in `rubix-core` (`reading/sweep.rs`): a per-partition, `at`-bounded
+  `DELETE FROM reading WHERE namespace = $ns AND at < $cutoff` off the gate,
+  returning the deleted count, with integration tests. What is **still** deferred
+  is the *policy surface* (design OQ9: per-series vs per-namespace vs global TTL,
+  the cutoff values) and the **schedule/job** that drives it — a caller fans the
+  primitive over the partitions it owns; the primitive itself takes no policy.
 - **Generic predicate-pushdown `TableProvider`.** Per the decision, the historian
   read is a direct filtered SurrealQL statement (`WHERE series = $s AND at BETWEEN
   $t0 AND $t1 ORDER BY at`), which the `(namespace, series, at)` index serves as a
@@ -31,11 +36,16 @@ slots into the historian seam landed here without a refactor.
   from the series record for display; a recalibration / unit-base change could
   silently reinterpret historical samples. Needs a version or immutable
   physical-unit semantics. Untouched.
-- **Real captured-history migration command.** For NHP we re-seed (synthetic
-  history, no production value), as decided. A one-shot, id-idempotent migration
-  from `kind:"history"` records → `reading` (map `content.ts → at`,
-  `content.register → series`, `content.value → value`) for any *real* captured
-  history is not built (design "Migration", OQ10).
+- ~~**Real captured-history migration command.**~~ **Built** (design "Migration",
+  OQ10). `migrate_history_to_readings` in `rubix-core` (`reading/migrate.rs`) maps
+  every `kind:"history"` record (`content.ts → at`, `content.register → series`,
+  `content.value → value`) into the `reading` plane and deletes the source record;
+  id-idempotent (deterministic `(series, at)`), append-then-delete so a crash
+  re-runs cleanly, and defensive (a malformed record is skipped and left in place,
+  never appended as junk). Exposed as a one-shot `--migrate-history` server flag
+  that runs and exits without binding a socket. For NHP the cheaper path is still
+  a re-seed (synthetic history, no production value); this is the safe path for
+  any *real* captured history.
 
 ## Decisions made where the spec left room
 

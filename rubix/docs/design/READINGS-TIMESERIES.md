@@ -276,7 +276,10 @@ two must be decided together, before rollups become the read path's source of tr
   `DELETE FROM reading WHERE namespace = $ns AND at < $cutoff` a range delete, not a
   scan. Raw rows age out; rollups persist longer (configurable per grain). This is
   the relief valve for SCOPE's single-engine write/pub-sub concentration bet (OQ2) on
-  the readings axis.
+  the readings axis. The primitive is landed —
+  [`sweep_readings_before`](../../crates/rubix-core/src/reading/sweep.rs) (per
+  namespace, exclusive `at` cutoff, off the gate, returns the deleted count). The
+  *policy surface* and the schedule that drives it remain open (OQ9).
 - **Sync reuses the data-plane *model* but needs its own codec/apply path.** The
   *partitioning* carries over unchanged — readings are edge-partitioned (`namespace`
   = edge identity, [append.rs:7](../../crates/rubix-ingest/src/persist/append.rs#L7)),
@@ -301,7 +304,10 @@ cheaper path is **re-seed** (the seed is idempotent and the synthetic history ha
 production value). For any real captured history a one-shot migration command
 (idempotent by the deterministic `(series, at)` id, so a re-run or a crash mid-migration
 re-lands the same rows) is the safe path. Either way the `record` table is left
-holding only config/document records afterward — the plane split is clean.
+holding only config/document records afterward — the plane split is clean. **Built:**
+[`migrate_history_to_readings`](../../crates/rubix-core/src/reading/migrate.rs)
+(append-then-delete per record, malformed records skipped and left in place),
+exposed as the one-shot `--migrate-history` server flag.
 
 ## Seed changes (concrete)
 

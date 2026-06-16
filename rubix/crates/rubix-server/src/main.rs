@@ -7,7 +7,9 @@
 //! [`Profile`](rubix_server::Profile) is threaded into `AppState` so the gate
 //! resolves a request's tenant namespace per profile.
 
-use rubix_core::{Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection};
+use rubix_core::{
+    Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection, migrate_history_to_readings,
+};
 use rubix_gate::{define_audit_schema, define_gate_schema};
 use rubix_server::{
     AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
@@ -65,6 +67,21 @@ async fn main() -> Result<()> {
     bootstrap_meta_collection(store.raw(), &config.namespace)
         .await
         .map_err(|e| Error::Config(format!("seeding meta-collection: {e}")))?;
+
+    // One-shot maintenance: move any legacy `kind:"history"` records into the
+    // `reading` data plane, then exit without binding a socket. Idempotent (keyed
+    // by the deterministic `(series, at)` id), so a re-run or a crash mid-migration
+    // is safe (`rubix/docs/design/READINGS-TIMESERIES.md`, "Migration").
+    if std::env::args().any(|arg| arg == "--migrate-history") {
+        let report = migrate_history_to_readings(store.raw())
+            .await
+            .map_err(|e| Error::Config(e.to_string()))?;
+        println!(
+            "history migration: {} migrated, {} deleted, {} skipped",
+            report.migrated, report.deleted, report.skipped
+        );
+        return Ok(());
+    }
 
     if std::env::args().any(|arg| arg == "--seed-dev") {
         seed_dev(store.raw())

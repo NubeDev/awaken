@@ -111,6 +111,7 @@ pub fn build_rule(
 fn parse_table(raw: &str) -> Result<CanonicalTable, String> {
     match raw {
         "records" => Ok(CanonicalTable::Records),
+        "readings" => Ok(CanonicalTable::Readings),
         "tags" => Ok(CanonicalTable::Tags),
         "audit" => Ok(CanonicalTable::Audit),
         "insights" => Ok(CanonicalTable::Insights),

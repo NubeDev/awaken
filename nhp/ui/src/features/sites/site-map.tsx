@@ -20,25 +20,36 @@ import type { StyleSpecification } from 'maplibre-gl'
 import { MapPin } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { SiteRecord } from '@/api/records'
+import { useTheme } from '@/context/theme-provider'
 import { useSites, useTenants } from './hooks'
 
 /**
- * OpenStreetMap raster tiles as a MapLibre style — a real street map, no token.
- * Defined inline (not a hosted style.json) so the only network dep is the tile
- * CDN itself. © OpenStreetMap contributors.
+ * CARTO basemaps as MapLibre raster styles — token-free tiles designed for
+ * dashboards: a muted dark basemap in dark mode, Positron (light) otherwise, so
+ * the map sits in the UI instead of glaring against it. Retina (@2x) tiles for
+ * crisp labels. © OpenStreetMap contributors © CARTO. Defined inline so the only
+ * network dep is the tile CDN.
  */
-const OSM_STYLE: StyleSpecification = {
+const cartoStyle = (variant: 'dark_all' | 'light_all'): StyleSpecification => ({
   version: 8,
   sources: {
-    osm: {
+    carto: {
       type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tiles: [
+        `https://a.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
+        `https://b.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
+        `https://c.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
+      ].map((u) => u.replace('{ratio}', '@2x')),
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
     },
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-}
+  layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
+})
+
+const DARK_STYLE = cartoStyle('dark_all')
+const LIGHT_STYLE = cartoStyle('light_all')
 
 type Pin = {
   site: SiteRecord
@@ -70,8 +81,10 @@ export function SiteMap({
   const sites = useSites()
   const tenants = useTenants()
   const navigate = useNavigate()
+  const { resolvedTheme } = useTheme()
   const mapRef = useRef<MapRef>(null)
   const [active, setActive] = useState<Pin | null>(null)
+  const mapStyle = resolvedTheme === 'dark' ? DARK_STYLE : LIGHT_STYLE
 
   const tenantById = useMemo(() => {
     const m = new Map<string, string>()
@@ -144,7 +157,7 @@ export function SiteMap({
         <MapGL
           ref={mapRef}
           initialViewState={{ latitude: 39.5, longitude: -98.35, zoom: 3 }}
-          mapStyle={OSM_STYLE}
+          mapStyle={mapStyle}
           attributionControl={{ compact: true }}
         >
           <NavigationControl position='top-right' showCompass={false} />

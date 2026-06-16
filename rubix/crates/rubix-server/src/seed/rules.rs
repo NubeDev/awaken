@@ -77,7 +77,12 @@ const RULES: &[RuleSpec] = &[
     RuleSpec {
         name: "high-zone-temp",
         script: r#"let hot = temp > 23.5; #{ fired: hot, value: if hot { 1.0 } else { 0.0 }, reason: "peak zone temperature " + temp + "°C (limit 23.5)" }"#,
-        inputs: &[Input { name: "temp", series: "ahu-1--zone-temp", grain: "week", aggregate: "max" }],
+        inputs: &[Input {
+            name: "temp",
+            series: "ahu-1--zone-temp",
+            grain: "week",
+            aggregate: "max",
+        }],
         subrules: &[],
         output: "high-temperature",
     },
@@ -85,7 +90,12 @@ const RULES: &[RuleSpec] = &[
     RuleSpec {
         name: "co2-elevated",
         script: r#"let high = co2 > 700.0; #{ fired: high, value: if high { 1.0 } else { 0.0 }, reason: "peak CO₂ " + co2 + " ppm (limit 700)" }"#,
-        inputs: &[Input { name: "co2", series: "ahu-1--co2", grain: "week", aggregate: "max" }],
+        inputs: &[Input {
+            name: "co2",
+            series: "ahu-1--co2",
+            grain: "week",
+            aggregate: "max",
+        }],
         subrules: &[],
         output: "air-quality",
     },
@@ -94,7 +104,12 @@ const RULES: &[RuleSpec] = &[
     RuleSpec {
         name: "low-water-pressure",
         script: r#"#{ fired: p_min < 2.6, value: p_min, reason: "supply pressure dipped to " + p_min + " bar (floor 2.6)" }"#,
-        inputs: &[Input { name: "p_min", series: "water-main--pressure", grain: "week", aggregate: "min" }],
+        inputs: &[Input {
+            name: "p_min",
+            series: "water-main--pressure",
+            grain: "week",
+            aggregate: "min",
+        }],
         subrules: &[],
         output: "water-pressure",
     },
@@ -109,8 +124,18 @@ const RULES: &[RuleSpec] = &[
             reason: "line voltage " + v_min + "–" + v_max + " V (band 224–236)"
         }"#,
         inputs: &[
-            Input { name: "v_min", series: "elec-main--voltage", grain: "week", aggregate: "min" },
-            Input { name: "v_max", series: "elec-main--voltage", grain: "week", aggregate: "max" },
+            Input {
+                name: "v_min",
+                series: "elec-main--voltage",
+                grain: "week",
+                aggregate: "min",
+            },
+            Input {
+                name: "v_max",
+                series: "elec-main--voltage",
+                grain: "week",
+                aggregate: "max",
+            },
         ],
         subrules: &[],
         output: "power-quality",
@@ -120,7 +145,12 @@ const RULES: &[RuleSpec] = &[
     RuleSpec {
         name: "high-power-draw",
         script: r#"let peak = kw_peak > 150.0; #{ fired: peak, value: if peak { 1.0 } else { 0.0 }, reason: "peak power " + kw_peak + " kW (limit 150)" }"#,
-        inputs: &[Input { name: "kw_peak", series: "elec-main--power", grain: "week", aggregate: "max" }],
+        inputs: &[Input {
+            name: "kw_peak",
+            series: "elec-main--power",
+            grain: "week",
+            aggregate: "max",
+        }],
         subrules: &[],
         output: "energy-demand",
     },
@@ -128,7 +158,12 @@ const RULES: &[RuleSpec] = &[
     RuleSpec {
         name: "damper-wide-open",
         script: r#"#{ fired: damper > 75.0, value: damper, reason: "damper peaked at " + damper + "% open (limit 75)" }"#,
-        inputs: &[Input { name: "damper", series: "ahu-1--damper", grain: "week", aggregate: "max" }],
+        inputs: &[Input {
+            name: "damper",
+            series: "ahu-1--damper",
+            grain: "week",
+            aggregate: "max",
+        }],
         subrules: &[],
         output: "hvac-control",
     },
@@ -143,8 +178,18 @@ const RULES: &[RuleSpec] = &[
             reason: "zone avg " + temp + "°C vs setpoint " + sp + "°C"
         }"#,
         inputs: &[
-            Input { name: "temp", series: "ahu-1--zone-temp", grain: "week", aggregate: "avg" },
-            Input { name: "sp", series: "ahu-1--setpoint", grain: "week", aggregate: "avg" },
+            Input {
+                name: "temp",
+                series: "ahu-1--zone-temp",
+                grain: "week",
+                aggregate: "avg",
+            },
+            Input {
+                name: "sp",
+                series: "ahu-1--setpoint",
+                grain: "week",
+                aggregate: "avg",
+            },
         ],
         subrules: &[],
         output: "control-deviation",
@@ -180,9 +225,24 @@ const RULES: &[RuleSpec] = &[
             }
         "#,
         inputs: &[
-            Input { name: "temp", series: "ahu-1--zone-temp", grain: "week", aggregate: "max" },
-            Input { name: "co2", series: "ahu-1--co2", grain: "week", aggregate: "max" },
-            Input { name: "damper", series: "ahu-1--damper", grain: "week", aggregate: "max" },
+            Input {
+                name: "temp",
+                series: "ahu-1--zone-temp",
+                grain: "week",
+                aggregate: "max",
+            },
+            Input {
+                name: "co2",
+                series: "ahu-1--co2",
+                grain: "week",
+                aggregate: "max",
+            },
+            Input {
+                name: "damper",
+                series: "ahu-1--damper",
+                grain: "week",
+                aggregate: "max",
+            },
         ],
         subrules: &[],
         output: "hvac-health",

@@ -10,7 +10,8 @@ mod gate;
 
 use rubix_core::{Id, Principal, PrincipalKind, Role};
 use rubix_gate::{
-    Capability, Change, Command, RecordKind, UndoStore, apply, create_grant, push_change, redo, undo,
+    Capability, Change, Command, RecordKind, UndoStore, apply, create_grant, push_change, redo,
+    undo,
 };
 
 use gate::open::{NS, open_gate_store};
@@ -20,7 +21,12 @@ fn admin() -> Principal {
 }
 
 fn operator(subject: &str) -> Principal {
-    Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 async fn content(handle: &rubix_store::StoreHandle, target: &Id) -> Option<serde_json::Value> {

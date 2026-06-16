@@ -98,6 +98,56 @@ pub struct UpdatePrincipalRequest {
     pub role: String,
 }
 
+/// A team as returned to a client.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct TeamDto {
+    /// The team's slug (its stable, API-local key within the namespace).
+    pub slug: String,
+    /// The namespace the team belongs to.
+    pub namespace: String,
+    /// A human-readable label for the team.
+    pub display_name: String,
+}
+
+impl TeamDto {
+    /// Project a domain team into its DTO.
+    #[must_use]
+    pub fn from_team(team: &rubix_gate::Team) -> Self {
+        Self {
+            slug: team.slug.clone(),
+            namespace: team.namespace.clone(),
+            display_name: team.display_name.clone(),
+        }
+    }
+}
+
+/// The body of a create-team request.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateTeamRequest {
+    /// The team's slug (unique within the namespace). Lowercased + trimmed; an
+    /// empty slug is rejected by the route.
+    pub slug: String,
+    /// A human-readable label. Defaults to the slug when omitted.
+    #[serde(default)]
+    pub display_name: Option<String>,
+}
+
+/// The body of an add-member request.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct AddMemberRequest {
+    /// The API-local subject of the principal to add (stored namespace-prefixed,
+    /// the same convention principals use).
+    pub subject: String,
+}
+
+/// A team member as returned to a client — the API-local subject.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct TeamMemberDto {
+    /// The member principal's API-local subject (the `{namespace}_` prefix is
+    /// stripped).
+    pub subject: String,
+}
+
 /// A capability grant as returned to a client.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct GrantDto {

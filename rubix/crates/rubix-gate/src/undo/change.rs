@@ -60,7 +60,10 @@ mod tests {
 
     use super::ChangeRecord;
 
-    fn capture(before: Option<serde_json::Value>, after: Option<serde_json::Value>) -> CapturedChange {
+    fn capture(
+        before: Option<serde_json::Value>,
+        after: Option<serde_json::Value>,
+    ) -> CapturedChange {
         CapturedChange { before, after }
     }
 
@@ -80,7 +83,10 @@ mod tests {
         let forward = Change::Update(serde_json::json!({ "title": "new" }));
         let record = ChangeRecord::from_capture(
             &forward,
-            &capture(Some(prior.clone()), Some(serde_json::json!({ "title": "new" }))),
+            &capture(
+                Some(prior.clone()),
+                Some(serde_json::json!({ "title": "new" })),
+            ),
         );
         assert_eq!(record.inverse, Change::Update(prior));
     }
@@ -88,7 +94,8 @@ mod tests {
     #[test]
     fn a_delete_reverses_to_a_create_of_the_prior_content() {
         let prior = serde_json::json!({ "title": "kept" });
-        let record = ChangeRecord::from_capture(&Change::Delete, &capture(Some(prior.clone()), None));
+        let record =
+            ChangeRecord::from_capture(&Change::Delete, &capture(Some(prior.clone()), None));
         assert_eq!(record.inverse, Change::Create(prior));
     }
 
@@ -97,7 +104,10 @@ mod tests {
         let forward = Change::Update(serde_json::json!({ "v": 2 }));
         let record = ChangeRecord::from_capture(
             &forward,
-            &capture(Some(serde_json::json!({ "v": 1 })), Some(serde_json::json!({ "v": 2 }))),
+            &capture(
+                Some(serde_json::json!({ "v": 1 })),
+                Some(serde_json::json!({ "v": 2 })),
+            ),
         );
         assert_eq!(record.forward, forward);
     }

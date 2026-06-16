@@ -16,7 +16,12 @@ fn admin() -> Principal {
 }
 
 fn grantee() -> Principal {
-    Principal::new(Id::from_raw("alice"), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw("alice"),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 #[tokio::test]

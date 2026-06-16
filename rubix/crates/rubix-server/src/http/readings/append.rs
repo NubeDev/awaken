@@ -36,9 +36,13 @@ pub async fn append_readings_route(
     Json(body): Json<AppendReadingsRequest>,
 ) -> ApiResult<Json<AppendReadingsResponse>> {
     // One capability decision for the whole batch, up front, fail closed.
-    if !check_capability(state.store.raw(), &auth.principal, Capability::ReadingsAppend)
-        .await
-        .map_err(|e| ApiError::Internal(e.to_string()))?
+    if !check_capability(
+        state.store.raw(),
+        &auth.principal,
+        Capability::ReadingsAppend,
+    )
+    .await
+    .map_err(|e| ApiError::Internal(e.to_string()))?
     {
         return Err(ApiError::Forbidden(
             "append requires the readings-append capability".to_owned(),
@@ -66,7 +70,11 @@ pub async fn append_readings_route(
 /// silent drop); `series` and `namespace` are supplied by the caller's request and
 /// identity, never the sample. Extras default to an empty object so the row stays
 /// lean.
-fn reading_of(namespace: &str, series: &str, sample: ReadingSampleDto) -> Result<Reading, ApiError> {
+fn reading_of(
+    namespace: &str,
+    series: &str,
+    sample: ReadingSampleDto,
+) -> Result<Reading, ApiError> {
     let at: Datetime = sample
         .at
         .parse()

@@ -23,6 +23,7 @@ mod permission;
 mod principal;
 mod read;
 mod session;
+mod team;
 mod tenant;
 mod token;
 mod undo;
@@ -34,8 +35,10 @@ pub use auth_token::{
 };
 pub use authenticate::authenticate;
 pub use capability::{
-    Capability, Grant, check_capability, create_grant, create_grant_audited, is_registered,
-    list_grants, revoke_grant, revoke_grant_audited,
+    Capability, Grant, TEAM_SUBJECT_PREFIX, check_capability, create_grant, create_grant_audited,
+    create_team_grant, create_team_grant_audited, effective_grants, is_registered, list_grants,
+    list_team_grants, revoke_grant, revoke_grant_audited, revoke_team_grant,
+    revoke_team_grant_audited, team_subject,
 };
 pub use command::{Applied, CapturedChange, Change, Command, apply};
 pub use error::{GateError, Result};
@@ -49,6 +52,12 @@ pub use read::{
     read_records_on_session, read_records_on_session_filtered,
 };
 pub use session::{ScopedSession, issue_scoped_session};
+pub use team::{
+    Membership, Team, add_member, create_team, delete_team, get_team, list_members, list_teams,
+    remove_member, teams_of,
+};
 pub use tenant::purge_namespace;
 pub use token::PrincipalToken;
-pub use undo::{ChangeRecord, RecordKind, UndoEntry, UndoStore, is_undoable, push_change, redo, undo};
+pub use undo::{
+    ChangeRecord, RecordKind, UndoEntry, UndoStore, is_undoable, push_change, redo, undo,
+};

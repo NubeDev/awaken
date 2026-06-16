@@ -31,12 +31,40 @@ pub async fn revoke_grant(
     grantee: &Principal,
     capability: Capability,
 ) -> Result<()> {
-    let grant = Grant::new(grantee, capability);
+    delete_grant(db, grantor, Grant::new(grantee, capability)).await
+}
+
+/// Revoke `capability` from the **team** `slug` in `namespace`, authorized by
+/// `grantor` (idempotent, same authority rule as [`revoke_grant`]).
+///
+/// # Errors
+/// Returns [`GateError::GrantDenied`] if `grantor` lacks authority, or
+/// [`GateError::GrantStore`] if the delete fails.
+pub async fn revoke_team_grant(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    slug: &str,
+    namespace: &str,
+    capability: Capability,
+) -> Result<()> {
+    delete_grant(db, grantor, Grant::for_team(slug, namespace, capability)).await
+}
+
+/// Authority-check `grant` against `grantor` and delete its row (fail closed).
+///
+/// Shared by the principal and team revoke paths; revoking an absent grant
+/// succeeds (idempotent).
+pub(super) async fn delete_grant(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    grant: Grant,
+) -> Result<()> {
     if !may_administer(grantor, &grant) {
         return Err(GateError::GrantDenied(format!(
-            "{} may not revoke {} in namespace {}",
+            "{} may not revoke {} from {} in namespace {}",
             grantor.subject,
-            capability.as_str(),
+            grant.capability.as_str(),
+            grant.subject,
             grant.namespace
         )));
     }

@@ -6,11 +6,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useApi } from '../api/ConnectionContext'
 import { listRecords } from '../api/records'
 import { listCollections } from '../api/collections'
-import { listPrincipals } from '../api/admin'
+import { listPrincipals, listTeams } from '../api/admin'
 import { me } from '../api/auth'
 import type { Record } from '../types/Record'
 import type { CollectionDef } from '../api/collections'
-import type { Me, Principal } from '../types/Admin'
+import type { Me, Principal, Team } from '../types/Admin'
 
 export function useAllRecords(tenant: string, kind?: string) {
   const api = useApi(tenant)
@@ -35,6 +35,15 @@ export function usePrincipals(tenant: string) {
   return useQuery<Principal[]>({
     queryKey: ['principals', tenant],
     queryFn: () => listPrincipals(api),
+    staleTime: 10_000,
+  })
+}
+
+export function useTeams(tenant: string) {
+  const api = useApi(tenant)
+  return useQuery<Team[]>({
+    queryKey: ['teams', tenant],
+    queryFn: () => listTeams(api),
     staleTime: 10_000,
   })
 }

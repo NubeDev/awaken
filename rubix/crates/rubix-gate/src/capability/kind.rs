@@ -154,7 +154,10 @@ mod tests {
 
     #[test]
     fn capability_strings_are_kebab_case() {
-        assert_eq!(Capability::DatasourceRegister.as_str(), "datasource-register");
+        assert_eq!(
+            Capability::DatasourceRegister.as_str(),
+            "datasource-register"
+        );
         assert_eq!(Capability::ZenohSubscribe.as_str(), "zenoh-subscribe");
         assert_eq!(Capability::AgentMemoryWrite.as_str(), "agent-memory-write");
         assert_eq!(Capability::DeviceActuate.as_str(), "device-actuate");

@@ -23,9 +23,14 @@ async fn a_non_admin_cannot_grant_itself_a_capability() {
     let handle = open_gate_store("escalate_self").await;
     let operator = principal("alice", NS, Role::Operator);
 
-    let err = create_grant(handle.raw(), &operator, &operator, Capability::DatasourceRegister)
-        .await
-        .expect_err("a non-admin must not self-grant");
+    let err = create_grant(
+        handle.raw(),
+        &operator,
+        &operator,
+        Capability::DatasourceRegister,
+    )
+    .await
+    .expect_err("a non-admin must not self-grant");
     assert!(matches!(err, GateError::GrantDenied(_)));
 
     // No grant was written, so the check still denies.

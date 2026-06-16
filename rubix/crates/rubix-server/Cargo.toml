@@ -81,6 +81,10 @@ name = "http_admin_tenant_cloud"
 path = "tests/http/admin/tenant_cloud_test.rs"
 
 [[test]]
+name = "http_admin_teams"
+path = "tests/http/admin/teams_test.rs"
+
+[[test]]
 name = "ws_bridge"
 path = "tests/ws/bridge_test.rs"
 

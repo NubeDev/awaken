@@ -1,11 +1,14 @@
 /**
  * Create / edit a `kind:"site"` (DOMAIN-MODEL §site): key, name, tenant (the
- * REQUIRED parent relation), address, and IANA timezone (dashboards render
- * site-local time). The tenant picker lists `kind:"tenant"` records by their
- * record id (relations are by id, per the WS-03 seed). On edit the existing
- * content is spread back so any tags survive the PATCH untouched.
+ * REQUIRED parent relation), address, IANA timezone, and `geo` ("lat,lng").
+ * Location entry is assisted: typing the address autocompletes via OSM Nominatim,
+ * and picking a match fills the coordinates AND derives the timezone (offline
+ * tz-lookup) — both still editable, with a draggable map pin to fine-tune. The
+ * tenant picker lists tenants by record id (relations are by id). On edit the
+ * existing content is spread back so any tags survive the PATCH untouched.
  */
 import { useState } from 'react'
+import tzLookup from 'tz-lookup'
 import type { Site, SiteRecord } from '@/api/records'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,6 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { AddressAutocomplete } from './address-autocomplete'
+import { formatGeo, parseGeo, type LatLng } from './geo'
+import { SiteLocationMap } from './site-location-map'
+import { TimezoneSelect } from './timezone-select'
 import { useCreateSite, useTenants, useUpdateSite } from './hooks'
 
 type SiteFormProps = {
@@ -32,6 +39,15 @@ type SiteFormProps = {
   onOpenChange: (open: boolean) => void
   /** Present = edit; absent = create. */
   site?: SiteRecord
+}
+
+/** IANA timezone at a coordinate, or '' if the lookup can't place it (open ocean). */
+function tzAt({ lat, lng }: LatLng): string {
+  try {
+    return tzLookup(lat, lng)
+  } catch {
+    return ''
+  }
 }
 
 export function SiteForm({ open, onOpenChange, site }: SiteFormProps) {
@@ -50,6 +66,16 @@ export function SiteForm({ open, onOpenChange, site }: SiteFormProps) {
   const pending = create.isPending || update.isPending
   // tenant is the required parent relation.
   const valid = key.trim() !== '' && name.trim() !== '' && tenant !== ''
+
+  const coord = parseGeo(geo)
+
+  // Set coordinates from anywhere (address pick / map drag / map click) and
+  // auto-fill the timezone from those coordinates so the admin rarely types it.
+  const applyCoord = (next: LatLng) => {
+    setGeo(formatGeo(next))
+    const tz = tzAt(next)
+    if (tz) setTimezone(tz)
+  }
 
   const save = () => {
     if (editing && site) {
@@ -82,7 +108,7 @@ export function SiteForm({ open, onOpenChange, site }: SiteFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-md'>
+      <DialogContent className='max-h-[90vh] max-w-lg overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>{editing ? 'Edit site' : 'New site'}</DialogTitle>
           <DialogDescription>
@@ -92,24 +118,27 @@ export function SiteForm({ open, onOpenChange, site }: SiteFormProps) {
         </DialogHeader>
 
         <div className='grid gap-4'>
-          <div className='grid gap-1'>
-            <Label htmlFor='site-key'>Key</Label>
-            <Input
-              id='site-key'
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder='acme-hq'
-            />
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='grid gap-1'>
+              <Label htmlFor='site-key'>Key</Label>
+              <Input
+                id='site-key'
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder='acme-hq'
+              />
+            </div>
+            <div className='grid gap-1'>
+              <Label htmlFor='site-name'>Name</Label>
+              <Input
+                id='site-name'
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder='Acme HQ'
+              />
+            </div>
           </div>
-          <div className='grid gap-1'>
-            <Label htmlFor='site-name'>Name</Label>
-            <Input
-              id='site-name'
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder='Acme HQ'
-            />
-          </div>
+
           <div className='grid gap-1'>
             <Label htmlFor='site-tenant'>Tenant</Label>
             <Select value={tenant} onValueChange={setTenant}>
@@ -125,35 +154,47 @@ export function SiteForm({ open, onOpenChange, site }: SiteFormProps) {
               </SelectContent>
             </Select>
           </div>
+
           <div className='grid gap-1'>
             <Label htmlFor='site-address'>Address</Label>
-            <Input
+            <AddressAutocomplete
               id='site-address'
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder='1 Market St, Springfield'
-            />
-          </div>
-          <div className='grid gap-1'>
-            <Label htmlFor='site-timezone'>Timezone</Label>
-            <Input
-              id='site-timezone'
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              placeholder='America/New_York'
-            />
-          </div>
-          <div className='grid gap-1'>
-            <Label htmlFor='site-geo'>Coordinates</Label>
-            <Input
-              id='site-geo'
-              value={geo}
-              onChange={(e) => setGeo(e.target.value)}
-              placeholder='lat,lng — e.g. 39.7817,-89.6501'
+              onChange={setAddress}
+              onPick={(r) => applyCoord({ lat: r.lat, lng: r.lng })}
+              placeholder='Start typing… e.g. 1 Market St, Springfield'
             />
             <p className='text-muted-foreground text-xs'>
-              Plots the site on the map. Format: latitude,longitude.
+              Searches OpenStreetMap; picking a match fills the map & timezone.
             </p>
+          </div>
+
+          <SiteLocationMap value={coord} onChange={applyCoord} />
+
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='grid gap-1'>
+              <Label htmlFor='site-geo'>Coordinates</Label>
+              <Input
+                id='site-geo'
+                value={geo}
+                onChange={(e) => setGeo(e.target.value)}
+                placeholder='lat,lng'
+              />
+              <p className='text-muted-foreground text-xs'>
+                latitude,longitude
+              </p>
+            </div>
+            <div className='grid gap-1'>
+              <Label htmlFor='site-timezone'>Timezone</Label>
+              <TimezoneSelect
+                id='site-timezone'
+                value={timezone}
+                onChange={setTimezone}
+              />
+              <p className='text-muted-foreground text-xs'>
+                Auto-set from the map; editable.
+              </p>
+            </div>
           </div>
         </div>
 

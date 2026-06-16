@@ -10,7 +10,9 @@
 //! account for the agent design (`ExternalQuery` + `RuleInvoke`).
 
 use rubix_core::{Id, Principal, PrincipalKind, Role};
-use rubix_gate::{Capability, create_grant, provision_principal};
+use rubix_gate::{
+    Capability, Team, add_member, create_grant, create_team, create_team_grant, provision_principal,
+};
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
 
@@ -87,6 +89,39 @@ const CAST: &[DemoPrincipal] = &[
     },
 ];
 
+/// One demo team: its slug/label plus the member subjects (bare, namespaced at
+/// seed time) and the capabilities granted to the team (inherited by members).
+struct DemoTeam {
+    /// The team's slug within the tenant.
+    slug: &'static str,
+    /// The team's human label.
+    display_name: &'static str,
+    /// The bare subjects of the cast members to add (namespaced per tenant).
+    members: &'static [&'static str],
+    /// Capabilities granted to the team — every member inherits these.
+    grants: &'static [Capability],
+}
+
+/// The per-tenant demo teams. `engineers` groups the operator + analyst and is
+/// granted the query console capability **at the team level**, demonstrating an
+/// inherited grant: a member exercises `ExternalQuery` through membership, not a
+/// per-principal grant. This is the shape the UI's team-access view opens onto
+/// (`rubix/docs/SCOPE.md`, teams).
+const TEAMS: &[DemoTeam] = &[
+    DemoTeam {
+        slug: "engineers",
+        display_name: "Engineers",
+        members: &["operator", "analyst"],
+        grants: &[Capability::ExternalQuery],
+    },
+    DemoTeam {
+        slug: "viewers",
+        display_name: "Viewers",
+        members: &["viewer"],
+        grants: &[],
+    },
+];
+
 /// A provisioned credential, returned so the seed can print a login table.
 pub struct Credential {
     /// The full subject the client authenticates with (`{namespace}-{role}`).
@@ -147,6 +182,29 @@ pub async fn provision_cast(
             secret: member.secret,
             grants: member.grants,
         });
+    }
+
+    // Provision the demo teams: create each, add its members, and grant it its
+    // team-level capabilities — so a member inherits access through membership.
+    for team in TEAMS {
+        create_team(
+            db,
+            &admin,
+            &Team::new(team.slug, namespace.to_owned(), team.display_name),
+        )
+        .await
+        .map_err(|e| SeedError::new("create team", e))?;
+        for member in team.members {
+            let subject = format!("{namespace}_{member}");
+            add_member(db, &admin, namespace, team.slug, &subject)
+                .await
+                .map_err(|e| SeedError::new("add team member", e))?;
+        }
+        for capability in team.grants {
+            create_team_grant(db, &admin, team.slug, namespace, *capability)
+                .await
+                .map_err(|e| SeedError::new("grant team capability", e))?;
+        }
     }
 
     let operator = operator.expect("cast always contains an operator");

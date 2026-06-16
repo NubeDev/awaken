@@ -10,6 +10,11 @@
 //!   authz layer, `rubix/docs/SCOPE.md`); it carries no scoped-session `select`
 //!   permission because grants are read by the gate on the store handle, never
 //!   on a principal's scoped session;
+//! - the `team` and `membership` tables hold the gate-owned grouping primitive
+//!   (`rubix/docs/SCOPE.md`, principle 5): a team is a named group, a membership
+//!   links a principal to it, and a grant to a `team:{slug}` subject flows to its
+//!   members. Like `grant`, they are read by the gate on the store handle, never
+//!   on a principal's scoped session, so they carry no row-level permission;
 //! - the `session_token` table holds opaque server-side login tokens (a hashed
 //!   token → credentials, with an expiry); like `grant` it is read only by the
 //!   gate on the store handle, never on a scoped session, so it carries no
@@ -58,6 +63,8 @@ use crate::error::{GateError, Result};
 const GATE_SCHEMA: &str = "\
 DEFINE TABLE IF NOT EXISTS principal SCHEMALESS;\n\
 DEFINE TABLE IF NOT EXISTS grant SCHEMALESS;\n\
+DEFINE TABLE IF NOT EXISTS team SCHEMALESS;\n\
+DEFINE TABLE IF NOT EXISTS membership SCHEMALESS;\n\
 DEFINE TABLE IF NOT EXISTS session_token SCHEMALESS;\n\
 DEFINE ACCESS IF NOT EXISTS principal ON DATABASE TYPE RECORD\n\
   SIGNIN (\n\

@@ -11,12 +11,12 @@ use rubix_core::{
     Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection, migrate_history_to_readings,
 };
 use rubix_gate::{define_audit_schema, define_gate_schema};
-use rubix_trace::define_trace_schema;
 use rubix_server::{
     AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
     router, seed_dev, spawn_hook_dispatcher,
 };
 use rubix_store::StoreHandle;
+use rubix_trace::define_trace_schema;
 
 const DEFAULT_NAMESPACE: &str = "rubix";
 const DEFAULT_DATABASE: &str = "main";
@@ -140,9 +140,47 @@ async fn main() -> Result<()> {
         .map_err(|e| rubix_core::Error::Config(format!("binding {bind}: {e}")))?;
 
     axum::serve(listener, router(state))
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(|e| rubix_core::Error::Config(format!("serving HTTP: {e}")))?;
     Ok(())
+}
+
+/// Resolve when the process is asked to stop — Ctrl-C (SIGINT) or SIGTERM (what
+/// `make kill` and `make dev`'s `trap 'kill 0'` send). Handing this to
+/// `axum::serve(..).with_graceful_shutdown` lets the server stop accepting,
+/// drain in-flight requests, and return so `main` exits cleanly.
+///
+/// This is not cosmetic: the file-backed SurrealKV store appends every commit to
+/// a write-ahead log. With no handler, SIGTERM terminates the process by default
+/// disposition — abruptly, just like SIGKILL — and a signal landing mid-append
+/// can leave a torn record at the WAL tail that wedges replay on the next boot
+/// (the store opens but hangs, so the server never binds). A clean exit has no
+/// write in flight at termination, so the WAL tail is always whole.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sig) => {
+                sig.recv().await;
+            }
+            // If the handler can't be installed, never resolve this arm — fall
+            // back to Ctrl-C alone rather than shutting down immediately.
+            Err(_) => std::future::pending::<()>().await,
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => {}
+        () = terminate => {}
+    }
 }
 
 /// Build the runtime config from the environment, file-backed, carrying the

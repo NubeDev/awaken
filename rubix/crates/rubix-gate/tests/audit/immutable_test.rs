@@ -23,7 +23,12 @@ fn admin() -> Principal {
 }
 
 fn operator(subject: &str) -> Principal {
-    Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 #[tokio::test]
@@ -49,7 +54,9 @@ async fn a_scoped_principal_cannot_mutate_or_delete_an_audit_row() {
         .await
         .expect("provision");
     let token = PrincipalToken::new("alice", "pw");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
     let session = issue_scoped_session(handle.raw(), NS, database, resolved, &token)
         .await
         .expect("issue session");

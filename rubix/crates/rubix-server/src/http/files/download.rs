@@ -2,8 +2,8 @@
 
 use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::HeaderValue;
+use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::response::Response;
 
 use crate::auth::Authenticated;
@@ -37,9 +37,10 @@ pub async fn download_file_route(
     );
     // `attachment; filename="…"` with the stored name; fall back to a safe default
     // if the filename cannot form a valid header value.
-    if let Ok(disposition) =
-        HeaderValue::from_str(&format!("attachment; filename=\"{}\"", loaded.reference.filename))
-    {
+    if let Ok(disposition) = HeaderValue::from_str(&format!(
+        "attachment; filename=\"{}\"",
+        loaded.reference.filename
+    )) {
         headers.insert(CONTENT_DISPOSITION, disposition);
     }
     Ok(response)

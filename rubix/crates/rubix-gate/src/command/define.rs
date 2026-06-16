@@ -36,12 +36,7 @@ impl Command {
     /// Build a command for `principal` to apply `change` to `target`, gated by
     /// `capability`.
     #[must_use]
-    pub fn new(
-        principal: Principal,
-        capability: Capability,
-        target: Id,
-        change: Change,
-    ) -> Self {
+    pub fn new(principal: Principal, capability: Capability, target: Id, change: Change) -> Self {
         Self {
             principal,
             capability,

@@ -19,7 +19,9 @@ async fn issued_session_is_bound_to_the_principal() {
         .expect("provision");
 
     let token = PrincipalToken::new("alice", "pw");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
     let session = issue_scoped_session(handle.raw(), NS, database, resolved.clone(), &token)
         .await
         .expect("issue scoped session");

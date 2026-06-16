@@ -207,6 +207,10 @@ async fn guard_not_last_admin(state: &AppState, namespace: &str) -> Result<(), A
 pub(crate) fn map_admin_error(error: rubix_gate::GateError) -> ApiError {
     match error {
         rubix_gate::GateError::Authenticate(_) => ApiError::NotFound,
+        // The gate's own admin-authority check (used by the team verbs) failing
+        // closed is a `403` — though the transport's `require_admin` guard
+        // normally catches a non-admin before the gate is reached.
+        rubix_gate::GateError::GrantDenied(reason) => ApiError::Forbidden(reason),
         other => ApiError::Internal(other.to_string()),
     }
 }

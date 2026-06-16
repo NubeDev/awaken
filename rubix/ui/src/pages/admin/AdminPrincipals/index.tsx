@@ -187,7 +187,6 @@ function CreatePrincipalDialog({
     subject: '',
     kind: 'user',
     role: 'viewer',
-    secret: '',
   })
   const [mintedSecret, setMintedSecret] = useState<string | null>(null)
 
@@ -197,17 +196,13 @@ function CreatePrincipalDialog({
 
   async function handleCreate() {
     try {
-      // Empty secret ⇒ omit it so the server mints one and returns it once.
-      const body: CreatePrincipalRequest = { ...form, secret: form.secret || undefined }
-      const created = await create.mutateAsync(body)
-      if (created.secret) {
-        setMintedSecret(created.secret)
-        toast('Principal created — copy the secret now')
-      } else {
-        toast('Principal created')
-        onOpenChange(false)
-      }
-      setForm({ subject: '', kind: 'user', role: 'viewer', secret: '' })
+      // The secret is always server-minted and shown once — never typed here
+      // (a hand-entered shared secret is the awkward UX we're avoiding). Omitting
+      // it tells the server to generate and return one.
+      const created = await create.mutateAsync({ ...form, secret: undefined })
+      setMintedSecret(created.secret ?? '(no secret returned)')
+      toast('Created — copy the secret now')
+      setForm({ subject: '', kind: 'user', role: 'viewer' })
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Create failed', 'error')
     }
@@ -225,7 +220,7 @@ function CreatePrincipalDialog({
         <DialogHeader>
           <DialogTitle>New principal</DialogTitle>
           <DialogDescription>
-            Leave the secret blank to have the server generate one (shown once).
+            The server generates a secret and shows it once — copy it before closing.
           </DialogDescription>
         </DialogHeader>
 
@@ -279,16 +274,6 @@ function CreatePrincipalDialog({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="p-secret">Secret (optional)</Label>
-              <Input
-                id="p-secret"
-                value={form.secret}
-                onChange={(e) => set('secret', e.target.value)}
-                placeholder="leave blank to generate"
-                autoComplete="off"
-              />
             </div>
           </div>
         )}

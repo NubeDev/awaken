@@ -53,17 +53,23 @@ async fn a_revoked_token_no_longer_resolves() {
         .await
         .expect("issue");
 
-    assert!(revoke_session_token(handle.raw(), &issued.value)
-        .await
-        .expect("revoke"));
-    assert!(resolve_session_token(handle.raw(), &issued.value)
-        .await
-        .expect("resolve")
-        .is_none());
+    assert!(
+        revoke_session_token(handle.raw(), &issued.value)
+            .await
+            .expect("revoke")
+    );
+    assert!(
+        resolve_session_token(handle.raw(), &issued.value)
+            .await
+            .expect("resolve")
+            .is_none()
+    );
     // A second revoke is a no-op, not an error.
-    assert!(!revoke_session_token(handle.raw(), &issued.value)
-        .await
-        .expect("revoke again"));
+    assert!(
+        !revoke_session_token(handle.raw(), &issued.value)
+            .await
+            .expect("revoke again")
+    );
 }
 
 #[tokio::test]
@@ -84,10 +90,12 @@ async fn an_expired_token_does_not_resolve() {
         .check()
         .expect("update applied");
 
-    assert!(resolve_session_token(handle.raw(), &issued.value)
-        .await
-        .expect("resolve")
-        .is_none());
+    assert!(
+        resolve_session_token(handle.raw(), &issued.value)
+            .await
+            .expect("resolve")
+            .is_none()
+    );
 }
 
 #[tokio::test]

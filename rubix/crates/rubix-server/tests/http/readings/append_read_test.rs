@@ -24,7 +24,12 @@ use fixture::app::{SECRET, SUBJECT, TestApp, boot};
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -103,7 +108,8 @@ async fn readings_append_then_window_read_round_trips_off_the_gate() {
 async fn append_without_the_grant_is_forbidden() {
     // Boot with no capabilities: the once-per-request check fails closed.
     let app = boot("server_readings_nogrant", &[]).await.app;
-    let body = json!({ "series": "reg-1", "samples": [{ "at": "2026-06-14T10:00:00Z", "value": 1.0 }] });
+    let body =
+        json!({ "series": "reg-1", "samples": [{ "at": "2026-06-14T10:00:00Z", "value": 1.0 }] });
     let (status, _) = send(&app, authed("POST", "/readings", body)).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }

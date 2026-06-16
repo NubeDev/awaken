@@ -11,7 +11,10 @@
 #[path = "../gate/mod.rs"]
 mod gate;
 
-use rubix_core::{COLLECTION_KIND, Id, NAMESPACE_SETTINGS_KIND, Principal, PrincipalKind, Record, Role, create_record, read_record};
+use rubix_core::{
+    COLLECTION_KIND, Id, NAMESPACE_SETTINGS_KIND, Principal, PrincipalKind, Record, Role,
+    create_record, read_record,
+};
 use rubix_gate::{Capability, Change, Command, GateError, apply, create_grant};
 
 use gate::open::{NS, open_gate_store};
@@ -21,7 +24,12 @@ fn admin() -> Principal {
 }
 
 fn operator(subject: &str) -> Principal {
-    Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 /// Register the `site` collection (key+name required, area number) in `NS`.
@@ -38,7 +46,9 @@ async fn register_site_collection(handle: &rubix_store::StoreHandle) {
             ]
         }),
     );
-    create_record(handle.raw(), &def).await.expect("register collection");
+    create_record(handle.raw(), &def)
+        .await
+        .expect("register collection");
 }
 
 async fn grant(handle: &rubix_store::StoreHandle, actor: &Principal) {
@@ -59,11 +69,20 @@ async fn valid_content_for_a_registered_collection_lands() {
         actor,
         Capability::RuleInvoke,
         target.clone(),
-        Change::Create(serde_json::json!({ "kind": "site", "key": "s1", "name": "HQ", "area": 1200 })),
+        Change::Create(
+            serde_json::json!({ "kind": "site", "key": "s1", "name": "HQ", "area": 1200 }),
+        ),
     );
-    apply(handle.raw(), &command, None).await.expect("apply valid");
+    apply(handle.raw(), &command, None)
+        .await
+        .expect("apply valid");
 
-    assert!(read_record(handle.raw(), &target).await.expect("read").is_some());
+    assert!(
+        read_record(handle.raw(), &target)
+            .await
+            .expect("read")
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -81,11 +100,18 @@ async fn invalid_content_is_refused_before_any_write() {
         target.clone(),
         Change::Create(serde_json::json!({ "kind": "site", "key": "s1", "area": "huge" })),
     );
-    let err = apply(handle.raw(), &command, None).await.expect_err("must reject");
+    let err = apply(handle.raw(), &command, None)
+        .await
+        .expect_err("must reject");
     assert!(matches!(err, GateError::Validation(_)), "got {err:?}");
 
     // Fail-closed: no record written for a rejected command.
-    assert!(read_record(handle.raw(), &target).await.expect("read").is_none());
+    assert!(
+        read_record(handle.raw(), &target)
+            .await
+            .expect("read")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -101,8 +127,15 @@ async fn an_unknown_kind_is_admitted_when_fail_open() {
         target.clone(),
         Change::Create(serde_json::json!({ "kind": "gadget", "whatever": true })),
     );
-    apply(handle.raw(), &command, None).await.expect("fail-open admits");
-    assert!(read_record(handle.raw(), &target).await.expect("read").is_some());
+    apply(handle.raw(), &command, None)
+        .await
+        .expect("fail-open admits");
+    assert!(
+        read_record(handle.raw(), &target)
+            .await
+            .expect("read")
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -113,7 +146,9 @@ async fn an_unknown_kind_is_rejected_under_strict_mode() {
         NS,
         serde_json::json!({ "kind": NAMESPACE_SETTINGS_KIND, "strict": true }),
     );
-    create_record(handle.raw(), &settings).await.expect("strict on");
+    create_record(handle.raw(), &settings)
+        .await
+        .expect("strict on");
 
     let actor = operator("alice");
     grant(&handle, &actor).await;
@@ -125,9 +160,16 @@ async fn an_unknown_kind_is_rejected_under_strict_mode() {
         target.clone(),
         Change::Create(serde_json::json!({ "kind": "gadget", "whatever": true })),
     );
-    let err = apply(handle.raw(), &command, None).await.expect_err("strict rejects");
+    let err = apply(handle.raw(), &command, None)
+        .await
+        .expect_err("strict rejects");
     assert!(matches!(err, GateError::Validation(_)), "got {err:?}");
-    assert!(read_record(handle.raw(), &target).await.expect("read").is_none());
+    assert!(
+        read_record(handle.raw(), &target)
+            .await
+            .expect("read")
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -155,7 +197,9 @@ async fn a_partial_update_validates_against_the_merged_record() {
         target.clone(),
         Change::Update(serde_json::json!({ "area": 900 })),
     );
-    apply(handle.raw(), &patch, None).await.expect("partial update validates");
+    apply(handle.raw(), &patch, None)
+        .await
+        .expect("partial update validates");
 
     let content = read_record(handle.raw(), &target)
         .await

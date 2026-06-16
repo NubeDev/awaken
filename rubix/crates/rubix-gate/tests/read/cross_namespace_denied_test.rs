@@ -44,7 +44,9 @@ async fn principal_cannot_read_a_foreign_namespace_record() {
         .await
         .expect("provision");
     let token = PrincipalToken::new("alice", "pw");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
     let session = issue_scoped_session(handle.raw(), "rubix", database, resolved, &token)
         .await
         .expect("issue scoped session");

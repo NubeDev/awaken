@@ -16,17 +16,23 @@ use rubix_core::Principal;
 use crate::error::{GateError, Result};
 
 use super::grant::row::GRANT_TABLE;
+use super::grant::team_subject;
 use super::kind::Capability;
 use super::register::is_registered;
+use crate::team::teams_of;
 
 /// Whether `principal` may exercise `capability`.
 ///
-/// Denies (returns `false`) when the capability is not registered or when the
-/// principal holds no matching grant in its namespace. Allows only when a grant
-/// for that exact (subject, namespace, capability) triple exists.
+/// Denies (returns `false`) when the capability is not registered or when
+/// neither the principal nor any team it belongs to holds a matching grant in
+/// its namespace. A principal's **effective** grants are its own grants unioned
+/// with the grants of every team it is a member of (`rubix/docs/SCOPE.md`,
+/// "Capabilities are grants"; team inheritance in [`team`](crate::team)), so a
+/// capability granted to a team is exercisable by each member.
 ///
 /// # Errors
-/// Returns [`GateError::GrantStore`] if the grant lookup itself fails. A query
+/// Returns [`GateError::GrantStore`] if the grant lookup itself fails, or
+/// [`GateError::Lookup`] if resolving the principal's teams fails. A query
 /// failure is surfaced, never silently treated as allow.
 pub async fn check_capability(
     db: &Surreal<Db>,
@@ -37,14 +43,24 @@ pub async fn check_capability(
     if !is_registered(capability.as_str()) {
         return Ok(false);
     }
+    // The principal's own subject plus a `team:{slug}` subject for each team it
+    // belongs to — the set of subjects whose grants apply to this principal.
+    let mut subjects = vec![principal.subject.to_string()];
+    subjects.extend(
+        teams_of(db, principal)
+            .await?
+            .iter()
+            .map(|s| team_subject(s)),
+    );
+
     let query = format!(
         "SELECT VALUE count() FROM {GRANT_TABLE} \
-         WHERE subject = $subject AND namespace = $namespace AND capability = $capability \
+         WHERE subject IN $subjects AND namespace = $namespace AND capability = $capability \
          GROUP ALL"
     );
     let mut response = db
         .query(query)
-        .bind(("subject", principal.subject.to_string()))
+        .bind(("subjects", subjects))
         .bind(("namespace", principal.namespace.clone()))
         .bind(("capability", capability.as_str().to_owned()))
         .await

@@ -162,11 +162,41 @@ clean:
 # even after it loses its port — so the next boot blocks on the lock, not the
 # port. fuser is also absent on some boxes, so we also drive the kill off pkill.
 #
-# pkill -f matches THIS project's signatures only: the UI's `--port $(UI_PORT)`
-# and the backend's `--rubix` marker (see RUN_ARGS). Targeting the marker — not
-# the bare binary name — is what keeps this from killing the sibling nhp backend,
-# which runs the same binary from this same workspace (tagged `--nhp`). The '-'
-# prefixes keep make from failing when a tool is missing or nothing matches.
+# pkill -f matches THIS project's signatures only: the UI's `vite --port
+# $(UI_PORT)` and the backend's `--rubix` marker (see RUN_ARGS). Targeting the
+# marker — not the bare binary name — is what keeps this from killing the sibling
+# nhp backend, which runs the same binary from this same workspace (tagged
+# `--nhp`). The '-' prefixes keep make from failing when a tool is missing or
+# nothing matches.
+#
+# The pkill patterns use a bracket class on the first char (`[v]ite`,
+# `[r]ubix-server`) so they don't match THEMSELVES. make expands the recipe into
+# the literal command line of the shell that runs pkill, so a plain `vite.*`
+# pattern matched that very shell (its argv contains the pattern text) and pkill
+# SIGKILL'd its own parent — the `Killed (ignored)` noise that sometimes aborted
+# the recipe before it reached the backend kill. `[v]ite` is a regex that still
+# matches the real `vite` process, but the pattern *string* is `[v]ite`, which
+# has no `vite` substring, so pkill's own command line no longer self-matches.
+#
+# We signal SIGTERM first, NOT SIGKILL — and that distinction is load-bearing.
+# rubix-server now traps SIGTERM and shuts the store down cleanly (see
+# `shutdown_signal` in crates/rubix-server/src/main.rs). The file-backed
+# SurrealKV store appends every commit to a write-ahead log; a SIGKILL landing
+# mid-append leaves a torn record at the WAL tail that wedges replay on the next
+# boot — the store opens but hangs forever, so the server never binds 8092 and
+# the UI proxy spins on ECONNREFUSED. (That is exactly the failure this target
+# used to CAUSE: it SIGKILL'd the backend, which over repeated runs corrupted
+# rubix-data and made `make dev` appear to "keep crashing".) SIGTERM lets the
+# backend finish in-flight writes and exit with a whole WAL.
+#
+# After signalling, we poll with pgrep until the processes actually exit. We poll
+# pgrep, not fuser: fuser/ss/lsof are absent on this box (the fuser lines above
+# silently no-op here), so the process table is the only reliable signal. The
+# poll doubles as the graceful-shutdown grace period: it waits up to ~8s for a
+# clean exit, then escalates the stragglers to SIGKILL as a last resort (a wedged
+# or hung process must not block the port forever). The wait also closes the
+# race where a returning `make kill` followed immediately by `make dev` raced the
+# dying process for the port/LOCK.
 #
 # The backend pattern is `rubix-server.* --rubix` (not `rubix-server --rubix`)
 # so it matches BOTH the running binary (`target/debug/rubix-server --rubix`)
@@ -175,10 +205,21 @@ clean:
 # the bare binary missed the compile window: a `make kill` fired mid-compile hit
 # nothing, cargo then exec'd an orphaned server holding the port/LOCK.
 kill:
-	-@fuser -k -KILL $(BE_PORT)/tcp 2>/dev/null || true
-	-@fuser -k -KILL $(UI_PORT)/tcp 2>/dev/null || true
-	-@pkill -KILL -f -- '--port $(UI_PORT)' 2>/dev/null || true
-	-@pkill -KILL -f 'rubix-server.* --rubix' 2>/dev/null || true
+	-@fuser -TERM -k $(BE_PORT)/tcp 2>/dev/null || true
+	-@fuser -TERM -k $(UI_PORT)/tcp 2>/dev/null || true
+	-@pkill -TERM -f '[v]ite.* --port $(UI_PORT)' 2>/dev/null || true
+	-@pkill -TERM -f '[r]ubix-server.* --rubix' 2>/dev/null || true
+	@i=0; \
+	while pgrep -f '[r]ubix-server.* --rubix' >/dev/null 2>&1 \
+	   || pgrep -f '[v]ite.* --port $(UI_PORT)' >/dev/null 2>&1; do \
+		i=$$((i+1)); \
+		if [ $$i -ge 80 ]; then \
+			pkill -KILL -f '[v]ite.* --port $(UI_PORT)' 2>/dev/null || true; \
+			pkill -KILL -f '[r]ubix-server.* --rubix' 2>/dev/null || true; \
+			break; \
+		fi; \
+		sleep 0.1; \
+	done
 	@echo "freed ports $(BE_PORT)/$(UI_PORT) and killed any orphaned backend/UI"
 
 # Build the image from the Dockerfile, run it detached on a named volume, then

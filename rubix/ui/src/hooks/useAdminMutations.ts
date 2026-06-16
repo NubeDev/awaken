@@ -11,9 +11,15 @@ import {
   deletePrincipal,
   grantCapability,
   revokeCapability,
+  createTeam,
+  deleteTeam,
+  addTeamMember,
+  removeTeamMember,
+  grantTeamCapability,
+  revokeTeamCapability,
 } from '../api/admin'
 import type { Record, RecordContent } from '../types/Record'
-import type { CreatePrincipalRequest, CreatedPrincipal } from '../types/Admin'
+import type { CreatePrincipalRequest, CreatedPrincipal, CreateTeamRequest, Team } from '../types/Admin'
 
 export function useRecordMutations(tenant: string) {
   const api = useApi(tenant)
@@ -71,6 +77,51 @@ export function useGrantMutations(tenant: string, subject: string) {
     onSuccess: invalidate,
   })
   return { grant, revoke }
+}
+
+export function useTeamMutations(tenant: string) {
+  const api = useApi(tenant)
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['teams', tenant] })
+
+  const create = useMutation<Team, Error, CreateTeamRequest>({
+    mutationFn: (body) => createTeam(api, body),
+    onSuccess: invalidate,
+  })
+  const remove = useMutation({
+    mutationFn: (slug: string) => deleteTeam(api, slug),
+    onSuccess: invalidate,
+  })
+  return { create, remove }
+}
+
+// Member + grant changes for one team. Both invalidate the per-team member and
+// grant queries so the manage dialog reflects the write immediately.
+export function useTeamDetailMutations(tenant: string, slug: string) {
+  const api = useApi(tenant)
+  const qc = useQueryClient()
+  const invalidateMembers = () =>
+    qc.invalidateQueries({ queryKey: ['team-members', tenant, slug] })
+  const invalidateGrants = () =>
+    qc.invalidateQueries({ queryKey: ['team-grants', tenant, slug] })
+
+  const addMember = useMutation({
+    mutationFn: (subject: string) => addTeamMember(api, slug, subject),
+    onSuccess: invalidateMembers,
+  })
+  const removeMember = useMutation({
+    mutationFn: (subject: string) => removeTeamMember(api, slug, subject),
+    onSuccess: invalidateMembers,
+  })
+  const grant = useMutation({
+    mutationFn: (capability: string) => grantTeamCapability(api, slug, capability),
+    onSuccess: invalidateGrants,
+  })
+  const revoke = useMutation({
+    mutationFn: (capability: string) => revokeTeamCapability(api, slug, capability),
+    onSuccess: invalidateGrants,
+  })
+  return { addMember, removeMember, grant, revoke }
 }
 
 export type { Record }

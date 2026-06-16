@@ -17,8 +17,10 @@ import { Copilot } from './pages/Copilot'
 import { AdminSchema } from './pages/admin/AdminSchema'
 import { AdminRecordsPage } from './pages/admin/AdminRecordsPage'
 import { AdminPrincipals } from './pages/admin/AdminPrincipals'
+import { AdminTeams } from './pages/admin/AdminTeams'
 import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminQuery } from './pages/admin/AdminQuery'
+import { AdminAudit } from './pages/admin/AdminAudit'
 import { AdminRules } from './pages/admin/AdminRules'
 import { AdminDashboards, AdminDashboardBuilder } from './pages/admin/AdminDashboards'
 import { GenericPage } from './pages/GenericPage'
@@ -132,6 +134,12 @@ const adminPrincipalsRoute = createRoute({
   component: AdminPrincipals,
 })
 
+const adminTeamsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'teams',
+  component: AdminTeams,
+})
+
 const adminAgentsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'agents',
@@ -142,6 +150,12 @@ const adminQueryRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'query',
   component: AdminQuery,
+})
+
+const adminAuditRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'audit',
+  component: AdminAudit,
 })
 
 const adminRulesRoute = createRoute({
@@ -187,8 +201,10 @@ const routeTree = rootRoute.addChildren([
       adminSchemaRoute,
       adminRecordsRoute,
       adminPrincipalsRoute,
+      adminTeamsRoute,
       adminAgentsRoute,
       adminQueryRoute,
+      adminAuditRoute,
       adminRulesRoute,
       adminDashboardsRoute,
       adminDashboardBuilderRoute,

@@ -18,7 +18,12 @@ fn admin() -> Principal {
 }
 
 fn operator(subject: &str) -> Principal {
-    Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 async fn stored_correlation_id(handle: &rubix_store::StoreHandle, target: &str) -> Option<String> {

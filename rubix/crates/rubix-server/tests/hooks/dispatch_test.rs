@@ -52,11 +52,20 @@ async fn a_write_to_a_watched_kind_fires_its_hook_rule() {
     let cfg = RuntimeConfig::in_memory(NS, "hook_dispatch");
     let store = StoreHandle::open(&cfg).await.expect("open store");
     define_gate_schema(store.raw()).await.expect("gate schema");
-    define_audit_schema(store.raw()).await.expect("audit schema");
-    rubix_trace::define_trace_schema(store.raw()).await.expect("trace schema");
+    define_audit_schema(store.raw())
+        .await
+        .expect("audit schema");
+    rubix_trace::define_trace_schema(store.raw())
+        .await
+        .expect("trace schema");
 
     // An operator that may write records, rules, hooks (the gate's IngestPublish).
-    let operator = Principal::new(Id::from_raw("operator"), NS, PrincipalKind::User, Role::Operator);
+    let operator = Principal::new(
+        Id::from_raw("operator"),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
     provision_principal(store.raw(), &operator, "pw")
         .await
         .expect("provision operator");
@@ -139,10 +148,19 @@ async fn a_write_to_an_unwatched_kind_fires_nothing() {
     let cfg = RuntimeConfig::in_memory(NS, "hook_no_match");
     let store = StoreHandle::open(&cfg).await.expect("open store");
     define_gate_schema(store.raw()).await.expect("gate schema");
-    define_audit_schema(store.raw()).await.expect("audit schema");
-    rubix_trace::define_trace_schema(store.raw()).await.expect("trace schema");
+    define_audit_schema(store.raw())
+        .await
+        .expect("audit schema");
+    rubix_trace::define_trace_schema(store.raw())
+        .await
+        .expect("trace schema");
 
-    let operator = Principal::new(Id::from_raw("operator"), NS, PrincipalKind::User, Role::Operator);
+    let operator = Principal::new(
+        Id::from_raw("operator"),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
     provision_principal(store.raw(), &operator, "pw")
         .await
         .expect("provision operator");
@@ -189,5 +207,81 @@ async fn a_write_to_an_unwatched_kind_fires_nothing() {
         count_kind(store.raw(), "widget-touched-insight").await,
         0,
         "an unwatched kind fires no hook"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_hook_on_a_rules_own_output_does_not_recurse() {
+    // The recursion footgun: a hook matches the kind a rule emits, and the rule
+    // fires on that kind. Without a guard, the rule's insight write would re-fire
+    // the hook forever. The dispatcher must treat insight (rule-output) writes as
+    // non-hookable, so the cycle never starts.
+    let cfg = RuntimeConfig::in_memory(NS, "hook_recurse");
+    let store = StoreHandle::open(&cfg).await.expect("open store");
+    define_gate_schema(store.raw()).await.expect("gate schema");
+    define_audit_schema(store.raw())
+        .await
+        .expect("audit schema");
+    rubix_trace::define_trace_schema(store.raw())
+        .await
+        .expect("trace schema");
+
+    let operator = Principal::new(
+        Id::from_raw("operator"),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
+    provision_principal(store.raw(), &operator, "pw")
+        .await
+        .expect("provision operator");
+    let admin = Principal::new(Id::from_raw("admin"), NS, PrincipalKind::User, Role::Admin);
+    create_grant(store.raw(), &admin, &operator, Capability::IngestPublish)
+        .await
+        .expect("grant");
+
+    // A rule whose output kind is `loopy`, and a hook that watches `loopy` creates
+    // and fires that very rule — the loop the guard must break.
+    put(
+        store.raw(),
+        &operator,
+        &Id::from_raw("rule-loop"),
+        json!({
+            "kind": "rule",
+            "name": "loop-rule",
+            "script": "#{ fired: true, value: 1.0, reason: \"loop\" }",
+            "output": "loopy",
+        }),
+    )
+    .await;
+    put(
+        store.raw(),
+        &operator,
+        &Id::from_raw("hook-loop"),
+        json!({ "kind": "hook", "match": "loopy", "on": ["create"], "rule": "loop-rule" }),
+    )
+    .await;
+
+    let state = AppState::new(store.clone(), NS, "hook_recurse");
+    spawn_hook_dispatcher(state);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    // Write one record whose kind is the rule's output. It is an insight-shaped kind,
+    // so the dispatcher must not fire the hook on it — the count must stay at 1.
+    put(
+        store.raw(),
+        &operator,
+        &Id::from_raw("loopy-1"),
+        json!({ "kind": "loopy", "note": "seed" }),
+    )
+    .await;
+
+    // Give any (erroneous) cascade ample time to run away, then assert it did not:
+    // exactly the one record we wrote, no rule-fired insights piled on top.
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    assert_eq!(
+        count_kind(store.raw(), "loopy").await,
+        1,
+        "a rule-output kind is not hookable, so no recursion occurs"
     );
 }

@@ -16,37 +16,12 @@ import MapGL, {
   NavigationControl,
   type MapRef,
 } from 'react-map-gl/maplibre'
-import type { StyleSpecification } from 'maplibre-gl'
 import { MapPin } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { SiteRecord } from '@/api/records'
 import { useTheme } from '@/context/theme-provider'
+import { cartoStyle, parseGeo } from './geo'
 import { useSites, useTenants } from './hooks'
-
-/**
- * CARTO basemaps as MapLibre raster styles — token-free tiles designed for
- * dashboards: a muted dark basemap in dark mode, Positron (light) otherwise, so
- * the map sits in the UI instead of glaring against it. Retina (@2x) tiles for
- * crisp labels. © OpenStreetMap contributors © CARTO. Defined inline so the only
- * network dep is the tile CDN.
- */
-const cartoStyle = (variant: 'dark_all' | 'light_all'): StyleSpecification => ({
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [
-        `https://a.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
-        `https://b.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
-        `https://c.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{ratio}.png`,
-      ].map((u) => u.replace('{ratio}', '@2x')),
-      tileSize: 256,
-      attribution:
-        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
-    },
-  },
-  layers: [{ id: 'carto', type: 'raster', source: 'carto' }],
-})
 
 const DARK_STYLE = cartoStyle('dark_all')
 const LIGHT_STYLE = cartoStyle('light_all')
@@ -57,15 +32,6 @@ type Pin = {
   lng: number
   /** Parent tenant key — the dashboard deep-link is keyed, not by record id. */
   tenantKey?: string
-}
-
-/** Parse a `geo` string ("lat,lng") to a finite {lat,lng}, or null if unusable. */
-function parseGeo(geo?: string): { lat: number; lng: number } | null {
-  if (!geo) return null
-  const [a, b] = geo.split(',').map((s) => Number(s.trim()))
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
-  if (a < -90 || a > 90 || b < -180 || b > 180) return null
-  return { lat: a, lng: b }
 }
 
 export function SiteMap({

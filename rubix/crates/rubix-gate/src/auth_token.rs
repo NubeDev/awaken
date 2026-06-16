@@ -125,7 +125,10 @@ pub async fn issue_session_token(
         .map(|r| r.expires.to_string())
         .ok_or_else(|| GateError::Authenticate("token issue returned no row".to_owned()))?;
 
-    Ok(IssuedToken { value: raw, expires })
+    Ok(IssuedToken {
+        value: raw,
+        expires,
+    })
 }
 
 /// Resolve an opaque bearer token to its credentials and scope.

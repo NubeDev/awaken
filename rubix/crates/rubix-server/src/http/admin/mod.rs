@@ -11,10 +11,11 @@ mod devices;
 mod grants;
 pub(crate) mod guard;
 mod principals;
+mod teams;
 mod tenants;
 
 use axum::Router;
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 
 use crate::state::AppState;
 
@@ -22,10 +23,17 @@ use devices::{
     create_device_route, delete_device_route, get_device_route, list_devices_route,
     update_device_route,
 };
-use grants::{delete_grant_route, list_grants_route, put_grant_route};
+use grants::{
+    delete_grant_route, delete_team_grant_route, list_grants_route, list_team_grants_route,
+    put_grant_route, put_team_grant_route,
+};
 use principals::{
     create_principal_route, delete_principal_route, get_principal_route, list_principals_route,
     update_principal_route,
+};
+use teams::{
+    add_member_route, create_team_route, delete_team_route, get_team_route, list_members_route,
+    list_teams_route, remove_member_route,
 };
 use tenants::{create_tenant_route, delete_tenant_route, list_tenants_route};
 
@@ -46,6 +54,21 @@ pub fn router() -> Router<AppState> {
         .route(
             "/principals/:subject/grants/:capability",
             put(put_grant_route).delete(delete_grant_route),
+        )
+        .route("/teams", post(create_team_route).get(list_teams_route))
+        .route(
+            "/teams/:slug",
+            get(get_team_route).delete(delete_team_route),
+        )
+        .route(
+            "/teams/:slug/members",
+            get(list_members_route).post(add_member_route),
+        )
+        .route("/teams/:slug/members/:subject", delete(remove_member_route))
+        .route("/teams/:slug/grants", get(list_team_grants_route))
+        .route(
+            "/teams/:slug/grants/:capability",
+            put(put_team_grant_route).delete(delete_team_grant_route),
         )
         .route(
             "/tenants",

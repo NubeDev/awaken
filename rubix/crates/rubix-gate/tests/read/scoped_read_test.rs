@@ -24,7 +24,9 @@ async fn scoped_session_reads_only_its_namespace_records() {
     let also_a = Record::new("tenant-a", serde_json::json!({ "temp": 22 }));
     let in_b = Record::new("tenant-b", serde_json::json!({ "temp": 99 }));
     for record in [&in_a, &also_a, &in_b] {
-        create_record(handle.raw(), record).await.expect("seed record");
+        create_record(handle.raw(), record)
+            .await
+            .expect("seed record");
     }
 
     let principal = Principal::new(
@@ -37,7 +39,9 @@ async fn scoped_session_reads_only_its_namespace_records() {
         .await
         .expect("provision");
     let token = PrincipalToken::new("alice", "pw");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
     let session = issue_scoped_session(handle.raw(), "rubix", database, resolved, &token)
         .await
         .expect("issue scoped session");
@@ -46,7 +50,11 @@ async fn scoped_session_reads_only_its_namespace_records() {
         .await
         .expect("scoped read");
 
-    assert_eq!(visible.len(), 2, "scoped session sees only tenant-a records");
+    assert_eq!(
+        visible.len(),
+        2,
+        "scoped session sees only tenant-a records"
+    );
     assert!(visible.iter().all(|r| r.namespace == "tenant-a"));
     let ids: Vec<_> = visible.iter().map(|r| r.id.clone()).collect();
     assert!(ids.contains(&in_a.id));

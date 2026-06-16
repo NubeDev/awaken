@@ -61,7 +61,10 @@ pub(crate) async fn validate(db: &Surreal<Db>, command: &Command) -> Result<()> 
             .validate(&content)
             .map_err(|e| GateError::Validation(e.to_string())),
         None => {
-            if namespace_strict(db, namespace).await.map_err(GateError::Read)? {
+            if namespace_strict(db, namespace)
+                .await
+                .map_err(GateError::Read)?
+            {
                 Err(GateError::Validation(format!(
                     "namespace `{namespace}` is in strict mode and `{}` matches no collection",
                     kind.unwrap_or("<no kind>")
@@ -79,11 +82,7 @@ pub(crate) async fn validate(db: &Surreal<Db>, command: &Command) -> Result<()> 
 /// When the target does not yet exist the patch stands alone — an update to a
 /// missing record validates the patch as written (SurrealDB applies no merge in
 /// that case either).
-async fn merged_for_update(
-    db: &Surreal<Db>,
-    command: &Command,
-    patch: &Value,
-) -> Result<Value> {
+async fn merged_for_update(db: &Surreal<Db>, command: &Command, patch: &Value) -> Result<Value> {
     let existing = read_record(db, &command.target)
         .await
         .map_err(GateError::Read)?;

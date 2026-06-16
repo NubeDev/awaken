@@ -20,7 +20,12 @@ fn admin() -> Principal {
 }
 
 fn operator(subject: &str) -> Principal {
-    Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator)
+    Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    )
 }
 
 async fn count_audit_rows(handle: &rubix_store::StoreHandle, subject: &str) -> i64 {
@@ -53,11 +58,10 @@ async fn a_granted_command_applies_the_record_and_audits_it() {
     let applied = apply(handle.raw(), &command, None).await.expect("apply");
 
     // The record landed.
-    let landed: Option<serde_json::Value> =
-        rubix_core::read_record(handle.raw(), &target)
-            .await
-            .expect("read record")
-            .map(|record| record.content);
+    let landed: Option<serde_json::Value> = rubix_core::read_record(handle.raw(), &target)
+        .await
+        .expect("read record")
+        .map(|record| record.content);
     assert_eq!(landed, Some(serde_json::json!({ "temp": 21 })));
 
     // Exactly one audit row exists, carrying the correlation id apply returned.
@@ -71,7 +75,10 @@ async fn a_granted_command_applies_the_record_and_audits_it() {
     let action: Option<String> = audit_resp.take("action").expect("action");
     let stored_corr: Option<String> = audit_resp.take("correlation_id").expect("corr");
     assert_eq!(action.as_deref(), Some("create"));
-    assert_eq!(stored_corr.as_deref(), Some(applied.correlation_id.as_str()));
+    assert_eq!(
+        stored_corr.as_deref(),
+        Some(applied.correlation_id.as_str())
+    );
 }
 
 #[tokio::test]

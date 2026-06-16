@@ -43,12 +43,13 @@ pub async fn purge_namespace(
     let mut deleted = 0usize;
     for table in TENANT_OWNED_TABLES {
         let mut response = db
-            .query(format!("DELETE FROM {table} WHERE namespace = $namespace RETURN BEFORE"))
+            .query(format!(
+                "DELETE FROM {table} WHERE namespace = $namespace RETURN BEFORE"
+            ))
             .bind(("namespace", namespace.to_owned()))
             .await
             .map_err(GateError::CommandApply)?;
-        let rows: Vec<serde_json::Value> =
-            response.take(0).map_err(GateError::CommandApply)?;
+        let rows: Vec<serde_json::Value> = response.take(0).map_err(GateError::CommandApply)?;
         deleted += rows.len();
     }
 

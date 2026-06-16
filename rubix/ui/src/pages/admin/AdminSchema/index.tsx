@@ -6,16 +6,33 @@
 
 import { getRouteApi } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { Database, Hash, Tag } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { Database, Hash, Play, Tag } from 'lucide-react'
 import { useAllRecords, useCollections } from '../../../hooks/useAdmin'
 import { profileKinds, tagFrequencies, type KindProfile } from '../../../utils/schema'
+import { useApi } from '../../../api/ConnectionContext'
+import { runQuery, type QueryResponse } from '../../../api/query'
 import { usePageHeader } from '../../../components/shell/page-header'
 import { ErrorView, LoadingView, EmptyView } from '../../../components/ui/StateView'
 import { Badge } from '../../../components/ui/badge'
+import { Button } from '../../../components/ui/button'
+import { SqlEditor } from '../../../components/sql/SqlEditor'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
 import { cn } from '@/lib/cn'
 
 const route = getRouteApi('/t/$tenant/admin/schema')
+
+// The `kind` discriminator lives at content.content.kind in the record table
+// (the outer `content` column wraps the document, whose own `content` holds the
+// payload) — the same json_get path the Query console's "Records by kind" preset
+// uses. '(unkinded)' is the schema page's bucket for records with no kind, so it
+// queries the whole table rather than filtering.
+function queryForKind(kind: string): string {
+  const base = 'SELECT id, content, tags, created FROM record'
+  if (kind === '(unkinded)') return `${base}\nORDER BY created DESC\nLIMIT 50`
+  const path = "json_get(json_get(content, 'content'), 'kind')"
+  return `${base}\nWHERE ${path} = '${kind.replace(/'/g, "''")}'\nORDER BY created DESC\nLIMIT 50`
+}
 
 export function AdminSchema() {
   const { tenant } = route.useParams()
@@ -48,7 +65,9 @@ export function AdminSchema() {
         {records.data && profiles.length > 0 && (
           <div className="grid grid-cols-[260px_1fr] gap-5">
             <KindList profiles={profiles} active={active} onSelect={setActiveKind} />
-            {active && <KindDetail profile={active} />}
+            {/* Remount the detail (and its query panel) per kind so switching
+                kinds clears any open results and resets the SQL to that kind. */}
+            {active && <KindDetail key={active.kind} profile={active} tenant={tenant} />}
           </div>
         )}
 
@@ -112,7 +131,8 @@ function KindList({
   )
 }
 
-function KindDetail({ profile }: { profile: KindProfile }) {
+function KindDetail({ profile, tenant }: { profile: KindProfile; tenant: string }) {
+  const [querying, setQuerying] = useState(false)
   return (
     <div className="rounded-xl border border-border bg-card/40">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -123,12 +143,22 @@ function KindDetail({ profile }: { profile: KindProfile }) {
             · {profile.count} {profile.count === 1 ? 'record' : 'records'}
           </span>
         </div>
-        {profile.hasCollection ? (
-          <Badge variant="default">registered collection</Badge>
-        ) : (
-          <Badge variant="muted">inferred shape</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setQuerying((q) => !q)}
+            className="h-7 gap-1.5 text-xs"
+          >
+            <Play size={13} /> {querying ? 'Hide query' : 'Query this kind'}
+          </Button>
+          {profile.hasCollection ? (
+            <Badge variant="default">registered collection</Badge>
+          ) : (
+            <Badge variant="muted">inferred shape</Badge>
+          )}
+        </div>
       </div>
+      {querying && <QueryPanel kind={profile.kind} tenant={tenant} />}
       {profile.fields.length === 0 ? (
         <div className="px-4 py-6 text-center text-sm text-muted-foreground">
           No fields beyond <span className="mono">kind</span>.
@@ -172,6 +202,91 @@ function KindDetail({ profile }: { profile: KindProfile }) {
       )}
     </div>
   )
+}
+
+// Inline query tool: run a read-only SELECT scoped to the kind being inspected,
+// against POST /query (the same DataFusion surface as the Query console). The SQL
+// is pre-filled and editable — the schema page is where you learn a kind's shape,
+// so it's also where you should be able to pull its rows without leaving.
+function QueryPanel({ kind, tenant }: { kind: string; tenant: string }) {
+  const api = useApi(tenant)
+  const [sql, setSql] = useState(() => queryForKind(kind))
+
+  const query = useMutation<QueryResponse, Error, string>({
+    mutationFn: (text) => runQuery(api, text),
+  })
+
+  const rows = query.data?.rows ?? []
+  const columns = useMemo(() => {
+    const set = new Set<string>()
+    for (const row of rows) for (const key of Object.keys(row)) set.add(key)
+    return [...set]
+  }, [rows])
+
+  function run() {
+    if (sql.trim()) query.mutate(sql)
+  }
+
+  return (
+    <div className="border-b border-border bg-bg/30 px-4 py-3">
+      <SqlEditor value={sql} onChange={setSql} onRun={run} minHeight="96px" />
+      <div className="mt-2 flex items-center gap-3">
+        <Button onClick={run} disabled={query.isPending} className="h-7 gap-1.5 text-xs">
+          <Play size={13} /> {query.isPending ? 'Running…' : 'Run'}
+        </Button>
+        <span className="text-[11px] text-muted-foreground">⌘/Ctrl + Enter</span>
+        {query.data && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {rows.length} {rows.length === 1 ? 'row' : 'rows'}
+          </span>
+        )}
+      </div>
+
+      {query.error && (
+        <div className="mt-3">
+          <ErrorView error={query.error} />
+        </div>
+      )}
+
+      {query.data &&
+        (rows.length === 0 ? (
+          <div className="mt-3 rounded-lg border border-border bg-card/40 px-4 py-5 text-center text-xs text-muted-foreground">
+            No rows returned.
+          </div>
+        ) : (
+          <div className="mt-3 max-h-[360px] overflow-auto rounded-lg border border-border bg-card/40">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((c) => (
+                    <TableHead key={c} className="mono">
+                      {c}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, i) => (
+                  <TableRow key={i}>
+                    {columns.map((c) => (
+                      <TableCell key={c} className="mono max-w-[320px] truncate text-xs">
+                        {renderCell(row[c])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ))}
+    </div>
+  )
+}
+
+function renderCell(value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function PresenceBar({ fraction }: { fraction: number }) {

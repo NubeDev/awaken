@@ -61,14 +61,26 @@ before-hooks are wanted later, they are their own design: a validate-style step 
   before), which persists a span tree. `main.rs` now calls `define_trace_schema` at
   boot so a firing can record its span.
 
-### Known caveat — hook recursion
+### Recursion guard
 
-A fired rule writes an insight record whose `kind` is the rule's `output`. If a user
-defines a hook whose `match` equals that output kind *and* the rule fires on its own
-output, the dispatcher would loop. This is the same footgun PocketBase hooks have;
-it requires a deliberate misconfiguration. No guard is implemented — a future
-mitigation could skip records whose write was itself a hook-fired insight (needs
-provenance the live-query stream does not currently carry).
+A fired rule writes an insight record whose `kind` is the rule's `output`. That
+write reappears on the live-query stream, so without a guard a hook whose `match`
+equals an output kind would fire on the insight it produced and loop forever.
+
+**The guard:** the dispatcher treats **insight writes as non-hookable**. It tracks
+the set of every rule's `output` kind per namespace (loaded from the `kind:"rule"`
+records, refreshed when a rule changes) and skips any change whose `kind` is in that
+set. Since the only records the dispatcher itself creates are insights, and it never
+re-triggers on them, a hook→rule→insight loop is **structurally impossible** — not
+merely discouraged. Verified by `a_hook_on_a_rules_own_output_does_not_recurse` in
+the dispatcher test.
+
+This needs no write-provenance in the stream (which it does not carry). The one
+trade-off: a *user* collection whose kind happens to equal a rule's output will not
+fire hooks (its writes look like insights). That is a safe-fail — a missed hook,
+never a runaway — and rule outputs are conventionally distinct insight kinds
+(`high-temperature`), not domain collections. Rule→rule chaining is expressed by
+**sub-rule composition**, not by hooking on insight kinds.
 
 ### Sizing against SCOPE OQ2
 

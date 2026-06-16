@@ -13,10 +13,12 @@ import {
   Settings,
   Table2,
   KeyRound,
+  Users,
   Bot,
   TerminalSquare,
   LayoutDashboard,
   LayoutGrid,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,8 +56,10 @@ export const NAV: NavGroup[] = [
       { label: 'Schema', to: '/t/$tenant/admin/schema', icon: DatabaseIcon },
       { label: 'Records', to: '/t/$tenant/admin/records', icon: Table2 },
       { label: 'Principals', to: '/t/$tenant/admin/principals', icon: KeyRound },
+      { label: 'Teams', to: '/t/$tenant/admin/teams', icon: Users },
       { label: 'Agents', to: '/t/$tenant/admin/agents', icon: Bot },
       { label: 'Query', to: '/t/$tenant/admin/query', icon: TerminalSquare },
+      { label: 'Audit', to: '/t/$tenant/admin/audit', icon: ScrollText },
       { label: 'Rules', to: '/t/$tenant/admin/rules', icon: GitBranch },
       { label: 'Dashboards', to: '/t/$tenant/admin/dashboards', icon: LayoutDashboard },
     ],

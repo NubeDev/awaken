@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use surrealdb::types::Datetime;
 
 use rubix_core::{
-    Id, Reading, Record, list_record_tags, list_records, list_records_filtered, read_record,
-    read_readings_window,
+    Id, Reading, Record, list_record_tags, list_records, list_records_filtered,
+    read_readings_window, read_record,
 };
 
 use crate::error::{GateError, Result};

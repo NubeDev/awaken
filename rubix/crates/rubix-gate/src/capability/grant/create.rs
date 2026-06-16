@@ -33,12 +33,46 @@ pub async fn create_grant(
     grantee: &Principal,
     capability: Capability,
 ) -> Result<Grant> {
-    let grant = Grant::new(grantee, capability);
+    write_grant(db, grantor, Grant::new(grantee, capability)).await
+}
+
+/// Grant `capability` to the **team** `slug` in `namespace`, authorized by
+/// `grantor`.
+///
+/// The grant is held by the team (subject `team:{slug}`) and flows to every
+/// member when their effective grants are resolved. Same fail-closed authority
+/// rule as [`create_grant`]: the grantor must be an admin in the team's
+/// namespace.
+///
+/// # Errors
+/// Returns [`GateError::GrantDenied`] if `grantor` lacks authority, or
+/// [`GateError::GrantStore`] if the write fails.
+pub async fn create_team_grant(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    slug: &str,
+    namespace: &str,
+    capability: Capability,
+) -> Result<Grant> {
+    write_grant(db, grantor, Grant::for_team(slug, namespace, capability)).await
+}
+
+/// Authority-check `grant` against `grantor` and upsert it (fail closed).
+///
+/// Shared by the principal and team grant paths: the only difference between
+/// them is the grant's subject, so both run the same `may_administer` check
+/// (which keys off the grant's namespace, not its subject) and the same write.
+pub(super) async fn write_grant(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    grant: Grant,
+) -> Result<Grant> {
     if !may_administer(grantor, &grant) {
         return Err(GateError::GrantDenied(format!(
-            "{} may not grant {} in namespace {}",
+            "{} may not grant {} to {} in namespace {}",
             grantor.subject,
-            capability.as_str(),
+            grant.capability.as_str(),
+            grant.subject,
             grant.namespace
         )));
     }

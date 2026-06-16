@@ -74,12 +74,16 @@ mod tests {
 
     #[test]
     fn only_create_and_update_carry_content() {
-        assert!(mutation_for(&Change::Create(serde_json::json!({})))
-            .writes
-            .is_some());
-        assert!(mutation_for(&Change::Update(serde_json::json!({})))
-            .writes
-            .is_some());
+        assert!(
+            mutation_for(&Change::Create(serde_json::json!({})))
+                .writes
+                .is_some()
+        );
+        assert!(
+            mutation_for(&Change::Update(serde_json::json!({})))
+                .writes
+                .is_some()
+        );
         assert!(mutation_for(&Change::Delete).writes.is_none());
     }
 }

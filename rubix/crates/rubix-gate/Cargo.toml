@@ -106,3 +106,11 @@ path = "tests/undo/undo_test.rs"
 [[test]]
 name = "undo_redo"
 path = "tests/undo/redo_test.rs"
+
+[[test]]
+name = "team_manage"
+path = "tests/team/manage_test.rs"
+
+[[test]]
+name = "team_inheritance"
+path = "tests/team/inheritance_test.rs"

@@ -14,15 +14,13 @@ use crate::dto::{
     BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, BindingDto, BucketDto,
     CatalogResponse, ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
     CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    DryRunRequest, DryRunResponse, FileRefDto, FilterFacetDto, GrantDto, LoginRequest, LoginResponse,
-    MeResponse, PersistRequest,
-    PersistedDto, PreferencesDto, PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto,
-    QueryRequest, QueryResponse, QuerySchemaResponse, QueryVariableDto, ReadingDto, ReadingSampleDto,
-    RecallRequest,
-    RecalledDto, RecordDto, RegisterDatasourceRequest, ResolvedInputDto, RuleDto, TableSchemaDto,
-    TenantDto, TimeBoundDto, TimeScopeDto, TransformDto, UpdateDatasourceRequest,
-    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
-    UpdateRuleRequest,
+    DryRunRequest, DryRunResponse, FileRefDto, FilterFacetDto, GrantDto, LoginRequest,
+    LoginResponse, MeResponse, PersistRequest, PersistedDto, PreferencesDto, PrincipalDto,
+    ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse, QuerySchemaResponse,
+    QueryVariableDto, ReadingDto, ReadingSampleDto, RecallRequest, RecalledDto, RecordDto,
+    RegisterDatasourceRequest, ResolvedInputDto, RuleDto, TableSchemaDto, TenantDto, TimeBoundDto,
+    TimeScopeDto, TransformDto, UpdateDatasourceRequest, UpdateDeviceRequest,
+    UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.

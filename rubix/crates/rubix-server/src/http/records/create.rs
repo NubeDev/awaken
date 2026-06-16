@@ -54,7 +54,9 @@ pub async fn create_record_route(
 /// of every record mutation (create/update/delete) so the board reflects a write
 /// on its next tick.
 pub(crate) fn invalidate_scanned_context(state: &AppState, principal: &rubix_core::Principal) {
-    state.context_cache.invalidate_namespace(&principal.namespace);
+    state
+        .context_cache
+        .invalidate_namespace(&principal.namespace);
 }
 
 /// Map a gate failure to its transport status: a denied grant is `403`, anything

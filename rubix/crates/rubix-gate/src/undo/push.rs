@@ -69,7 +69,12 @@ mod tests {
     use super::push_change;
 
     fn principal() -> Principal {
-        Principal::new(Id::from_raw("alice"), "tenant-a", PrincipalKind::User, Role::Operator)
+        Principal::new(
+            Id::from_raw("alice"),
+            "tenant-a",
+            PrincipalKind::User,
+            Role::Operator,
+        )
     }
 
     fn applied() -> Applied {

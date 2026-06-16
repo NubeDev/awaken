@@ -1,8 +1,8 @@
-// The variable bar above the board canvas (VARIABLES-AND-TEMPLATING.md §3). Each
-// visible variable renders as a single-select, a multi-select dropdown, or a
-// textbox; changing one writes the selection (the page mirrors it into `?var-*` and
-// the board re-queries the dependent panels). A bound nav context shows as a small
-// hint so it's clear *why* the board is scoped the way it is.
+// The variable bar above the board canvas (VARIABLES-AND-TEMPLATING.md §3) — a
+// clean row of labelled controls, matching the old rubix bar: each visible
+// variable is a single-select, a multi-select dropdown, or a textbox. A selection
+// writes through to the URL (`?var-*`) so the board deep-links; the panels re-query
+// off the resolved values. Hidden/constant variables resolve but are not shown.
 
 import { ChevronDown } from 'lucide-react'
 import type { BoardVariable, VariableScalar } from '../../api/boards'
@@ -25,41 +25,31 @@ interface VariableBarProps {
   options: Map<string, VariableOption[]>
   selections: Record<string, Selection>
   onChange: (name: string, selection: Selection) => void
-  /** Names bound by a nav node's context — shown as a hint, still editable. */
-  boundByNav?: Set<string>
 }
 
-export function VariableBar({
-  variables,
-  options,
-  selections,
-  onChange,
-  boundByNav,
-}: VariableBarProps) {
+export function VariableBar({ variables, options, selections, onChange }: VariableBarProps) {
   if (variables.length === 0) return null
   return (
-    <div className="mb-3 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card/40 px-3 py-2">
+    <div className="mb-4 flex flex-wrap items-end gap-3">
       {variables.map((v) => (
-        <div key={v.name} className="flex flex-col gap-1">
-          <Label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            {v.label ?? v.name}
-            {boundByNav?.has(v.name) && (
-              <span
-                className="rounded bg-primary/10 px-1 text-[10px] font-medium text-primary"
-                title="Bound by the navigation node opening this board"
-              >
-                nav
-              </span>
-            )}
-          </Label>
+        <Field key={v.name} label={v.label ?? v.name}>
           <VariableControl
             variable={v}
             options={options.get(v.name) ?? []}
             selection={selections[v.name]}
             onChange={(sel) => onChange(v.name, sel)}
           />
-        </div>
+        </Field>
       ))}
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      {children}
     </div>
   )
 }
@@ -78,7 +68,7 @@ function VariableControl({ variable, options, selection, onChange }: ControlProp
         value={typeof selection === 'string' ? selection : ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={variable.name}
-        className="h-8 w-[160px]"
+        className="h-8 w-44 text-[13px]"
       />
     )
   }
@@ -94,22 +84,20 @@ function VariableControl({ variable, options, selection, onChange }: ControlProp
     )
   }
 
-  // Single-select. Radix Select needs string values, so option scalars are keyed
-  // by their string form and mapped back on change.
+  // Single-select. Radix Select keys on strings, so option scalars round-trip
+  // through their string form.
   const current = Array.isArray(selection) ? selection[0] : selection
   return (
     <Select
       value={current === undefined ? undefined : String(current)}
       onValueChange={(s) => onChange(fromKey(s, options))}
     >
-      <SelectTrigger className="h-8 w-[160px]">
+      <SelectTrigger className="h-8 w-44 text-[13px]">
         <SelectValue placeholder={`Select ${variable.label ?? variable.name}`} />
       </SelectTrigger>
       <SelectContent>
         {options.length === 0 ? (
-          <SelectItem value="" disabled>
-            No options
-          </SelectItem>
+          <div className="px-2 py-1.5 text-[12.5px] text-muted-foreground">No options</div>
         ) : (
           options.map((o) => (
             <SelectItem key={String(o.value)} value={String(o.value)}>
@@ -144,12 +132,16 @@ function MultiSelect({ variable, options, selection, onChange }: ControlProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 w-[160px] justify-between font-normal">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-44 justify-between text-[13px] font-normal"
+        >
           <span className="truncate">{summary}</span>
           <ChevronDown size={14} className="opacity-60" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[280px] w-[200px] overflow-y-auto">
+      <DropdownMenuContent align="start" className="max-h-[280px] w-44 overflow-y-auto">
         <DropdownMenuLabel className="text-[11px]">
           {variable.label ?? variable.name}
         </DropdownMenuLabel>
@@ -169,7 +161,6 @@ function MultiSelect({ variable, options, selection, onChange }: ControlProps) {
             key={String(o.value)}
             checked={isAll || picked.has(String(o.value))}
             onCheckedChange={() => toggle(o.value)}
-            // Keep the menu open while picking several values.
             onSelect={(e) => e.preventDefault()}
           >
             {o.label}

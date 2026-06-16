@@ -35,12 +35,10 @@
 //! routes each change to a system principal **scoped to that change's namespace**
 //! before firing — so a hook in tenant A can never read or write tenant B's data.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rubix_bus::{ControlBus, DataChangeKind, subscribe_table};
-use rubix_core::{
-    Hook, HookEvent, Id, Principal, PrincipalKind, Role, find_hooks, HOOK_KIND,
-};
+use rubix_core::{HOOK_KIND, Hook, HookEvent, Id, Principal, PrincipalKind, Role, find_hooks};
 use rubix_gate::{
     Capability, PrincipalToken, ScopedSession, create_grant, issue_scoped_session,
     read_records_on_session_filtered, reprovision_principal,
@@ -48,7 +46,7 @@ use rubix_gate::{
 use rubix_rules::{RuleRegistry, RuleRuntime, evaluate};
 use rubix_trace::SampleRate;
 
-use crate::dto::rule::{build_rule, RuleDto, RULE_KIND};
+use crate::dto::rule::{RULE_KIND, RuleDto, build_rule};
 use crate::state::AppState;
 
 /// How long to wait before re-subscribing after the live query ends or errors.
@@ -114,6 +112,13 @@ struct Dispatcher {
     /// `kind:"hook"` record changes in that namespace (seen on the same stream), so
     /// a newly defined hook takes effect without a per-write reload.
     hooks: HashMap<String, Vec<Hook>>,
+    /// The set of insight kinds (rule `output`s) per namespace — the
+    /// **recursion guard**. A fired rule writes an insight record whose `kind` is
+    /// the rule's output; that write reappears on the stream. Treating an insight as
+    /// a hookable event is what would let a hook fire on the insight it produced and
+    /// loop, so the dispatcher skips any change whose `kind` is a rule output. The
+    /// set is refreshed lazily and invalidated when a `kind:"rule"` record changes.
+    outputs: HashMap<String, HashSet<String>>,
 }
 
 impl Dispatcher {
@@ -124,6 +129,7 @@ impl Dispatcher {
             sample: SampleRate::new(0.0),
             sessions: HashMap::new(),
             hooks: HashMap::new(),
+            outputs: HashMap::new(),
         }
     }
 
@@ -164,10 +170,38 @@ impl Dispatcher {
         let namespace = record.namespace.clone();
         let kind = record.content.get("kind").and_then(|v| v.as_str());
 
-        // A hook binding changed: drop the namespace's cache so the next lookup
-        // reloads it. The hook record write itself fires no rule.
-        if kind == Some(HOOK_KIND) {
-            self.hooks.remove(&namespace);
+        // Config writes invalidate the matching cache and fire no rule themselves:
+        // a hook binding changed → reload the namespace's hooks; a rule changed →
+        // reload the namespace's output set (the recursion guard below). A `rule`/
+        // `hook` record is config, not a hookable domain event.
+        match kind {
+            Some(HOOK_KIND) => {
+                self.hooks.remove(&namespace);
+                return;
+            }
+            Some(RULE_KIND) => {
+                self.outputs.remove(&namespace);
+                return;
+            }
+            _ => {}
+        }
+
+        // Recursion guard: an insight a rule emitted is not a hookable domain write.
+        // Skipping any record whose kind is a rule's output makes a hook→rule→insight
+        // loop impossible — the dispatcher only ever creates insight records, and it
+        // never re-triggers on them. (A record with no kind matches no hook anyway.)
+        let Some(kind_str) = kind else { return };
+        let is_insight = match self.outputs_for(&namespace).await {
+            Ok(outputs) => outputs.contains(kind_str),
+            Err(error) => {
+                // A transient load failure is logged and the write proceeds: missing
+                // the guard once cannot loop (the next pass reloads and stops it), and
+                // silently dropping every hook on a blip is the worse failure.
+                eprintln!("hook dispatcher: load outputs for `{namespace}`: {error}");
+                false
+            }
+        };
+        if is_insight {
             return;
         }
 
@@ -211,6 +245,19 @@ impl Dispatcher {
         Ok(self.hooks.get(namespace).map_or(&[][..], Vec::as_slice))
     }
 
+    /// The cached set of rule output kinds for `namespace` (the recursion guard),
+    /// loading it on first use.
+    async fn outputs_for(&mut self, namespace: &str) -> Result<&HashSet<String>, String> {
+        if !self.outputs.contains_key(namespace) {
+            let outputs = load_rule_outputs(self.state.store.raw(), namespace).await?;
+            self.outputs.insert(namespace.to_owned(), outputs);
+        }
+        Ok(self
+            .outputs
+            .get(namespace)
+            .expect("outputs were just inserted"))
+    }
+
     /// Invoke `rule` in `namespace` through the gate as the system principal.
     async fn fire(&mut self, namespace: &str, rule: &str) -> Result<(), String> {
         let session = self.session_for(namespace).await?;
@@ -223,10 +270,15 @@ impl Dispatcher {
             bus: &self.bus,
             sample: self.sample,
         };
-        evaluate(&runtime, &registry, session.principal(), &Id::from_raw(rule))
-            .await
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        evaluate(
+            &runtime,
+            &registry,
+            session.principal(),
+            &Id::from_raw(rule),
+        )
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
     }
 
     /// Build a rule registry from every `kind:"rule"` record visible to `session`.
@@ -316,4 +368,33 @@ impl Dispatcher {
         self.sessions.insert(namespace.to_owned(), session.clone());
         Ok(session)
     }
+}
+
+/// Load the set of insight kinds a namespace's rules emit (their `output`s).
+///
+/// Read directly on the owner handle filtered by namespace (like `find_hooks`),
+/// not on a scoped session — the dispatcher consults this on the hot dispatch path
+/// before deciding whether a write is a hookable event, ahead of any session. A
+/// rule whose `output` is missing or non-string is skipped; it cannot be an insight
+/// kind a downstream write would carry.
+async fn load_rule_outputs(
+    db: &surrealdb::Surreal<surrealdb::engine::local::Db>,
+    namespace: &str,
+) -> Result<HashSet<String>, String> {
+    let outputs: Vec<serde_json::Value> = db
+        .query(
+            "SELECT VALUE content.output FROM record \
+             WHERE namespace = $namespace AND content.kind = $rule_kind",
+        )
+        .bind(("namespace", namespace.to_owned()))
+        .bind(("rule_kind", RULE_KIND))
+        .await
+        .map_err(|e| e.to_string())?
+        .take(0)
+        .map_err(|e| e.to_string())?;
+
+    Ok(outputs
+        .into_iter()
+        .filter_map(|value| value.as_str().map(str::to_owned))
+        .collect())
 }

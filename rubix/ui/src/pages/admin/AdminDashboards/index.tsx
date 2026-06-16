@@ -15,7 +15,7 @@
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, LayoutDashboard, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useApi } from '../../../api/ConnectionContext'
 import { createChart, listCharts, type SavedChart } from '../../../api/charts'
@@ -25,6 +25,7 @@ import {
   listBoards,
   updateBoard,
   type BoardPanel,
+  type BoardVariable,
   type SavedBoard,
 } from '../../../api/boards'
 import { usePageHeader } from '../../../components/shell/page-header'
@@ -40,6 +41,7 @@ import {
 } from '../../../components/ui/table'
 import { DashboardGrid } from '../../../components/dashboards/DashboardGrid'
 import { VariableBar } from '../../../components/dashboards/VariableBar'
+import { VariableEditorDialog } from '../../../components/dashboards/VariableEditorDialog'
 import { useBoardVariables } from '../../../components/dashboards/useBoardVariables'
 import { varSearchKey, type Selection } from '../../../components/dashboards/board-variables'
 import { getNavNode } from '../../../api/nav'
@@ -305,6 +307,20 @@ export function AdminDashboardBuilder() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['boards', tenant] }),
   })
 
+  // Save the board's variables (the editor's working list) alongside the current
+  // panels. Invalidating the boards re-renders the bar; the board-batch re-runs so
+  // panels pick up a changed/added variable.
+  const [variablesOpen, setVariablesOpen] = useState(false)
+  const saveVariables = useMutation({
+    mutationFn: (next: BoardVariable[]) =>
+      updateBoard(api, board!.id, { name: board!.name, panels, variables: next }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['boards', tenant] })
+      void qc.invalidateQueries({ queryKey: ['board-batch'] })
+      setVariablesOpen(false)
+    },
+  })
+
   // Debounce layout writes: update local panels now, flush 600ms after the last
   // change — one gate write per settle.
   const flush = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -425,6 +441,19 @@ export function AdminDashboardBuilder() {
           >
             <Plus size={15} /> Add chart
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVariablesOpen(true)}
+            className="gap-1.5"
+          >
+            <SlidersHorizontal size={15} /> Variables
+            {board.variables.length > 0 && (
+              <span className="rounded bg-muted px-1 text-[11px] text-muted-foreground">
+                {board.variables.length}
+              </span>
+            )}
+          </Button>
           <TimeRangePicker value={range} onChange={setRange} />
           <BoardRefresh value={refresh} onChange={setRefresh} refreshing={refreshing} />
           <Button
@@ -449,7 +478,6 @@ export function AdminDashboardBuilder() {
               options={vars.options}
               selections={vars.selections}
               onChange={setVar}
-              boundByNav={new Set(Object.keys(navValues))}
             />
           )}
           {panels.length === 0 ? (
@@ -511,6 +539,15 @@ export function AdminDashboardBuilder() {
           )}
         </div>
       </div>
+
+      <VariableEditorDialog
+        open={variablesOpen}
+        onOpenChange={setVariablesOpen}
+        boardName={board.name}
+        variables={board.variables}
+        onSave={(next) => saveVariables.mutate(next)}
+        saving={saveVariables.isPending}
+      />
     </div>
   )
 }

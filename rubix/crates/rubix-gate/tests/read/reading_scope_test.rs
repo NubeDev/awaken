@@ -12,7 +12,9 @@
 #[path = "../gate/mod.rs"]
 mod gate;
 
-use rubix_core::{Id, Principal, PrincipalKind, Reading, Role, append_readings, read_readings_window};
+use rubix_core::{
+    Id, Principal, PrincipalKind, Reading, Role, append_readings, read_readings_window,
+};
 use rubix_gate::{
     PrincipalToken, authenticate, issue_scoped_session, provision_principal,
     read_readings_on_session,
@@ -54,7 +56,9 @@ async fn principal_cannot_read_a_foreign_namespace_reading() {
         .await
         .expect("provision");
     let token = PrincipalToken::new("alice", "pw");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
     let session = issue_scoped_session(handle.raw(), "rubix", database, resolved, &token)
         .await
         .expect("issue scoped session");

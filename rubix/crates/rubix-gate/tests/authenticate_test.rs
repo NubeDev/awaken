@@ -11,13 +11,20 @@ use gate::open::open_gate_store;
 #[tokio::test]
 async fn valid_user_token_resolves_to_its_principal() {
     let handle = open_gate_store("auth_user").await;
-    let principal = Principal::new(Id::from_raw("alice"), "tenant-a", PrincipalKind::User, Role::Viewer);
+    let principal = Principal::new(
+        Id::from_raw("alice"),
+        "tenant-a",
+        PrincipalKind::User,
+        Role::Viewer,
+    );
     provision_principal(handle.raw(), &principal, "s3cret")
         .await
         .expect("provision");
 
     let token = PrincipalToken::new("alice", "s3cret");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
 
     assert_eq!(resolved.subject, principal.subject);
     assert_eq!(resolved.namespace, "tenant-a");
@@ -39,7 +46,9 @@ async fn valid_extension_token_resolves_to_an_extension_principal() {
         .expect("provision");
 
     let token = PrincipalToken::new("ingestor", "ext-secret");
-    let resolved = authenticate(handle.raw(), &token).await.expect("authenticate");
+    let resolved = authenticate(handle.raw(), &token)
+        .await
+        .expect("authenticate");
 
     assert_eq!(resolved.kind, PrincipalKind::Extension);
     assert_eq!(resolved.namespace, "tenant-b");
@@ -49,7 +58,12 @@ async fn valid_extension_token_resolves_to_an_extension_principal() {
 #[tokio::test]
 async fn wrong_secret_is_rejected() {
     let handle = open_gate_store("auth_wrong_secret").await;
-    let principal = Principal::new(Id::from_raw("bob"), "tenant-a", PrincipalKind::User, Role::Admin);
+    let principal = Principal::new(
+        Id::from_raw("bob"),
+        "tenant-a",
+        PrincipalKind::User,
+        Role::Admin,
+    );
     provision_principal(handle.raw(), &principal, "right")
         .await
         .expect("provision");

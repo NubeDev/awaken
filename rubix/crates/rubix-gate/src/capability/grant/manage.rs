@@ -23,9 +23,9 @@ use crate::capability::kind::Capability;
 use crate::command::CapturedChange;
 use crate::error::Result;
 
-use super::create::create_grant;
+use super::create::{create_grant, create_team_grant};
 use super::model::Grant;
-use super::revoke::revoke_grant;
+use super::revoke::{revoke_grant, revoke_team_grant};
 use super::row::GRANT_TABLE;
 
 /// Grant `capability` to `grantee`, authorized by `grantor`, and audit it.
@@ -53,6 +53,55 @@ pub async fn create_grant_audited(
     };
     audit(db, grantor, "create", &grant, &captured).await?;
     Ok(grant)
+}
+
+/// Grant `capability` to the **team** `slug` in `namespace`, audited.
+///
+/// The team-subject counterpart of [`create_grant_audited`]: same fail-closed
+/// authority check, then a `create` audit row against the team grant's key.
+///
+/// # Errors
+/// Returns [`GateError::GrantDenied`](crate::GateError::GrantDenied) if `grantor`
+/// lacks authority, [`GateError::GrantStore`](crate::GateError::GrantStore) if the
+/// write fails, or [`GateError::AuditWrite`](crate::GateError::AuditWrite) if the
+/// audit append fails.
+pub async fn create_team_grant_audited(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    slug: &str,
+    namespace: &str,
+    capability: Capability,
+) -> Result<Grant> {
+    let grant = create_team_grant(db, grantor, slug, namespace, capability).await?;
+    let captured = CapturedChange {
+        before: None,
+        after: Some(grant_summary(&grant)),
+    };
+    audit(db, grantor, "create", &grant, &captured).await?;
+    Ok(grant)
+}
+
+/// Revoke `capability` from the **team** `slug` in `namespace`, audited.
+///
+/// # Errors
+/// Returns [`GateError::GrantDenied`](crate::GateError::GrantDenied) if `grantor`
+/// lacks authority, [`GateError::GrantStore`](crate::GateError::GrantStore) if the
+/// delete fails, or [`GateError::AuditWrite`](crate::GateError::AuditWrite) if the
+/// audit append fails.
+pub async fn revoke_team_grant_audited(
+    db: &Surreal<Db>,
+    grantor: &Principal,
+    slug: &str,
+    namespace: &str,
+    capability: Capability,
+) -> Result<()> {
+    revoke_team_grant(db, grantor, slug, namespace, capability).await?;
+    let grant = Grant::for_team(slug, namespace, capability);
+    let captured = CapturedChange {
+        before: Some(grant_summary(&grant)),
+        after: None,
+    };
+    audit(db, grantor, "delete", &grant, &captured).await
 }
 
 /// Revoke `capability` from `grantee`, authorized by `grantor`, and audit it.

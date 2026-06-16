@@ -27,11 +27,30 @@ export interface CreatedPrincipal extends Principal {
   secret?: string
 }
 
-/** A capability grant attached to a principal. */
+/** A capability grant attached to a principal — or to a team, when `subject`
+ *  carries the `team:` prefix (a team grant inherited by every member). */
 export interface Grant {
   subject: string
   namespace: string
   capability: string
+}
+
+/** A team as returned by the API — a named group within the tenant. */
+export interface Team {
+  slug: string
+  namespace: string
+  display_name: string
+}
+
+/** The create-team request body. `display_name` defaults to the slug. */
+export interface CreateTeamRequest {
+  slug: string
+  display_name?: string
+}
+
+/** A team member as returned by the API — the API-local subject. */
+export interface TeamMember {
+  subject: string
 }
 
 /** The current principal plus the capabilities it holds (GET /auth/me). */

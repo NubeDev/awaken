@@ -14,8 +14,11 @@ mod model;
 mod revoke;
 pub(crate) mod row;
 
-pub use create::create_grant;
-pub use list::list_grants;
-pub use manage::{create_grant_audited, revoke_grant_audited};
-pub use model::Grant;
-pub use revoke::revoke_grant;
+pub use create::{create_grant, create_team_grant};
+pub use list::{effective_grants, list_grants, list_team_grants};
+pub use manage::{
+    create_grant_audited, create_team_grant_audited, revoke_grant_audited,
+    revoke_team_grant_audited,
+};
+pub use model::{Grant, TEAM_SUBJECT_PREFIX, team_subject};
+pub use revoke::{revoke_grant, revoke_team_grant};

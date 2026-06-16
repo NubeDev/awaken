@@ -290,7 +290,13 @@ async fn a_reading_backed_binding_rolls_up_the_typed_reading_table_scoped_to_a_s
         Reading::new("rubix", series, at(3600), 25.0, serde_json::json!({})),
         Reading::new("rubix", series, at(7200), 23.0, serde_json::json!({})),
         // Decoy: a different series at a higher value — must not leak into the roll-up.
-        Reading::new("rubix", "hq--elec-main--power", at(0), 999.0, serde_json::json!({})),
+        Reading::new(
+            "rubix",
+            "hq--elec-main--power",
+            at(0),
+            999.0,
+            serde_json::json!({}),
+        ),
     ];
     append_readings(store.raw(), &readings)
         .await
@@ -330,11 +336,8 @@ async fn a_reading_backed_binding_rolls_up_the_typed_reading_table_scoped_to_a_s
 
 #[tokio::test]
 async fn the_catalog_discovers_record_fields_and_filter_values() {
-    let TestApp { app, .. } = boot(
-        "server_rules_catalog_records",
-        &[Capability::IngestPublish],
-    )
-    .await;
+    let TestApp { app, .. } =
+        boot("server_rules_catalog_records", &[Capability::IngestPublish]).await;
 
     // Seed two record rows: a numeric `value` (a bindable field) narrowed by a
     // string `measure` (a filter key with two categories).
@@ -351,8 +354,11 @@ async fn the_catalog_discovers_record_fields_and_filter_values() {
         assert_eq!(status, StatusCode::OK);
     }
 
-    let (status, catalog) =
-        send(&app, authed("GET", "/rules/catalog?table=records", Value::Null)).await;
+    let (status, catalog) = send(
+        &app,
+        authed("GET", "/rules/catalog?table=records", Value::Null),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "catalog: {catalog:?}");
     assert_eq!(catalog["table"], json!("records"));
     // `value` is the numeric field the binding rolls up; `kind` is a record's
@@ -391,17 +397,38 @@ async fn the_catalog_discovers_reading_series_for_the_typed_plane() {
 
     let at = |secs: i64| Datetime::from_timestamp(secs, 0).expect("valid instant");
     let readings = vec![
-        Reading::new("rubix", "hq--ahu-1--zone-temp", at(0), 21.0, serde_json::json!({})),
-        Reading::new("rubix", "hq--elec-main--power", at(0), 5.0, serde_json::json!({})),
+        Reading::new(
+            "rubix",
+            "hq--ahu-1--zone-temp",
+            at(0),
+            21.0,
+            serde_json::json!({}),
+        ),
+        Reading::new(
+            "rubix",
+            "hq--elec-main--power",
+            at(0),
+            5.0,
+            serde_json::json!({}),
+        ),
         // A repeat series collapses to one distinct value.
-        Reading::new("rubix", "hq--ahu-1--zone-temp", at(3600), 22.0, serde_json::json!({})),
+        Reading::new(
+            "rubix",
+            "hq--ahu-1--zone-temp",
+            at(3600),
+            22.0,
+            serde_json::json!({}),
+        ),
     ];
     append_readings(store.raw(), &readings)
         .await
         .expect("append readings");
 
-    let (status, catalog) =
-        send(&app, authed("GET", "/rules/catalog?table=readings", Value::Null)).await;
+    let (status, catalog) = send(
+        &app,
+        authed("GET", "/rules/catalog?table=readings", Value::Null),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "catalog: {catalog:?}");
     // The typed plane's only bindable field is `value`.
     assert_eq!(catalog["fields"], json!(["value"]));

@@ -57,11 +57,20 @@ async fn upload_then_download_round_trips_the_bytes() {
     // Upload returns the stored reference.
     let response = app
         .clone()
-        .oneshot(upload_request("plan.pdf", "application/pdf", b"%PDF-1.4 fake"))
+        .oneshot(upload_request(
+            "plan.pdf",
+            "application/pdf",
+            b"%PDF-1.4 fake",
+        ))
         .await
         .expect("upload responds");
     assert_eq!(response.status(), StatusCode::OK);
-    let body = response.into_body().collect().await.expect("body").to_bytes();
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let reference: serde_json::Value = serde_json::from_slice(&body).expect("reference json");
     assert_eq!(reference["filename"], "plan.pdf");
     assert_eq!(reference["contentType"], "application/pdf");
@@ -90,7 +99,12 @@ async fn upload_then_download_round_trips_the_bytes() {
             .and_then(|v| v.to_str().ok()),
         Some("application/pdf")
     );
-    let bytes = download.into_body().collect().await.expect("body").to_bytes();
+    let bytes = download
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     assert_eq!(&bytes[..], b"%PDF-1.4 fake");
 }
 

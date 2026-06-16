@@ -15,12 +15,13 @@
 
 use crate::dto::{
     AppendReadingsRequest, AppendReadingsResponse, BatchQueryRequest, BatchQueryResponse,
-    CatalogResponse, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
-    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
-    DryRunResponse, FileRefDto, GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto,
-    PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto, RecordDto,
-    RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest,
-    UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
+    CatalogResponse, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
+    CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
+    DryRunRequest, DryRunResponse, FileRefDto, GrantDto, LoginRequest, LoginResponse, MeResponse,
+    PreferencesDto, PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto,
+    RecordDto, RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest,
+    UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
+    UpdateRuleRequest,
 };
 
 /// `POST /auth/login`.

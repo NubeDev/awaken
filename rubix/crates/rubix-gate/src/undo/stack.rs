@@ -141,7 +141,12 @@ mod tests {
     use super::{UndoEntry, UndoStore};
 
     fn principal(subject: &str) -> Principal {
-        Principal::new(Id::from_raw(subject), "tenant-a", PrincipalKind::User, Role::Operator)
+        Principal::new(
+            Id::from_raw(subject),
+            "tenant-a",
+            PrincipalKind::User,
+            Role::Operator,
+        )
     }
 
     fn entry(subject: &str, target: &str) -> UndoEntry {
@@ -162,18 +167,42 @@ mod tests {
         let mut store = UndoStore::new();
         store.push_undo(entry("alice", "rec-1"));
         store.push_undo(entry("alice", "rec-1"));
-        assert!(store.pop_undo(&principal("alice"), &Id::from_raw("rec-1")).is_some());
-        assert!(store.pop_undo(&principal("alice"), &Id::from_raw("rec-1")).is_some());
-        assert!(store.pop_undo(&principal("alice"), &Id::from_raw("rec-1")).is_none());
+        assert!(
+            store
+                .pop_undo(&principal("alice"), &Id::from_raw("rec-1"))
+                .is_some()
+        );
+        assert!(
+            store
+                .pop_undo(&principal("alice"), &Id::from_raw("rec-1"))
+                .is_some()
+        );
+        assert!(
+            store
+                .pop_undo(&principal("alice"), &Id::from_raw("rec-1"))
+                .is_none()
+        );
     }
 
     #[test]
     fn stacks_are_isolated_per_principal_and_resource() {
         let mut store = UndoStore::new();
         store.push_undo(entry("alice", "rec-1"));
-        assert!(store.pop_undo(&principal("bob"), &Id::from_raw("rec-1")).is_none());
-        assert!(store.pop_undo(&principal("alice"), &Id::from_raw("rec-2")).is_none());
-        assert!(store.pop_undo(&principal("alice"), &Id::from_raw("rec-1")).is_some());
+        assert!(
+            store
+                .pop_undo(&principal("bob"), &Id::from_raw("rec-1"))
+                .is_none()
+        );
+        assert!(
+            store
+                .pop_undo(&principal("alice"), &Id::from_raw("rec-2"))
+                .is_none()
+        );
+        assert!(
+            store
+                .pop_undo(&principal("alice"), &Id::from_raw("rec-1"))
+                .is_some()
+        );
     }
 
     #[test]
@@ -181,6 +210,10 @@ mod tests {
         let mut store = UndoStore::new();
         store.push_redo(entry("alice", "rec-1"));
         store.push_undo(entry("alice", "rec-1"));
-        assert!(store.pop_redo(&principal("alice"), &Id::from_raw("rec-1")).is_none());
+        assert!(
+            store
+                .pop_redo(&principal("alice"), &Id::from_raw("rec-1"))
+                .is_none()
+        );
     }
 }

@@ -17,15 +17,25 @@ fn admin() -> Principal {
 }
 
 fn grantee() -> Principal {
-    Principal::new(Id::from_raw("ext-1"), NS, PrincipalKind::Extension, Role::Operator)
+    Principal::new(
+        Id::from_raw("ext-1"),
+        NS,
+        PrincipalKind::Extension,
+        Role::Operator,
+    )
 }
 
 #[tokio::test]
 async fn create_then_check_allows() {
     let handle = open_gate_store("grant_create").await;
-    let grant = create_grant(handle.raw(), &admin(), &grantee(), Capability::IngestPublish)
-        .await
-        .expect("create grant");
+    let grant = create_grant(
+        handle.raw(),
+        &admin(),
+        &grantee(),
+        Capability::IngestPublish,
+    )
+    .await
+    .expect("create grant");
 
     assert_eq!(grant.subject, "ext-1");
     assert_eq!(grant.namespace, NS);
@@ -40,12 +50,22 @@ async fn create_then_check_allows() {
 #[tokio::test]
 async fn create_is_idempotent() {
     let handle = open_gate_store("grant_create_idempotent").await;
-    create_grant(handle.raw(), &admin(), &grantee(), Capability::IngestPublish)
-        .await
-        .expect("first create");
-    create_grant(handle.raw(), &admin(), &grantee(), Capability::IngestPublish)
-        .await
-        .expect("second create");
+    create_grant(
+        handle.raw(),
+        &admin(),
+        &grantee(),
+        Capability::IngestPublish,
+    )
+    .await
+    .expect("first create");
+    create_grant(
+        handle.raw(),
+        &admin(),
+        &grantee(),
+        Capability::IngestPublish,
+    )
+    .await
+    .expect("second create");
 
     let grants = list_grants(handle.raw(), &grantee()).await.expect("list");
     assert_eq!(grants.len(), 1, "the same grant must not duplicate");

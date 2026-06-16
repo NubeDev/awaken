@@ -76,7 +76,10 @@ pub async fn list_principals(db: &Surreal<Db>, namespace: &str) -> Result<Vec<Pr
         .await
         .map_err(GateError::Lookup)?;
     let rows: Vec<PrincipalRow> = response.take(0).map_err(GateError::Lookup)?;
-    Ok(rows.into_iter().filter_map(PrincipalRow::into_principal).collect())
+    Ok(rows
+        .into_iter()
+        .filter_map(PrincipalRow::into_principal)
+        .collect())
 }
 
 /// Fetch one principal by its full `subject`, scoped to `namespace`, or `None`.
@@ -160,7 +163,12 @@ pub async fn set_principal_role(
         .map_err(GateError::Lookup)?
         .take(0)
         .map_err(GateError::Lookup)?;
-    let after = Principal::new(before.subject.clone(), namespace.to_owned(), before.kind, role);
+    let after = Principal::new(
+        before.subject.clone(),
+        namespace.to_owned(),
+        before.kind,
+        role,
+    );
     let captured = CapturedChange {
         before: Some(principal_summary(&before)),
         after: Some(principal_summary(&after)),
@@ -178,7 +186,13 @@ async fn audit(
     captured: &CapturedChange,
 ) -> Result<()> {
     let correlation_id = CorrelationId::mint();
-    let record = AuditRecord::project(actor, action, &audit_target(subject), captured, &correlation_id);
+    let record = AuditRecord::project(
+        actor,
+        action,
+        &audit_target(subject),
+        captured,
+        &correlation_id,
+    );
     append_audit(db, &record).await
 }
 

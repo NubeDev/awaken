@@ -98,9 +98,7 @@ impl QueryVariableDto {
 /// Normalise one JSON value to a [`Scalar`] or reject a composite value.
 fn scalar(value: &Value, name: &str) -> Result<Scalar, QueryError> {
     Scalar::from_json(value).ok_or_else(|| {
-        QueryError::Rejected(format!(
-            "dashboard variable ${name} has a non-scalar value"
-        ))
+        QueryError::Rejected(format!("dashboard variable ${name} has a non-scalar value"))
     })
 }
 

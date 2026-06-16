@@ -30,7 +30,12 @@ fn every_known_capability_is_registered() {
 #[tokio::test]
 async fn a_fresh_principal_is_denied_every_capability() {
     let handle = open_gate_store("fail_closed_default").await;
-    let principal = Principal::new(Id::from_raw("nobody"), NS, PrincipalKind::User, Role::Viewer);
+    let principal = Principal::new(
+        Id::from_raw("nobody"),
+        NS,
+        PrincipalKind::User,
+        Role::Viewer,
+    );
 
     for capability in Capability::ALL {
         let allowed = check_capability(handle.raw(), &principal, capability)

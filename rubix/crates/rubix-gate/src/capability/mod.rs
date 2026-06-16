@@ -14,7 +14,9 @@ mod register;
 
 pub use check::check_capability;
 pub use grant::{
-    Grant, create_grant, create_grant_audited, list_grants, revoke_grant, revoke_grant_audited,
+    Grant, TEAM_SUBJECT_PREFIX, create_grant, create_grant_audited, create_team_grant,
+    create_team_grant_audited, effective_grants, list_grants, list_team_grants, revoke_grant,
+    revoke_grant_audited, revoke_team_grant, revoke_team_grant_audited, team_subject,
 };
 pub use kind::Capability;
 pub use register::is_registered;

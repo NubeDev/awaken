@@ -21,7 +21,7 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 | WS-05 | Admin: gateways, networks (485/ethernet), device-limit, users/teams/roles | ✅ | 2026-06-16T01:20:12Z | 2026-06-16T01:38:09Z | 98653028 |
 | WS-06 | Onboarding wizards (tenant→site→gateway+N networks→meters→users) | ✅ | 2026-06-16T01:40:16Z | 2026-06-16T12:06:00Z | e7ee7e40 |
 | WS-07 | Dashboards: tag-driven auto-build pages + online/offline + alarms | ✅ | 2026-06-16T02:08:36Z | 2026-06-16T12:35:00Z | db4ed22f |
-| WS-08 | POC polish: end-to-end smoke, README, demo walkthrough | ✅ | 2026-06-16T02:34:00Z | 2026-06-16T02:47:15Z | PENDING |
+| WS-08 | POC polish: end-to-end smoke, README, demo walkthrough | ✅ | 2026-06-16T02:34:00Z | 2026-06-16T02:47:15Z | 16242516 |
 
 ## Dependency notes
 - **WS-01** is the root: copy `rubix-old/ui` → `nhp/ui`, strip to an app shell + auth + nav, point

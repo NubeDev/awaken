@@ -14,7 +14,7 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
-| WS-01 | App skeleton + Makefile (UI ported from rubix-old/ui, wired to rubix backend) | ⬜ | | | |
+| WS-01 | App skeleton + Makefile (UI ported from rubix-old/ui, wired to rubix backend) | ✅ | 2026-06-15T23:46:06Z | 2026-06-16T00:01:17Z | 759b1b34 |
 | WS-02 | NHP collection definitions (tenant→…→register) + enum strategy | ⬜ | | | |
 | WS-03 | Seed: mock portfolio + faked poller data (status/last_seen/history) | ⬜ | | | |
 | WS-04 | Admin: meter-types & register-map editor (history/unit/chart/group/alarm) | ⬜ | | | |
@@ -44,3 +44,4 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 
 ## Loop log
 <!-- The loop appends one line per wake here: <utc> <action> (spawned WS-xx / gated WS-xx ✅ / blocked WS-xx ⛔ / idle). -->
+- 2026-06-15T23:46:06Z spawned WS-01

@@ -20,7 +20,7 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 | WS-04 | Admin: meter-types & register-map editor (history/unit/chart/group/alarm) | ✅ | 2026-06-16T00:58:07Z | 2026-06-16T01:17:31Z | 12cc1ee0 |
 | WS-05 | Admin: gateways, networks (485/ethernet), device-limit, users/teams/roles | ✅ | 2026-06-16T01:20:12Z | 2026-06-16T01:38:09Z | 98653028 |
 | WS-06 | Onboarding wizards (tenant→site→gateway+N networks→meters→users) | ✅ | 2026-06-16T01:40:16Z | 2026-06-16T12:06:00Z | e7ee7e40 |
-| WS-07 | Dashboards: tag-driven auto-build pages + online/offline + alarms | ✅ | 2026-06-16T02:08:36Z | 2026-06-16T12:35:00Z | (this commit) |
+| WS-07 | Dashboards: tag-driven auto-build pages + online/offline + alarms | ✅ | 2026-06-16T02:08:36Z | 2026-06-16T12:35:00Z | db4ed22f |
 | WS-08 | POC polish: end-to-end smoke, README, demo walkthrough | ⬜ | | | |
 
 ## Dependency notes

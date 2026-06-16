@@ -15,8 +15,15 @@ use crate::error::{ExtError, Result};
 /// The liveness verdict a `health` probe returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HealthStatus {
-    /// The extension's scoped session answered — it is live.
+    /// The extension is live — its scoped session answered (builtin fallback) or
+    /// its supervised child is `Running` (process-flavour, see
+    /// [`probe_extension_health`](crate::runtime::probe_extension_health)).
     Healthy,
+    /// The extension is **not** live — a process-flavour extension whose
+    /// supervised child is not `Running` (stopped, crashed, failed, or
+    /// mid-restart). Distinct from an error: the probe itself succeeded, the
+    /// verdict is just negative.
+    Unhealthy,
 }
 
 /// Probe the extension's liveness on its scoped `session`.

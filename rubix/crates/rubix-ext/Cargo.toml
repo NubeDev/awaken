@@ -49,3 +49,7 @@ path = "tests/bus/access_test.rs"
 [[test]]
 name = "supervisor_spawn"
 path = "tests/supervisor/spawn_test.rs"
+
+[[test]]
+name = "runtime_bridge"
+path = "tests/runtime/bridge_test.rs"

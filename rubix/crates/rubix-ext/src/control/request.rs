@@ -76,7 +76,7 @@ impl ControlMethod {
                 Some(Capability::DatasourceRegister)
             }
             ControlMethod::Invoke => Some(Capability::RuleInvoke),
-            ControlMethod::Lifecycle => Some(Capability::DatasourceRegister),
+            ControlMethod::Lifecycle => Some(Capability::ExtensionManage),
             ControlMethod::Health => None,
         }
     }

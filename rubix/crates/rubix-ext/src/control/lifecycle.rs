@@ -2,11 +2,18 @@
 //!
 //! `lifecycle` transitions the extension's run state (`rubix/docs/sessions/
 //! WS-13.md`). Each transition is a gated, audited command: it is
-//! capability-checked ([`DatasourceRegister`](rubix_gate::Capability::DatasourceRegister))
+//! capability-checked ([`ExtensionManage`](rubix_gate::Capability::ExtensionManage))
 //! and routed as an [`Update`](rubix_gate::Change::Update) writing the requested
 //! [`LifecycleAction`] onto the extension's control record, so every start/stop/
 //! disable leaves an audit row (contract #1). A `disable` is audited like any
 //! other transition — there is no un-gated off switch.
+//!
+//! This is the **source of truth** for enablement (`rubix/docs/design/
+//! EXTENSION-RUNTIME.md`, "the gate boundary"): the gated record both audits the
+//! transition *and* durably records the desired run state. There is no separate
+//! enablement side-table — the [`runtime`](crate::runtime) bridge drives the
+//! supervisor *from* this record (handler-drives on each call, reconciler at
+//! boot), so the gate stays the single authority over whether an extension runs.
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;

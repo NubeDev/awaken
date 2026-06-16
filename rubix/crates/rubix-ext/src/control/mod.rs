@@ -14,11 +14,11 @@
 //! row.
 //!
 //! Laid out one verb per file (`rubix/docs/FILE-LAYOUT.md`): [`request`] is the
-//! JSON-RPC envelope, [`authorize`] is the fail-closed capability check every
-//! mutating method shares, and one file per method routes that method to its
-//! effect.
+//! JSON-RPC envelope and one file per method routes that method to its effect.
+//! The fail-closed capability check every mutating method shares lives at the
+//! crate root in [`authz`](crate::authz), because the event-bus plane
+//! ([`crate::bus`]) gates a principal off the same check.
 
-mod authorize;
 mod configure;
 mod health;
 mod invoke;

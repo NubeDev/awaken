@@ -23,12 +23,33 @@
 //! - [`data`] delegates the data plane to WS-12's Zenoh key-space scoping
 //!   ([`authorize_data_scope`]) — scope resolved once at subscribe, not
 //!   re-implemented here.
+//! - [`bus`] gates the in-process control event bus — [`subscribe_events`] and
+//!   [`publish_event`] each cross one fail-closed capability check
+//!   ([`EventSubscribe`](rubix_gate::Capability::EventSubscribe) /
+//!   [`EventPublish`](rubix_gate::Capability::EventPublish)) before the extension
+//!   may observe or emit on the platform's coordination spine.
+//!
+//! The fail-closed capability check the control and bus planes share lives at the
+//! crate root in [`authz`] — one mechanism, off the same grant table a user is
+//! authorized through, so no plane invents an extension-only authz path.
+//!
+//! - [`supervisor`] is the **runtime half** (`rubix/docs/design/
+//!   EXTENSION-RUNTIME.md`): nothing above *runs* an extension until something
+//!   spawns it. The supervisor turns a process-flavour extension into a
+//!   supervised child process under that extension's identity — spawn / stop /
+//!   restart with backoff, sampled process stats, an event ring — driven by the
+//!   gated [`lifecycle`] command (the gate decides *who may*; the supervisor only
+//!   *acts*).
 
+mod authz;
+mod bus;
 mod control;
 mod data;
 mod error;
 mod provision;
+pub mod supervisor;
 
+pub use bus::{publish_event, subscribe_events};
 pub use control::{
     ControlMethod, ControlOutcome, ControlRequest, HealthStatus, LifecycleAction, configure,
     invoke, lifecycle, probe_health, register,

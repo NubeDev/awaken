@@ -13,9 +13,9 @@ use surrealdb::engine::local::Db;
 use rubix_core::Principal;
 use rubix_gate::{Change, Command, apply};
 
+use crate::authz::authorize;
 use crate::error::{ExtError, Result};
 
-use super::authorize::authorize;
 use super::request::{ControlMethod, ControlOutcome, ControlRequest};
 
 /// Drive a `configure` control request through the gate as `extension`.

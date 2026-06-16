@@ -1,14 +1,15 @@
-//! The fail-closed capability check every mutating control method shares.
+//! The fail-closed capability check every extension plane shares.
 //!
-//! Before a control method routes its effect as a [`Command`](rubix_gate::Command)
-//! through the gate, the extension must hold the WS-04 capability the method
-//! requires (`rubix/docs/sessions/WS-13.md`, contract #2). This check runs
-//! *first* and **fails closed**: a missing grant returns [`ExtError::Denied`]
-//! before any command is built, so an out-of-grant control action produces no
-//! record and no audit row. The grant check itself goes through the gate's
-//! [`check_capability`](rubix_gate::check_capability), so the extension is
-//! authorized off the *same* `Principal` and grant table a user is — one
-//! mechanism, no extension-only authz path.
+//! Before an extension takes any cross-plane action — a control command
+//! ([`crate::control`]) or opening the event bus ([`crate::bus`]) — it must hold
+//! the WS-04 capability that action requires (`rubix/docs/sessions/WS-13.md`,
+//! contract #2). This check runs *first* and **fails closed**: a missing grant
+//! returns [`ExtError::Denied`] before any effect, so an out-of-grant action
+//! produces no record, no audit row, and no event. The grant check itself goes
+//! through the gate's [`check_capability`](rubix_gate::check_capability), so the
+//! extension is authorized off the *same* `Principal` and grant table a user is —
+//! one mechanism, no extension-only authz path. It lives at the crate root, not
+//! inside any one plane, because every plane that gates a principal shares it.
 
 use surrealdb::Surreal;
 use surrealdb::engine::local::Db;
@@ -27,7 +28,7 @@ use crate::error::{ExtError, Result};
 /// # Errors
 /// Returns [`ExtError::Denied`] if the extension lacks the grant or the grant
 /// lookup fails.
-pub async fn authorize(
+pub(crate) async fn authorize(
     db: &Surreal<Db>,
     extension: &Principal,
     capability: Capability,

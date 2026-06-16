@@ -9,6 +9,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+rubix-bus = { workspace = true }
 rubix-core = { workspace = true }
 rubix-gate = { workspace = true }
 rubix-ingest = { workspace = true }
@@ -16,10 +17,14 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 surrealdb = { workspace = true }
 thiserror = { workspace = true }
+# The runtime supervisor spawns and frames stdio JSON-RPC with a child process,
+# so the crate needs tokio's process + io-util features on top of the workspace
+# defaults (`rubix/docs/design/EXTENSION-RUNTIME.md`, supervisor port).
+tokio = { workspace = true, features = ["process", "io-util"] }
 
 [dev-dependencies]
 rubix-store = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["process", "io-util"] }
 
 [[test]]
 name = "provision_register"
@@ -36,3 +41,11 @@ path = "tests/control/deny_test.rs"
 [[test]]
 name = "data_scope"
 path = "tests/data/scope_test.rs"
+
+[[test]]
+name = "bus_access"
+path = "tests/bus/access_test.rs"
+
+[[test]]
+name = "supervisor_spawn"
+path = "tests/supervisor/spawn_test.rs"

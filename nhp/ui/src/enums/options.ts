@@ -52,6 +52,17 @@ export const CHART_TYPE = [
 /** Poller-owned status (DOMAIN-MODEL "Status fields are poller-owned"). */
 export const STATUS = ['online', 'offline', 'unknown'] as const
 
+/**
+ * NHP roles on the rubix principal surface (ADMIN.md §6). These are the rubix
+ * `Role` wire strings (rubix/crates/rubix-server/src/dto/admin.rs `parse_role`),
+ * not an NHP collection field — so they are NOT in enums.mjs / the drift test;
+ * they live here only as the user-admin dropdown source (WS-05).
+ */
+export const ROLE = ['viewer', 'operator', 'admin'] as const
+
+export type NetType = (typeof NET_TYPE)[number]
+export type Protocol = (typeof PROTOCOL)[number]
+export type Status = (typeof STATUS)[number]
 export type FnCode = (typeof FN_CODE)[number]
 export type Datatype = (typeof DATATYPE)[number]
 export type ByteOrder = (typeof BYTE_ORDER)[number]

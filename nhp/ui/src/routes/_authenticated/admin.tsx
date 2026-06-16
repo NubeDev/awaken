@@ -9,6 +9,8 @@ import { Main } from '@/components/layout/main'
  */
 const SECTIONS = [
   { to: '/admin/meter-types', label: 'Meter-types' },
+  { to: '/admin/gateways', label: 'Gateways' },
+  { to: '/admin/users', label: 'Users' },
 ] as const
 
 function AdminLayout() {

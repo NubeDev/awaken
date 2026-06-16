@@ -21,7 +21,9 @@ import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
 import { Route as AuthenticatedAdminMeterTypesRouteImport } from './routes/_authenticated/admin/meter-types'
+import { Route as AuthenticatedAdminGatewaysRouteImport } from './routes/_authenticated/admin/gateways'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -82,10 +84,21 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminMeterTypesRoute =
   AuthenticatedAdminMeterTypesRouteImport.update({
     id: '/meter-types',
     path: '/meter-types',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminGatewaysRoute =
+  AuthenticatedAdminGatewaysRouteImport.update({
+    id: '/gateways',
+    path: '/gateways',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 
@@ -100,7 +113,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboards': typeof AuthenticatedDashboardsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
+  '/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -113,7 +128,9 @@ export interface FileRoutesByTo {
   '/dashboards': typeof AuthenticatedDashboardsRoute
   '/wizards': typeof AuthenticatedWizardsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -129,7 +146,9 @@ export interface FileRoutesById {
   '/_authenticated/dashboards': typeof AuthenticatedDashboardsRoute
   '/_authenticated/wizards': typeof AuthenticatedWizardsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/gateways': typeof AuthenticatedAdminGatewaysRoute
   '/_authenticated/admin/meter-types': typeof AuthenticatedAdminMeterTypesRoute
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -145,7 +164,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboards'
     | '/wizards'
+    | '/admin/gateways'
     | '/admin/meter-types'
+    | '/admin/users'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -158,7 +179,9 @@ export interface FileRouteTypes {
     | '/dashboards'
     | '/wizards'
     | '/'
+    | '/admin/gateways'
     | '/admin/meter-types'
+    | '/admin/users'
     | '/admin'
   id:
     | '__root__'
@@ -173,7 +196,9 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboards'
     | '/_authenticated/wizards'
     | '/_authenticated/'
+    | '/_authenticated/admin/gateways'
     | '/_authenticated/admin/meter-types'
+    | '/_authenticated/admin/users'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -273,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/meter-types': {
       id: '/_authenticated/admin/meter-types'
       path: '/meter-types'
@@ -280,16 +312,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminMeterTypesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/gateways': {
+      id: '/_authenticated/admin/gateways'
+      path: '/gateways'
+      fullPath: '/admin/gateways'
+      preLoaderRoute: typeof AuthenticatedAdminGatewaysRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminGatewaysRoute: typeof AuthenticatedAdminGatewaysRoute
   AuthenticatedAdminMeterTypesRoute: typeof AuthenticatedAdminMeterTypesRoute
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminGatewaysRoute: AuthenticatedAdminGatewaysRoute,
   AuthenticatedAdminMeterTypesRoute: AuthenticatedAdminMeterTypesRoute,
+  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 

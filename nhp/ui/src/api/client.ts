@@ -18,6 +18,12 @@ export class ApiError extends Error {
   }
 }
 
+/** A service-account credential pair for the `x-rubix-subject`/`-secret` headers. */
+export interface ServiceAuth {
+  subject: string
+  secret: string
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -25,6 +31,12 @@ interface RequestOptions {
   signal?: AbortSignal
   /** Extra request headers (e.g. `Accept-Units` for unit negotiation). */
   headers?: Record<string, string>
+  /**
+   * Override the default service-account auth for THIS request. The rubix admin
+   * surface (`/principals`) requires `Role::Admin`, which the default operator
+   * credential is not, so user CRUD passes the seeded admin here (see api/admin.ts).
+   */
+  auth?: ServiceAuth
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -61,10 +73,17 @@ const SERVICE_SECRET = import.meta.env.VITE_RUBIX_SECRET as string | undefined
 
 function buildHeaders(
   hasBody: boolean,
-  extra?: Record<string, string>
+  extra?: Record<string, string>,
+  auth?: ServiceAuth
 ): HeadersInit | undefined {
   const headers: Record<string, string> = { ...extra }
   if (hasBody) headers['content-type'] = 'application/json'
+  // An explicit per-request credential (admin surface) wins over the defaults.
+  if (auth) {
+    headers['x-rubix-subject'] = auth.subject
+    headers['x-rubix-secret'] = auth.secret
+    return headers
+  }
   const token = currentAccessToken()
   if (token) headers['authorization'] = `Bearer ${token}`
   else if (SERVICE_SUBJECT && SERVICE_SECRET) {
@@ -78,11 +97,11 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, query, signal, headers } = options
+  const { method = 'GET', body, query, signal, headers, auth } = options
   const res = await fetch(buildUrl(path, query), {
     method,
     signal,
-    headers: buildHeaders(body !== undefined, headers),
+    headers: buildHeaders(body !== undefined, headers, auth),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) throw new ApiError(res.status, await readError(res))

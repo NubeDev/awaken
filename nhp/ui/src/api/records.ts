@@ -10,7 +10,15 @@
  * Writes cross the gate (audited/undoable). Auth: see api/client.ts.
  */
 import { request } from './client'
-import type { ByteOrder, ChartType, Datatype, FnCode } from '@/enums/options'
+import type {
+  ByteOrder,
+  ChartType,
+  Datatype,
+  FnCode,
+  NetType,
+  Protocol,
+  Status,
+} from '@/enums/options'
 
 /** A record as the rubix list/get read returns it. `content` is free-form JSON. */
 export interface RecordDto<C = Record<string, unknown>> {
@@ -96,6 +104,72 @@ export interface RegisterRecord extends RegisterDef {
   tags?: string[]
 }
 
+/** `kind:"site"` content (DOMAIN-MODEL §site) — read-only here, for the gateway's
+ * required parent `site` relation picker. */
+export interface Site {
+  kind: 'site'
+  key: string
+  name: string
+  tenant?: string
+  tags?: string[]
+}
+
+/**
+ * `kind:"gateway"` content (DOMAIN-MODEL §gateway). `status`/`last_seen` are
+ * written by the external poller and are READ-ONLY in NHP — the admin UI never
+ * sets them (DOMAIN-MODEL "Status fields are poller-owned").
+ */
+export interface Gateway {
+  kind: 'gateway'
+  key: string
+  name: string
+  site?: string
+  model?: string
+  /** Address the poller uses; NHP only stores it. */
+  host?: string
+  /** Poller-written. Do not set from the UI. */
+  status?: Status
+  /** Poller-written. Do not set from the UI. */
+  last_seen?: string
+  tags?: string[]
+}
+
+/** Serial params for a `485` network (DOMAIN-MODEL §network `params`). */
+export interface Net485Params {
+  baud: number
+  parity: 'none' | 'even' | 'odd'
+  stop_bits: number
+  data_bits: number
+}
+
+/** TCP params for an `ethernet` network. */
+export interface NetEthernetParams {
+  ip: string
+  port: number
+}
+
+export type NetParams = Net485Params | NetEthernetParams
+
+/**
+ * `kind:"network"` content (DOMAIN-MODEL §network). `net_type` selects the
+ * `params` shape (serial vs tcp). `max_devices` is the per-network device cap
+ * enforced client-side (DOMAIN-MODEL "Device limit"; rubix gate can't count).
+ */
+export interface Network {
+  kind: 'network'
+  key: string
+  name?: string
+  gateway: string
+  net_type: NetType
+  protocol: Protocol
+  max_devices: number
+  params?: NetParams
+  tags?: string[]
+}
+
+export type SiteRecord = RecordDto<Site>
+export type GatewayRecord = RecordDto<Gateway>
+export type NetworkRecord = RecordDto<Network>
 export type MeterTypeRecord = RecordDto<MeterType>
 export type MeterRecord = RecordDto<Meter>
 export type RegisterRec = RecordDto<RegisterRecord>

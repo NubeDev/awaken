@@ -9,6 +9,7 @@ pub mod admin;
 pub mod agent;
 pub mod auth;
 pub mod datasource;
+pub mod file;
 pub mod prefs;
 pub mod query;
 pub mod reading;
@@ -25,15 +26,16 @@ pub use agent::{
 };
 pub use auth::{LoginRequest, LoginResponse, MeResponse};
 pub use datasource::{DatasourceDto, RegisterDatasourceRequest, UpdateDatasourceRequest};
+pub use file::FileRefDto;
 pub use prefs::{PreferencesDto, UpdatePreferencesRequest};
 pub use query::{
     BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, ColumnDto,
-    QueryRequest, QueryResponse, QuerySchemaResponse, TableSchemaDto, TimeBoundDto, TimeScopeDto,
-    TransformDto,
+    QueryRequest, QueryResponse, QuerySchemaResponse, QueryVariableDto, TableSchemaDto,
+    TimeBoundDto, TimeScopeDto, TransformDto,
 };
 pub use reading::{AppendReadingsRequest, AppendReadingsResponse, ReadingDto, ReadingSampleDto};
 pub use record::{CreateRecordRequest, RecordDto, UpdateRecordRequest};
 pub use rule::{
-    BindingDto, BucketDto, CreateRuleRequest, DryRunRequest, DryRunResponse, ResolvedInputDto,
-    RuleDto, UpdateRuleRequest,
+    BindingDto, BucketDto, CatalogResponse, CreateRuleRequest, DryRunRequest, DryRunResponse,
+    FilterFacetDto, ResolvedInputDto, RuleDto, UpdateRuleRequest,
 };

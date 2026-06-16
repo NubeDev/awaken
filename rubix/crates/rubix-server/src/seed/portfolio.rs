@@ -248,6 +248,8 @@ pub struct TenantTally {
     pub readings: usize,
     /// Number of demo rule records written (filled by the rule seed).
     pub rules: usize,
+    /// Number of dashboard/chart/nav records written (board, chart, nav tree).
+    pub dashboards: usize,
 }
 
 /// Write the full portfolio for one tenant as `operator`, returning the tally.
@@ -270,6 +272,7 @@ pub async fn seed_tenant(
         nodes: 0,
         readings: 0,
         rules: 0,
+        dashboards: 0,
     };
 
     for (site_key, site_name) in sites {
@@ -337,6 +340,10 @@ pub async fn seed_tenant(
             }
         }
     }
+
+    // One templated board mounted across the tenant's sites, plus the default nav
+    // tree (VARIABLES-AND-TEMPLATING / PAGE-CONTEXT-AND-NAV made concrete).
+    tally.dashboards = super::dashboards::seed_dashboards(db, namespace, operator, sites).await?;
 
     Ok(tally)
 }

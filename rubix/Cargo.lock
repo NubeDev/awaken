@@ -527,6 +527,7 @@ dependencies = [
  "matchit 0.7.3",
  "memchr",
  "mime",
+ "multer",
  "percent-encoding",
  "pin-project-lite",
  "rustversion",
@@ -4117,6 +4118,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "multer"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83e87776546dc87511aa5ee218730c92b666d7264ab6ed41f9d215af9cd5224b"
+dependencies = [
+ "bytes",
+ "encoding_rs",
+ "futures-util",
+ "http",
+ "httparse",
+ "memchr",
+ "mime",
+ "spin 0.9.8",
+ "version_check",
+]
+
+[[package]]
 name = "nanoid"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5716,6 +5734,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rubix-blob"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "rubix-bus"
 version = "0.1.0"
 dependencies = [
@@ -5858,6 +5887,7 @@ dependencies = [
  "futures",
  "http-body-util",
  "rubix-agent",
+ "rubix-blob",
  "rubix-bus",
  "rubix-core",
  "rubix-datasource",
@@ -5866,6 +5896,7 @@ dependencies = [
  "rubix-query",
  "rubix-rules",
  "rubix-store",
+ "rubix-trace",
  "serde",
  "serde_json",
  "surrealdb",
@@ -5874,6 +5905,7 @@ dependencies = [
  "tokio-tungstenite 0.24.0",
  "tower",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]

@@ -32,9 +32,35 @@ const validateSite = (search: Record<string, unknown>): SiteSearch => ({
   site: typeof search.site === 'string' ? search.site : undefined,
 })
 
+// The board builder additionally carries dashboard state in the URL so a
+// parameterised board deep-links: `?nav=<node id>` binds the board to a navigation
+// node's context, and each `?var-<name>=…` is an explicit variable selection
+// (VARIABLES-AND-TEMPLATING §7, PAGE-CONTEXT-AND-NAV §1). Variable keys are dynamic,
+// so they pass through untouched alongside the typed `nav`.
+interface BoardSearch {
+  nav?: string
+  [key: string]: string | string[] | undefined
+}
+
+const validateBoardSearch = (search: Record<string, unknown>): BoardSearch => {
+  const out: BoardSearch = {}
+  if (typeof search.nav === 'string') out.nav = search.nav
+  for (const [key, value] of Object.entries(search)) {
+    if (!key.startsWith('var-')) continue
+    if (typeof value === 'string') out[key] = value
+    else if (Array.isArray(value))
+      out[key] = value.filter((v): v is string => typeof v === 'string')
+  }
+  return out
+}
+
 const rootRoute = createRootRoute({ component: () => <Outlet /> })
 
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: Portfolio })
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: Portfolio,
+})
 
 // /t/$tenant — the tenant layout. One shared AppShell (floating sidebar + sticky
 // header) wraps every operator and admin screen; pages feed their breadcrumbs and
@@ -81,7 +107,10 @@ const adminIndexRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: '/',
   beforeLoad: ({ params }) => {
-    throw redirect({ to: '/t/$tenant/admin/schema', params: { tenant: params.tenant } })
+    throw redirect({
+      to: '/t/$tenant/admin/schema',
+      params: { tenant: params.tenant },
+    })
   },
 })
 
@@ -134,6 +163,7 @@ const adminDashboardsRoute = createRoute({
 const adminDashboardBuilderRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'dashboards/$boardId',
+  validateSearch: validateBoardSearch,
   component: AdminDashboardBuilder,
 })
 

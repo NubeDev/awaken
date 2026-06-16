@@ -15,9 +15,9 @@
 
 use crate::dto::{
     AppendReadingsRequest, AppendReadingsResponse, BatchQueryRequest, BatchQueryResponse,
-    CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
+    CatalogResponse, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
     CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
-    DryRunResponse, GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto,
+    DryRunResponse, FileRefDto, GrantDto, LoginRequest, LoginResponse, MeResponse, PreferencesDto,
     PrincipalDto, QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto, RecordDto,
     RegisterDatasourceRequest, RuleDto, TenantDto, UpdateDatasourceRequest, UpdateDeviceRequest,
     UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest, UpdateRuleRequest,
@@ -587,3 +587,44 @@ pub fn dryrun_rule() {}
     responses((status = 200, description = "Rules that compose this one", body = [RuleDto]))
 )]
 pub fn referencing_rules() {}
+
+/// `GET /rules/catalog`.
+#[utoipa::path(
+    get,
+    path = "/rules/catalog",
+    params(("table" = String, Query, description = "Canonical table to discover bindable facets for")),
+    responses(
+        (status = 200, description = "The fields and filter values the table offers a binding", body = CatalogResponse),
+        (status = 400, description = "Unknown or missing table")
+    )
+)]
+pub fn rules_catalog() {}
+
+/// `POST /files`.
+#[utoipa::path(
+    post,
+    path = "/files",
+    request_body(
+        content = inline(FileRefDto),
+        description = "multipart/form-data with one file part",
+        content_type = "multipart/form-data"
+    ),
+    responses(
+        (status = 200, description = "The stored file reference", body = FileRefDto),
+        (status = 400, description = "Malformed or empty multipart body"),
+        (status = 403, description = "Principal lacks the file-upload capability")
+    )
+)]
+pub fn upload_file() {}
+
+/// `GET /files/{id}`.
+#[utoipa::path(
+    get,
+    path = "/files/{id}",
+    params(("id" = String, Path, description = "The blob id from an upload reference")),
+    responses(
+        (status = 200, description = "The blob's bytes (Content-Type from the stored reference)"),
+        (status = 404, description = "No such blob in the caller's namespace")
+    )
+)]
+pub fn download_file() {}

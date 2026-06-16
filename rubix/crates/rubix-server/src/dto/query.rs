@@ -14,7 +14,10 @@
 
 use std::collections::HashMap;
 
-use rubix_query::{Agg, CompareOp, Grain, QueryError, ReduceCalc, TimeBound, TimeScope, Transform};
+use rubix_query::{
+    Agg, CompareOp, Grain, QueryError, ReduceCalc, Scalar, TimeBound, TimeScope, Transform,
+    Variable,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
@@ -48,6 +51,57 @@ pub struct QueryRequest {
     /// ops for the client. Empty/absent → rows pass through.
     #[serde(default)]
     pub transforms: Option<Vec<TransformDto>>,
+    /// An optional set of resolved dashboard variables
+    /// (`rubix/docs/design/variables-and-templating.md`). Each fills the `$name` /
+    /// `${name:csv}` / `$__sqlIn(name)` references in `sql`, lowered server-side
+    /// into escaped SQL literals **before** the read-only guard — the injection
+    /// boundary. Absent/empty → the SQL is run as authored.
+    #[serde(default)]
+    pub variables: Option<Vec<QueryVariableDto>>,
+}
+
+/// One resolved dashboard variable on the wire: a name and its selected value(s).
+///
+/// `value` is a single JSON scalar (`"hq"`, `42`, `true`) for a single-select, or
+/// an array of scalars for a multi-select feeding `${name:csv}` / `$__sqlIn`. A
+/// null, an object, or a nested array is rejected — only scalars reach the SQL.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct QueryVariableDto {
+    /// The reference name without the leading `$` (`site`, not `$site`).
+    pub name: String,
+    /// The selected scalar, or an array of scalars for a multi-select.
+    pub value: Value,
+}
+
+impl QueryVariableDto {
+    /// Normalise the wire variable into the query-layer [`Variable`].
+    ///
+    /// # Errors
+    /// Returns [`QueryError::Rejected`] if any selected value is not a JSON scalar
+    /// (so an object/nested array can never reach the lowering).
+    pub fn into_variable(self) -> Result<Variable, QueryError> {
+        let values = match self.value {
+            Value::Array(items) => items
+                .iter()
+                .map(|item| scalar(item, &self.name))
+                .collect::<Result<Vec<_>, _>>()?,
+            Value::Null => Vec::new(),
+            ref scalar_value => vec![scalar(scalar_value, &self.name)?],
+        };
+        Ok(Variable {
+            name: self.name,
+            values,
+        })
+    }
+}
+
+/// Normalise one JSON value to a [`Scalar`] or reject a composite value.
+fn scalar(value: &Value, name: &str) -> Result<Scalar, QueryError> {
+    Scalar::from_json(value).ok_or_else(|| {
+        QueryError::Rejected(format!(
+            "dashboard variable ${name} has a non-scalar value"
+        ))
+    })
 }
 
 /// One transform on the wire — a discriminated union mirroring the client spec
@@ -280,6 +334,10 @@ pub struct BatchQueryItem {
     /// An optional post-query transform pipeline; aggregate ops run server-side (§1).
     #[serde(default)]
     pub transforms: Option<Vec<TransformDto>>,
+    /// Optional resolved dashboard variables lowered into this statement's `sql`
+    /// (`rubix/docs/design/variables-and-templating.md`), exactly as `POST /query`.
+    #[serde(default)]
+    pub variables: Option<Vec<QueryVariableDto>>,
 }
 
 impl BatchQueryItem {
@@ -295,6 +353,7 @@ impl BatchQueryItem {
                 time: self.time,
                 quantities: self.quantities,
                 transforms: self.transforms,
+                variables: self.variables,
             },
         )
     }

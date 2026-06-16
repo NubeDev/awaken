@@ -35,3 +35,30 @@ pub async fn provision_principal(
         .map_err(GateError::IssueSession)?;
     Ok(())
 }
+
+/// Provision or rotate `principal`'s identity, overwriting any existing secret.
+///
+/// Unlike [`provision_principal`] — which `create`s the identity once and errors
+/// if the subject is already taken — this upserts. It is the path a long-lived
+/// **system actor** uses to re-establish its own login on each boot: a background
+/// worker (e.g. the hook dispatcher) cannot recover a previously stored secret
+/// (the access method keeps only what `SIGNIN` checks), so it rotates to a fresh
+/// secret it holds in memory for the process lifetime. A restart simply rotates
+/// again — there is no plaintext secret to persist or leak. Provisioning stays an
+/// owner action on the root handle.
+///
+/// # Errors
+/// Returns [`GateError::IssueSession`] if the identity write fails.
+pub async fn reprovision_principal(
+    db: &Surreal<Db>,
+    principal: &Principal,
+    secret: impl Into<String>,
+) -> Result<()> {
+    let row = PrincipalRow::new(principal, secret);
+    let _: Option<PrincipalRow> = db
+        .upsert((PRINCIPAL_TABLE, principal.subject.as_str()))
+        .content(row)
+        .await
+        .map_err(GateError::IssueSession)?;
+    Ok(())
+}

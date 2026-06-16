@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use rubix_blob::{BlobStore, LocalFsBlobStore};
 use rubix_datasource::Registry;
 use rubix_query::ContextCache;
 use rubix_store::StoreHandle;
@@ -31,6 +32,13 @@ pub type SharedRegistry = Arc<RwLock<Registry>>;
 /// table. The cache locks internally, so it needs no outer `RwLock`.
 pub type SharedContextCache = Arc<ContextCache>;
 
+/// The blob store shared across handlers.
+///
+/// A trait object so the backend is pluggable: the local-filesystem store on edge,
+/// an object store on cloud (behind the `cloud` feature). Behind an `Arc` because
+/// the file routes hold it for a request's lifetime and it is cloned into state.
+pub type SharedBlobStore = Arc<dyn BlobStore>;
+
 /// Shared state injected into every request handler.
 #[derive(Clone)]
 pub struct AppState {
@@ -44,6 +52,8 @@ pub struct AppState {
     pub datasources: SharedRegistry,
     /// The per-principal scanned-context cache (§4a).
     pub context_cache: SharedContextCache,
+    /// The binary blob store backing `file` fields (`POST`/`GET /files`).
+    pub blobs: SharedBlobStore,
     /// The deployment profile this server booted into (WS-14). The gate reads its
     /// namespace strategy to resolve a request's tenant; routes read its
     /// `auth_required`/`sync_enabled` defaults from one place.
@@ -92,7 +102,24 @@ impl AppState {
             database: database.into(),
             datasources: Arc::new(RwLock::new(Registry::with_native_default())),
             context_cache: Arc::new(ContextCache::default()),
+            blobs: default_blob_store(),
             profile,
         }
     }
+}
+
+/// The default blob store: a local-filesystem store under `RUBIX_DATA_DIR/blobs`,
+/// or — when that env is unset (tests, ephemeral runs) — an isolated temp
+/// directory unique to this process state.
+///
+/// The binary overrides `state.blobs` with a store rooted at its configured data
+/// directory; this default keeps every constructor (and every test) working
+/// without threading a path through, while never sharing a root between unrelated
+/// runs.
+fn default_blob_store() -> SharedBlobStore {
+    let root = match std::env::var_os("RUBIX_DATA_DIR") {
+        Some(dir) => std::path::PathBuf::from(dir).join("blobs"),
+        None => std::env::temp_dir().join(format!("rubix-blobs-{}", uuid::Uuid::new_v4())),
+    };
+    Arc::new(LocalFsBlobStore::open(root))
 }

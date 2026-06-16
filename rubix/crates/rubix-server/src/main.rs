@@ -11,9 +11,10 @@ use rubix_core::{
     Error, Result, ResultExt, RuntimeConfig, bootstrap_meta_collection, migrate_history_to_readings,
 };
 use rubix_gate::{define_audit_schema, define_gate_schema};
+use rubix_trace::define_trace_schema;
 use rubix_server::{
     AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
-    router, seed_dev,
+    router, seed_dev, spawn_hook_dispatcher,
 };
 use rubix_store::StoreHandle;
 
@@ -48,6 +49,14 @@ async fn main() -> Result<()> {
     define_audit_schema(store.raw())
         .await
         .map_err(|e| Error::Config(format!("defining audit schema: {e}")))?;
+
+    // The trace tables back the per-evaluation span tree a fired rule persists.
+    // Define them at boot now that the hook dispatcher fires rules at runtime (the
+    // first runtime caller of the full evaluate path) — without this a hook firing
+    // would fail to record its span. Idempotent.
+    define_trace_schema(store.raw())
+        .await
+        .map_err(|e| Error::Config(format!("defining trace schema: {e}")))?;
 
     // The datasource control plane persists registered connectors in its own
     // config table (server config, not tenant data), so define it at boot too.
@@ -89,12 +98,22 @@ async fn main() -> Result<()> {
             .map_err(|e| Error::Config(e.to_string()))?;
     }
 
-    let state = AppState::with_profile(
+    let mut state = AppState::with_profile(
         store,
         config.namespace.clone(),
         config.database.clone(),
         profile,
     );
+
+    // Root the blob store under the configured data directory so file uploads
+    // persist across restarts on a file-backed deployment (the constructor default
+    // is an ephemeral temp dir, for tests). Edge uses the local-filesystem store;
+    // an object-store backend (cloud) is the deferred follow-up.
+    let blob_root = std::path::PathBuf::from(
+        std::env::var("RUBIX_DATA_DIR").unwrap_or_else(|_| DEFAULT_DATA_DIR.to_owned()),
+    )
+    .join("blobs");
+    state.blobs = std::sync::Arc::new(rubix_blob::LocalFsBlobStore::open(blob_root));
 
     // Rebuild any datasource connectors registered in a prior run into the shared
     // registry before serving, so the registry reflects persisted state. A
@@ -108,6 +127,12 @@ async fn main() -> Result<()> {
             println!("rehydrated {restored} datasource connector(s)");
         }
     }
+
+    // Start the after-write hook dispatcher: a background subscriber on the
+    // live-query data plane that fires a rule when a watched record is written
+    // (BACKEND-COLLECTIONS.md, build-order step 5). It fires after the commit, so a
+    // hook is a side effect, never a veto; before-hooks are out of scope.
+    spawn_hook_dispatcher(state.clone());
 
     let bind = std::env::var("RUBIX_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_owned());
     let listener = tokio::net::TcpListener::bind(&bind)

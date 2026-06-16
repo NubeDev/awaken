@@ -13,24 +13,24 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
-import { useAllRecords, useCollections } from '../../hooks/useAdmin'
-import { useRecordMutations } from '../../hooks/useAdminMutations'
-import { usePageHeader } from '../../components/shell/page-header'
-import { RecordDialog } from '../../components/admin/RecordDialog'
-import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Badge } from '../../components/ui/badge'
+import { useAllRecords, useCollections } from '../../../hooks/useAdmin'
+import { useRecordMutations } from '../../../hooks/useAdminMutations'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { RecordDialog } from '../../../components/admin/RecordDialog'
+import { ErrorView, LoadingView, EmptyView } from '../../../components/ui/StateView'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Badge } from '../../../components/ui/badge'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { useToast } from '../../components/ui/toast'
-import type { Record, RecordContent } from '../../types/Record'
+} from '../../../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { useToast } from '../../../components/ui/toast'
+import type { Record, RecordContent } from '../../../types/Record'
 
 const route = getRouteApi('/t/$tenant/admin/records')
 const ALL_KINDS = '__all__'

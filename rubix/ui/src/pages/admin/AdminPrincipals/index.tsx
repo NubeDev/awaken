@@ -6,18 +6,18 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useState } from 'react'
 import { KeyRound, Plus, Trash2 } from 'lucide-react'
-import { useApi } from '../../api/ConnectionContext'
+import { useApi } from '../../../api/ConnectionContext'
 import { useQuery } from '@tanstack/react-query'
-import { listGrants } from '../../api/admin'
-import { usePrincipals } from '../../hooks/useAdmin'
-import { usePrincipalMutations, useGrantMutations } from '../../hooks/useAdminMutations'
-import { usePageHeader } from '../../components/shell/page-header'
-import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Badge } from '../../components/ui/badge'
-import { Checkbox } from '../../components/ui/checkbox'
+import { listGrants } from '../../../api/admin'
+import { usePrincipals } from '../../../hooks/useAdmin'
+import { usePrincipalMutations, useGrantMutations } from '../../../hooks/useAdminMutations'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { ErrorView, LoadingView, EmptyView } from '../../../components/ui/StateView'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { Badge } from '../../../components/ui/badge'
+import { Checkbox } from '../../../components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -25,23 +25,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog'
+} from '../../../components/ui/dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { useToast } from '../../components/ui/toast'
+} from '../../../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { useToast } from '../../../components/ui/toast'
 import {
   CAPABILITIES,
   PRINCIPAL_KINDS,
   ROLES,
   type Principal,
   type CreatePrincipalRequest,
-} from '../../types/Admin'
+} from '../../../types/Admin'
 
 const route = getRouteApi('/t/$tenant/admin/principals')
 

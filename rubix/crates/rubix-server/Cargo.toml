@@ -65,6 +65,10 @@ name = "http_query_batch"
 path = "tests/http/query/batch_test.rs"
 
 [[test]]
+name = "http_query_variables"
+path = "tests/http/query/variables_test.rs"
+
+[[test]]
 name = "http_prefs"
 path = "tests/http/prefs/prefs_test.rs"
 
@@ -79,6 +83,14 @@ path = "tests/http/admin/tenant_cloud_test.rs"
 [[test]]
 name = "ws_bridge"
 path = "tests/ws/bridge_test.rs"
+
+[[test]]
+name = "hooks_dispatch"
+path = "tests/hooks/dispatch_test.rs"
+
+[[test]]
+name = "http_files"
+path = "tests/http/files/files_test.rs"
 
 [[test]]
 name = "openapi_serve"
@@ -104,15 +116,17 @@ path = "tests/profile/fail_closed_test.rs"
 rubix-core = { workspace = true }
 rubix-store = { workspace = true }
 rubix-gate = { workspace = true }
+rubix-blob = { workspace = true }
 rubix-bus = { workspace = true }
 rubix-query = { workspace = true }
 rubix-rules = { workspace = true }
+rubix-trace = { workspace = true }
 rubix-datasource = { workspace = true }
 rubix-prefs = { workspace = true }
 rubix-agent = { workspace = true }
 arrow-json = "58"
 async-trait = "0.1"
-axum = { workspace = true, features = ["ws", "query"] }
+axum = { workspace = true, features = ["ws", "query", "multipart"] }
 chrono = { workspace = true }
 datafusion = { workspace = true }
 futures = { workspace = true }
@@ -122,6 +136,7 @@ surrealdb = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 utoipa = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

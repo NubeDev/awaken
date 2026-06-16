@@ -111,8 +111,36 @@ export interface DryRunResponse {
   inputs: ResolvedInput[]
 }
 
+/** One narrowing key a binding can scope its series by, with the values seen. */
+export interface FilterFacet {
+  /** The key a binding's `filter_field` would take (`series`, `measure`, …). */
+  key: string
+  /** The distinct values observed for `key`, sorted, capped server-side. */
+  values: string[]
+  /** Whether more values exist than were returned — the list is a sample, so an
+   *  unlisted value may still be valid and typeable. */
+  truncated: boolean
+}
+
+/** What a table offers a binding: the numeric series it exposes and the keys
+ *  those series can be narrowed by, discovered from the principal's visible
+ *  rows. Backs the editor's field/filter pickers. */
+export interface RuleCatalog {
+  table: CanonicalTable
+  fields: string[]
+  filters: FilterFacet[]
+}
+
 export function listRules(client: ApiClient): Promise<Rule[]> {
   return client.get<Rule[]>('rules')
+}
+
+// Discover the bindable facets of `table` for the caller — the fields and filter
+// values it actually holds, scoped to the caller's visible rows. A read in effect
+// (like dry-run), so it needs no rule-define grant; backs the inputs editor's
+// pickers so a binding is built from real data, not typed blind.
+export function ruleCatalog(client: ApiClient, table: CanonicalTable): Promise<RuleCatalog> {
+  return client.get<RuleCatalog>(`rules/catalog?table=${encodeURIComponent(table)}`)
 }
 
 export function createRule(client: ApiClient, body: CreateRuleRequest): Promise<Rule> {

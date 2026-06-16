@@ -21,10 +21,12 @@ use rubix_core::Id;
 use rubix_datasource::{DatasourceError, span};
 use rubix_gate::read_record_on_session;
 use rubix_prefs::UnitSystem;
-use rubix_query::{QueryError, Transform, apply_time_scope, apply_transforms, now_ms};
+use rubix_query::{
+    QueryError, Transform, apply_time_scope, apply_transforms, expand_variables, now_ms,
+};
 
 use crate::auth::Authenticated;
-use crate::dto::query::{QueryRequest, QueryResponse, TransformDto};
+use crate::dto::query::{QueryRequest, QueryResponse, QueryVariableDto, TransformDto};
 use crate::error::{ApiError, ApiResult};
 use crate::http::prefs::read::load_prefs;
 use crate::http::query::convert::convert_rows;
@@ -105,11 +107,25 @@ pub(crate) fn resolve_query(body: QueryRequest) -> Result<ResolvedQuery, QueryEr
         time,
         quantities,
         transforms,
+        variables,
     } = body;
     let sql = match time {
         Some(time) => {
             let scope = time.into_scope()?;
             apply_time_scope(&sql, &scope, now_ms())?
+        }
+        None => sql,
+    };
+    // Lower dashboard variables after the time macros and before the guard (run by
+    // `span` on this final string): every value becomes an escaped literal here, so
+    // the guard vets the fully-resolved statement (the injection boundary).
+    let sql = match variables {
+        Some(list) => {
+            let resolved = list
+                .into_iter()
+                .map(QueryVariableDto::into_variable)
+                .collect::<Result<Vec<_>, _>>()?;
+            expand_variables(&sql, &resolved)?
         }
         None => sql,
     };

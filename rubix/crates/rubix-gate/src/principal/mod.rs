@@ -13,4 +13,4 @@ mod provision;
 pub use manage::{
     create_principal, delete_principal, get_principal, list_principals, set_principal_role,
 };
-pub use provision::provision_principal;
+pub use provision::{provision_principal, reprovision_principal};

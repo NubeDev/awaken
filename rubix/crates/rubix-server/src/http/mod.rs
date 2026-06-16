@@ -10,6 +10,7 @@ mod admin;
 mod agent;
 mod auth;
 mod datasources;
+mod files;
 mod health;
 mod prefs;
 mod query;
@@ -34,6 +35,7 @@ pub fn router() -> Router<AppState> {
         .merge(query::router())
         .merge(prefs::router())
         .merge(datasources::router())
+        .merge(files::router())
         .merge(admin::router())
         .merge(agent::router())
         .merge(rules::router())

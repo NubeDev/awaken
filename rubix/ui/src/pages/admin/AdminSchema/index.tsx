@@ -7,12 +7,12 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Database, Hash, Tag } from 'lucide-react'
-import { useAllRecords, useCollections } from '../../hooks/useAdmin'
-import { profileKinds, tagFrequencies, type KindProfile } from '../../utils/schema'
-import { usePageHeader } from '../../components/shell/page-header'
-import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
-import { Badge } from '../../components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import { useAllRecords, useCollections } from '../../../hooks/useAdmin'
+import { profileKinds, tagFrequencies, type KindProfile } from '../../../utils/schema'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { ErrorView, LoadingView, EmptyView } from '../../../components/ui/StateView'
+import { Badge } from '../../../components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
 import { cn } from '@/lib/cn'
 
 const route = getRouteApi('/t/$tenant/admin/schema')

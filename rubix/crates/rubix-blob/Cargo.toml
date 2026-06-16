@@ -1,0 +1,32 @@
+[package]
+name = "rubix-blob"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# The cloud object-store blob backend (S3/GCS), reserved for the cloud profile.
+# Off by default — the edge build carries only the local-filesystem store, and
+# `open_blob_store` fails closed if the object-store backend is requested without
+# this feature (BACKEND-COLLECTIONS.md, open question 8). Mirrors the Postgres
+# connector's feature gate.
+cloud = []
+
+[dependencies]
+async-trait = "0.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs", "io-util"] }
+
+[[test]]
+name = "local"
+path = "tests/local_test.rs"

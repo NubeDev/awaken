@@ -108,7 +108,11 @@ pub fn build_rule(
 }
 
 /// Parse a canonical-table token into its [`CanonicalTable`].
-fn parse_table(raw: &str) -> Result<CanonicalTable, String> {
+///
+/// The wire vocabulary the whole rule surface uses (plural `records`/`readings`,
+/// matching the UI `CanonicalTable` type) — distinct from the singular SurrealDB
+/// `register_name`s [`CanonicalTable::parse`] resolves.
+pub(crate) fn parse_table(raw: &str) -> Result<CanonicalTable, String> {
     match raw {
         "records" => Ok(CanonicalTable::Records),
         "readings" => Ok(CanonicalTable::Readings),
@@ -293,6 +297,33 @@ pub struct ResolvedInputDto {
     pub buckets: Vec<BucketDto>,
     /// The aggregate value selected from the latest bucket — what the script read.
     pub value: f64,
+}
+
+/// One narrowing key a binding can scope its series by, with the distinct values
+/// observed for it — the picker behind `filter_field` / `filter_value`.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct FilterFacetDto {
+    /// The key a binding's `filter_field` would take (`series`, `measure`, …).
+    pub key: String,
+    /// The distinct values observed for `key`, sorted, capped server-side.
+    pub values: Vec<String>,
+    /// Whether more distinct values exist than were returned — the list is a
+    /// sample, so the author may still need to type an unlisted value.
+    pub truncated: bool,
+}
+
+/// What a canonical table offers a binding: the numeric series it exposes and the
+/// keys those series can be narrowed by, discovered from the principal's visible
+/// rows. Backs the studio's field/filter pickers so a binding is built from what
+/// the backend actually holds rather than typed blind.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct CatalogResponse {
+    /// The table the facets were discovered for (echoed back).
+    pub table: String,
+    /// The fields a binding's `field` can take, sorted.
+    pub fields: Vec<String>,
+    /// The keys a binding's `filter_field` can take, each with its values.
+    pub filters: Vec<FilterFacetDto>,
 }
 
 /// The verdict of a dry-run: the decision and the frame it decided on.

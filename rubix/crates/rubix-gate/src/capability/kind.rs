@@ -70,6 +70,17 @@ pub enum Capability {
     /// stream can be granted apart. Readings never enter the command gate, audit,
     /// or undo (SCOPE: "readings … never undone").
     ReadingsAppend,
+    /// Upload a file's bytes into the blob store.
+    ///
+    /// The fail-closed grant the `POST /files` upload endpoint checks before
+    /// writing bytes to the blob store (`rubix/docs/design/BACKEND-COLLECTIONS.md`,
+    /// "File fields"; build-order step 6). Blob bytes are a **fourth plane** the
+    /// gate did not previously guard: they live outside SurrealDB (local FS on
+    /// edge, object store on cloud), so a record write capability does not cover
+    /// them. Upload is deliberately its own authority — the returned file
+    /// *reference* is later stored in a record's content through the normal gated
+    /// write, so the command gate still sees only JSON.
+    FileUpload,
 }
 
 impl Capability {
@@ -78,7 +89,7 @@ impl Capability {
     /// The registry ([`is_registered`](crate::capability::is_registered)) and the
     /// wire round-trip both derive from this list, so adding a variant here is the
     /// single place a new capability becomes known.
-    pub const ALL: [Capability; 10] = [
+    pub const ALL: [Capability; 11] = [
         Capability::DatasourceRegister,
         Capability::RuleInvoke,
         Capability::IngestPublish,
@@ -89,6 +100,7 @@ impl Capability {
         Capability::RuleDefine,
         Capability::DeviceManage,
         Capability::ReadingsAppend,
+        Capability::FileUpload,
     ];
 
     /// The stable wire/storage string for this capability.
@@ -105,6 +117,7 @@ impl Capability {
             Capability::RuleDefine => "rule-define",
             Capability::DeviceManage => "device-manage",
             Capability::ReadingsAppend => "readings-append",
+            Capability::FileUpload => "file-upload",
         }
     }
 
@@ -155,7 +168,7 @@ mod tests {
         // `ALL` is the single source of truth the registry and wire round-trip
         // derive from; its length must track the variant count so a forgotten
         // entry cannot silently drop a capability out of the fail-closed set.
-        assert_eq!(Capability::ALL.len(), 10);
+        assert_eq!(Capability::ALL.len(), 11);
         for capability in Capability::ALL {
             let occurrences = Capability::ALL
                 .into_iter()

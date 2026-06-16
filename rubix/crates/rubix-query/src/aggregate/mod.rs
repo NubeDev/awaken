@@ -8,6 +8,7 @@
 //! aggregation fold ([`rollup`]) are pure and unit-tested; [`series`] is the
 //! scoped scan that produces the samples.
 
+mod catalog;
 mod reading;
 mod rollup;
 mod series;
@@ -19,6 +20,7 @@ use surrealdb::engine::local::Db;
 use crate::error::Result;
 use crate::provider::CanonicalTable;
 
+pub use catalog::{FilterFacet, TableFacets, discover_facets};
 pub use rollup::{BucketRollup, Sample};
 pub use series::SeriesFilter;
 pub use window::Grain;

@@ -11,6 +11,7 @@
 //! schema must already be defined on `db` (the binary does this at boot).
 
 mod cast;
+mod dashboards;
 mod history;
 mod portfolio;
 mod rules;
@@ -97,6 +98,9 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
         // The worked set of demo rules over that tenant's readings — what the
         // rules studio opens onto (simple thresholds → composed → scored).
         tally.rules = rules::seed_rules(db, namespace, &operator).await?;
+        // One write-triggered hook so the portfolio demonstrates step 5: editing the
+        // site re-fires the temperature rule (`BACKEND-COLLECTIONS.md`, hooks).
+        rules::seed_hooks(db, namespace, &operator).await?;
         tallies.push(tally);
     }
 
@@ -108,11 +112,11 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
 fn report(tallies: &[TenantTally]) {
     let mut total = 0usize;
     for t in tallies {
-        let count = t.sites + t.nodes + t.readings + t.rules;
+        let count = t.sites + t.nodes + t.readings + t.rules + t.dashboards;
         total += count;
         println!(
-            "  {}: {} sites, {} nodes, {} readings, {} rules ({} records)",
-            t.namespace, t.sites, t.nodes, t.readings, t.rules, count
+            "  {}: {} sites, {} nodes, {} readings, {} rules, {} dashboards ({} records)",
+            t.namespace, t.sites, t.nodes, t.readings, t.rules, t.dashboards, count
         );
     }
     println!(

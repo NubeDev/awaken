@@ -19,20 +19,61 @@ export interface BoardPanel {
   h: number
 }
 
+// A scalar a variable can resolve to. Matches the wire `QueryVariable.value`
+// element type.
+export type VariableScalar = string | number | boolean
+
+// How a variable's option list is sourced (VARIABLES-AND-TEMPLATING §1). A closed
+// set; the resolver (`board-variables.ts`) has one arm per kind.
+export type VariableKind = 'constant' | 'custom' | 'site' | 'query' | 'textbox'
+
+// One dashboard variable, stored in the board record's JSON so it travels with the
+// board on export/import. `current` is the persisted default selection; the live
+// selection is URL/context-driven at view time.
+export interface BoardVariable {
+  /** Referenced in SQL as `$name` / `${name}` / `$__sqlIn(name)`. */
+  name: string
+  label?: string
+  kind: VariableKind
+  /** Per-kind config: `{ options }` for custom, `{ query }` for query, etc. */
+  config?: {
+    /** `custom`: the static option list. */
+    options?: VariableScalar[]
+    /** `query`: SQL whose first column becomes the option list. */
+    query?: string
+  }
+  /** The persisted default selection (a scalar, or an array when `multi`). */
+  current?: VariableScalar | VariableScalar[]
+  /** Allow selecting several values (lowers to `${name:csv}` / `$__sqlIn`). */
+  multi?: boolean
+  /** Offer an "All" option that expands to every resolved value. */
+  include_all?: boolean
+  /** Hide from the bar (a `constant`, or a context-driven value). */
+  hidden?: boolean
+}
+
 export interface BoardContent {
   kind: typeof BOARD_KIND
   name: string
   panels: BoardPanel[]
+  variables?: BoardVariable[]
 }
 
 export interface SavedBoard {
   id: string
   name: string
   panels: BoardPanel[]
+  variables: BoardVariable[]
   updated: string
 }
 
-function boardContent(input: { name: string; panels: BoardPanel[] }): RecordContent {
+type BoardInput = {
+  name: string
+  panels: BoardPanel[]
+  variables?: BoardVariable[]
+}
+
+function boardContent(input: BoardInput): RecordContent {
   return { kind: BOARD_KIND, ...input } as unknown as RecordContent
 }
 
@@ -42,6 +83,7 @@ function toSavedBoard(record: Record): SavedBoard {
     id: record.id,
     name: typeof c.name === 'string' ? c.name : '(untitled)',
     panels: Array.isArray(c.panels) ? (c.panels as BoardPanel[]) : [],
+    variables: Array.isArray(c.variables) ? (c.variables as BoardVariable[]) : [],
     updated: record.updated,
   }
 }
@@ -58,7 +100,7 @@ export async function createBoard(client: ApiClient, name: string): Promise<Save
 export async function updateBoard(
   client: ApiClient,
   id: string,
-  input: { name: string; panels: BoardPanel[] },
+  input: BoardInput,
 ): Promise<SavedBoard> {
   return toSavedBoard(await updateRecord(client, id, boardContent(input)))
 }

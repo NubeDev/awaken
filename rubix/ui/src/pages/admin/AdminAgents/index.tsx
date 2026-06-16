@@ -6,13 +6,13 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Bot, Plus } from 'lucide-react'
-import { useAgents, useAgentMutations } from '../../hooks/useAgents'
-import { usePageHeader } from '../../components/shell/page-header'
-import { ErrorView, LoadingView, EmptyView } from '../../components/ui/StateView'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Badge } from '../../components/ui/badge'
+import { useAgents, useAgentMutations } from '../../../hooks/useAgents'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { ErrorView, LoadingView, EmptyView } from '../../../components/ui/StateView'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { Badge } from '../../../components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -20,17 +20,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog'
+} from '../../../components/ui/dialog'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { useToast } from '../../components/ui/toast'
-import { AGENT_TIERS, TIER_SUMMARY, type AgentTier, type ProvisionAgentRequest } from '../../types/Agent'
+} from '../../../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { useToast } from '../../../components/ui/toast'
+import { AGENT_TIERS, TIER_SUMMARY, type AgentTier, type ProvisionAgentRequest } from '../../../types/Agent'
 
 const route = getRouteApi('/t/$tenant/admin/agents')
 

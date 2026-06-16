@@ -42,7 +42,7 @@ pub use error::{GateError, Result};
 pub use permission::define_gate_schema;
 pub use principal::{
     create_principal, delete_principal, get_principal, list_principals, provision_principal,
-    set_principal_role,
+    reprovision_principal, set_principal_role,
 };
 pub use read::{
     read_readings_on_session, read_record_on_session, read_record_tags_on_session,

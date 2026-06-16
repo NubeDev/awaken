@@ -220,6 +220,30 @@ pub async fn seed_rules(
     Ok(RULES.len())
 }
 
+/// Seed one demo hook binding so the portfolio shows write-triggered rules.
+///
+/// Binds the simplest demo rule (`high-zone-temp`) to **updates of a `site`**: when
+/// the operator edits the tenant's site record, the dispatcher re-evaluates the
+/// temperature rule against the seeded readings and records a fresh insight
+/// (`rubix/docs/design/BACKEND-COLLECTIONS.md`, "Server-side hooks"). A hook is a
+/// `kind:"hook"` record like any other, written through the gate as the operator.
+/// Returns the number of hooks seeded.
+pub async fn seed_hooks(
+    db: &Surreal<Db>,
+    namespace: &str,
+    operator: &Principal,
+) -> Result<usize, SeedError> {
+    let id = Id::from_raw(format!("{namespace}--hook--site-temp"));
+    let content = json!({
+        "kind": "hook",
+        "match": "site",
+        "on": ["update"],
+        "rule": "high-zone-temp",
+    });
+    put(db, operator, &id, content).await?;
+    Ok(1)
+}
+
 /// The first site key for a tenant — the site the demo rules target.
 ///
 /// Kept in step with the portfolio topology (acme → `hq`, globex → `tower`); an

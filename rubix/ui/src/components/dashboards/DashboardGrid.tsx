@@ -19,7 +19,12 @@ import { GridLayout, type Layout, useContainerWidth } from 'react-grid-layout'
 import { useApi } from '../../api/ConnectionContext'
 import { updateChart, type SavedChart } from '../../api/charts'
 import type { BoardPanel } from '../../api/boards'
-import { runBatchQuery, type BatchQueryItem, type TimeScope } from '../../api/query'
+import {
+  runBatchQuery,
+  type BatchQueryItem,
+  type QueryVariable,
+  type TimeScope,
+} from '../../api/query'
 import { applyCosmeticTransforms, splitTransforms } from '../chart-builder/transforms'
 import { snapInstant, useRefreshTick, type RefreshInterval } from './board-refresh'
 import { decodeDrag, PALETTE_DND_TYPE, type PaletteDrag } from './board-palette'
@@ -35,8 +40,19 @@ interface DashboardGridProps {
   onRemovePanel: (chartId: string) => void
   /** Add a panel from a palette drop (preset or saved chart). */
   onAddDrag?: (drag: PaletteDrag) => void
+  /** A just-created chart to open the editor on immediately (Grafana-style "add a
+   *  blank chart, configure it in place"). The grid clears it once consumed. */
+  autoEditChartId?: string | null
+  /** Notify the page the auto-edit was consumed so it doesn't reopen on re-render. */
+  onAutoEditConsumed?: () => void
   /** The board's structured, UTC time scope, sent with the batch (§5). */
   time?: TimeScope
+  /** Resolved dashboard variables sent with every panel query; the backend lowers
+   *  `$name` references into escaped literals (VARIABLES-AND-TEMPLATING §6). */
+  variables?: QueryVariable[]
+  /** A hash of the resolved variable values, folded into the batch query key so a
+   *  selection change re-fetches exactly the templated panels. */
+  varRevision?: string
   /** Auto-refresh interval; `null` is Off (§6). */
   refresh?: RefreshInterval
   /** Reports whether a batch refetch is in flight, for the refresh control's spinner. */
@@ -52,7 +68,11 @@ export function DashboardGrid({
   onLayoutChange,
   onRemovePanel,
   onAddDrag,
+  autoEditChartId,
+  onAutoEditConsumed,
   time,
+  variables,
+  varRevision,
   refresh = null,
   onFetchingChange,
 }: DashboardGridProps) {
@@ -101,8 +121,11 @@ export function DashboardGrid({
           time: snappedTime,
           quantities: c.config?.quantities,
           transforms: splitTransforms(c.config?.transforms).aggregate,
+          // Every panel carries the board's resolved variables; the backend only
+          // substitutes the ones a statement references (§6).
+          variables,
         })),
-    [panels, charts, snappedTime],
+    [panels, charts, snappedTime, variables],
   )
 
   // The cosmetic transform tier per chart id — applied to each panel's rows after
@@ -127,6 +150,7 @@ export function DashboardGrid({
           )}`,
       ),
       snappedTime,
+      varRevision,
     ],
     queryFn: () => runBatchQuery(api, items),
     enabled: items.length > 0,
@@ -136,6 +160,15 @@ export function DashboardGrid({
     refetchInterval: refresh ?? false,
     placeholderData: keepPreviousData,
   })
+
+  // Open the editor on a just-added blank chart, once its record has loaded into
+  // the chart map. Consumed once so a later re-render (or close) doesn't reopen it.
+  useEffect(() => {
+    if (autoEditChartId && charts.has(autoEditChartId)) {
+      setEditingChartId(autoEditChartId)
+      onAutoEditConsumed?.()
+    }
+  }, [autoEditChartId, charts, onAutoEditConsumed])
 
   // Surface fetch state to the page so the refresh control can spin its icon.
   useEffect(() => {
@@ -157,12 +190,16 @@ export function DashboardGrid({
     return m
   }, [batch.data, cosmeticByChart])
 
-  const layout: Layout = panels.map((p) => ({ i: p.chart_id, x: p.x, y: p.y, w: p.w, h: p.h }))
+  const layout: Layout = panels.map((p) => ({
+    i: p.chart_id,
+    x: p.x,
+    y: p.y,
+    w: p.w,
+    h: p.h,
+  }))
 
   function handleLayoutChange(next: Layout) {
-    onLayoutChange(
-      next.map((l) => ({ chart_id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })),
-    )
+    onLayoutChange(next.map((l) => ({ chart_id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })))
   }
 
   function panelResult(chartId: string): PanelResult {
@@ -176,8 +213,12 @@ export function DashboardGrid({
   // re-runs the query (a changed type/quantity/transform can change the rows).
   const editingChart = editingChartId ? charts.get(editingChartId) : undefined
   const saveChart = useMutation({
-    mutationFn: (input: { name: string; config: ChartConfig }) =>
-      updateChart(api, editingChartId!, { name: input.name, sql: editingChart!.sql, config: input.config }),
+    mutationFn: (input: { name: string; sql: string; config: ChartConfig }) =>
+      updateChart(api, editingChartId!, {
+        name: input.name,
+        sql: input.sql,
+        config: input.config,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['charts', tenant] })
       void qc.invalidateQueries({ queryKey: ['board-batch'] })
@@ -238,7 +279,10 @@ export function DashboardGrid({
               ) : (
                 <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
                   <span className="panel-drag cursor-move px-2">Missing chart</span>
-                  <button onClick={() => onRemovePanel(p.chart_id)} className="panel-no-drag underline">
+                  <button
+                    onClick={() => onRemovePanel(p.chart_id)}
+                    className="panel-no-drag underline"
+                  >
                     remove
                   </button>
                 </div>
@@ -252,9 +296,11 @@ export function DashboardGrid({
         <ChartSettingsDialog
           open={editingChartId !== null}
           onOpenChange={(o) => !o && setEditingChartId(null)}
+          tenant={tenant}
           chart={editingChart}
           rows={panelResult(editingChart.id).rows ?? []}
           columns={panelResult(editingChart.id).columns}
+          time={snappedTime}
           onSave={(input) => saveChart.mutate(input)}
           saving={saveChart.isPending}
         />

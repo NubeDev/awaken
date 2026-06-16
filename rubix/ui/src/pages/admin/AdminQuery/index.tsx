@@ -8,41 +8,41 @@ import { getRouteApi } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LineChart as LineChartIcon, Play, Save, Sparkles, TerminalSquare, Trash2, ZoomOut } from 'lucide-react'
-import { useApi } from '../../api/ConnectionContext'
-import { runQuery, type QueryResponse } from '../../api/query'
-import { createChart } from '../../api/charts'
+import { useApi } from '../../../api/ConnectionContext'
+import { runQuery, type QueryResponse } from '../../../api/query'
+import { createChart } from '../../../api/charts'
 import {
   createSavedQuery,
   deleteSavedQuery,
   listSavedQueries,
   updateSavedQuery,
   type SavedQuery,
-} from '../../api/savedQueries'
-import { usePageHeader } from '../../components/shell/page-header'
-import { ErrorView } from '../../components/ui/StateView'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
+} from '../../../api/savedQueries'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { ErrorView } from '../../../components/ui/StateView'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { SqlEditor } from '../../components/sql/SqlEditor'
-import { ParametersPanel } from '../../components/sql/ParametersPanel'
-import { applyParameters, useSqlEditorStore } from '../../components/sql/sql-editor-store'
-import { ChartRendererCore } from '../../components/chart-builder/charts'
-import { useChartZoom } from '../../components/chart-builder/charts/useChartZoom'
-import { transformDataToColumns, type DataRow } from '../../components/chart-builder/utils'
-import { ChartType, type ChartConfig } from '../../components/chart-builder/types'
-import { TransformEditor } from '../../components/chart-builder/TransformEditor'
-import { FieldConfigEditor } from '../../components/chart-builder/FieldConfigEditor'
-import { ChartConfigBar } from '../../components/chart-builder/ChartConfigBar'
-import type { FieldConfig } from '../../components/chart-builder/field-config'
-import { applyCosmeticTransforms, splitTransforms, type Transform } from '../../components/chart-builder/transforms'
+} from '../../../components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table'
+import { SqlEditor } from '../../../components/sql/SqlEditor'
+import { ParametersPanel } from '../../../components/sql/ParametersPanel'
+import { applyParameters, useSqlEditorStore } from '../../../components/sql/sql-editor-store'
+import { ChartRendererCore } from '../../../components/chart-builder/charts'
+import { useChartZoom } from '../../../components/chart-builder/charts/useChartZoom'
+import { transformDataToColumns, type DataRow } from '../../../components/chart-builder/utils'
+import { ChartType, type ChartConfig } from '../../../components/chart-builder/types'
+import { TransformEditor } from '../../../components/chart-builder/TransformEditor'
+import { FieldConfigEditor } from '../../../components/chart-builder/FieldConfigEditor'
+import { ChartConfigBar } from '../../../components/chart-builder/ChartConfigBar'
+import type { FieldConfig } from '../../../components/chart-builder/field-config'
+import { applyCosmeticTransforms, splitTransforms, type Transform } from '../../../components/chart-builder/transforms'
 
 const route = getRouteApi('/t/$tenant/admin/query')
 

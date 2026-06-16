@@ -12,11 +12,13 @@ use utoipa::openapi::OpenApi as OpenApiDoc;
 use crate::dto::{
     AgentDto, AppendReadingsRequest, AppendReadingsResponse, AskRequest, AskResponse,
     BatchQueryItem, BatchQueryRequest, BatchQueryResponse, BatchQueryResult, BindingDto, BucketDto,
-    ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest,
-    CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest,
-    DryRunResponse, GrantDto, LoginRequest, LoginResponse, MeResponse, PersistRequest,
+    CatalogResponse, ColumnDto, CreateDeviceRequest, CreatePrincipalRequest, CreateRecordRequest,
+    CreateRuleRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
+    DryRunRequest, DryRunResponse, FileRefDto, FilterFacetDto, GrantDto, LoginRequest, LoginResponse,
+    MeResponse, PersistRequest,
     PersistedDto, PreferencesDto, PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto,
-    QueryRequest, QueryResponse, QuerySchemaResponse, ReadingDto, ReadingSampleDto, RecallRequest,
+    QueryRequest, QueryResponse, QuerySchemaResponse, QueryVariableDto, ReadingDto, ReadingSampleDto,
+    RecallRequest,
     RecalledDto, RecordDto, RegisterDatasourceRequest, ResolvedInputDto, RuleDto, TableSchemaDto,
     TenantDto, TimeBoundDto, TimeScopeDto, TransformDto, UpdateDatasourceRequest,
     UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest, UpdateRecordRequest,
@@ -75,7 +77,10 @@ use crate::dto::{
         crate::openapi::paths::update_rule,
         crate::openapi::paths::delete_rule,
         crate::openapi::paths::dryrun_rule,
-        crate::openapi::paths::referencing_rules
+        crate::openapi::paths::referencing_rules,
+        crate::openapi::paths::rules_catalog,
+        crate::openapi::paths::upload_file,
+        crate::openapi::paths::download_file
     ),
     components(schemas(
         LoginRequest,
@@ -96,6 +101,7 @@ use crate::dto::{
         TimeScopeDto,
         TimeBoundDto,
         TransformDto,
+        QueryVariableDto,
         BatchQueryRequest,
         BatchQueryItem,
         BatchQueryResponse,
@@ -130,8 +136,11 @@ use crate::dto::{
         UpdateRuleRequest,
         DryRunRequest,
         DryRunResponse,
+        CatalogResponse,
+        FilterFacetDto,
         ResolvedInputDto,
-        BucketDto
+        BucketDto,
+        FileRefDto
     ))
 )]
 pub struct ApiDoc;

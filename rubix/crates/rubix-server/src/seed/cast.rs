@@ -59,6 +59,9 @@ const CAST: &[DemoPrincipal] = &[
             // `POST /readings`, which gates on `readings-append` (the data-plane
             // write, distinct from the `ingest-publish` Zenoh stream).
             Capability::ReadingsAppend,
+            // Uploading a file's bytes (`POST /files`) is its own fail-closed grant,
+            // distinct from the record write that later stores the reference.
+            Capability::FileUpload,
         ],
     },
     DemoPrincipal {

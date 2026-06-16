@@ -11,6 +11,7 @@
 //! before an edit/delete). One file per route; this barrel only merges them.
 
 mod capability;
+mod catalog;
 mod create;
 mod delete;
 mod dryrun;
@@ -26,6 +27,7 @@ use axum::routing::{get, post};
 
 use crate::state::AppState;
 
+use catalog::catalog_route;
 use create::create_rule_route;
 use delete::delete_rule_route;
 use dryrun::dryrun_rule_route;
@@ -38,6 +40,9 @@ use update::update_rule_route;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/rules", post(create_rule_route).get(list_rules_route))
+        // Static segment registered before `/rules/:name` so a `catalog` discovery
+        // is never mistaken for a rule named "catalog".
+        .route("/rules/catalog", get(catalog_route))
         .route(
             "/rules/:name",
             get(get_rule_route)

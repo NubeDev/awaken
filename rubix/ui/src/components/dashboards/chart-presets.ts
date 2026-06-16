@@ -20,6 +20,19 @@ export interface ChartPreset {
   config: ChartConfig
 }
 
+// The starter for a "blank" chart added inline on the board (Grafana's "Add
+// panel"). It renders something sensible immediately so the new panel isn't empty,
+// and the in-place editor's SQL field lets the operator rewrite the query without
+// leaving the board. Kept here so the starter query/config lives beside the presets.
+export const BLANK_CHART: { name: string; sql: string; config: ChartConfig } = {
+  name: 'New chart',
+  sql: `SELECT $__timeBucket(created) AS time, count(*) AS n
+FROM record
+WHERE $__timeFilter(created)
+GROUP BY time ORDER BY time`,
+  config: { type: ChartType.LineChart, x: 'time', y: 'n', displayMode: 'total' },
+}
+
 export const CHART_PRESETS: ChartPreset[] = [
   {
     name: 'Records over time',

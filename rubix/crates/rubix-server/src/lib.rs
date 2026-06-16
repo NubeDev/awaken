@@ -12,6 +12,7 @@ mod auth;
 pub mod datasources;
 mod dto;
 mod error;
+pub mod hooks;
 mod http;
 mod openapi;
 pub mod profile;
@@ -24,6 +25,7 @@ use axum::Router;
 
 pub use datasources::{define_datasource_schema, rehydrate};
 pub use error::{ApiError, ApiResult};
+pub use hooks::spawn_hook_dispatcher;
 pub use openapi::document as openapi_document;
 pub use profile::{NamespaceStrategy, Profile, ProfileError};
 pub use seed::seed_dev;

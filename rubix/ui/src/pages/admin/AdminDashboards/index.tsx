@@ -17,8 +17,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, LayoutDashboard, Plus, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { useApi } from '../../api/ConnectionContext'
-import { createChart, listCharts, type SavedChart } from '../../api/charts'
+import { useApi } from '../../../api/ConnectionContext'
+import { createChart, listCharts, type SavedChart } from '../../../api/charts'
 import {
   createBoard,
   deleteBoard,
@@ -26,10 +26,10 @@ import {
   updateBoard,
   type BoardPanel,
   type SavedBoard,
-} from '../../api/boards'
-import { usePageHeader } from '../../components/shell/page-header'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
+} from '../../../api/boards'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
 import {
   Table,
   TableBody,
@@ -37,24 +37,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table'
-import { DashboardGrid } from '../../components/dashboards/DashboardGrid'
-import { BoardPalette } from '../../components/dashboards/BoardPalette'
-import { TimeRangePicker } from '../../components/dashboards/TimeRangePicker'
-import { BoardRefresh } from '../../components/dashboards/BoardRefresh'
-import { DEFAULT_REFRESH, type RefreshInterval } from '../../components/dashboards/board-refresh'
-import { CHART_PRESETS } from '../../components/dashboards/chart-presets'
+} from '../../../components/ui/table'
+import { DashboardGrid } from '../../../components/dashboards/DashboardGrid'
+import { VariableBar } from '../../../components/dashboards/VariableBar'
+import { useBoardVariables } from '../../../components/dashboards/useBoardVariables'
+import { varSearchKey, type Selection } from '../../../components/dashboards/board-variables'
+import { getNavNode } from '../../../api/nav'
+import { BoardPalette } from '../../../components/dashboards/BoardPalette'
+import { TimeRangePicker } from '../../../components/dashboards/TimeRangePicker'
+import { BoardRefresh } from '../../../components/dashboards/BoardRefresh'
+import { DEFAULT_REFRESH, type RefreshInterval } from '../../../components/dashboards/board-refresh'
+import { BLANK_CHART, CHART_PRESETS } from '../../../components/dashboards/chart-presets'
 import {
   decodeDrag,
   PALETTE_DND_TYPE,
   type PaletteDrag,
-} from '../../components/dashboards/board-palette'
+} from '../../../components/dashboards/board-palette'
 import {
   DEFAULT_RANGE,
   boardTimeScope,
   type BoardTimeRange as Range,
-} from '../../components/dashboards/board-params'
-import { EmptyView, ErrorView, LoadingView } from '../../components/ui/StateView'
+} from '../../../components/dashboards/board-params'
+import { EmptyView, ErrorView, LoadingView } from '../../../components/ui/StateView'
 
 const listRoute = getRouteApi('/t/$tenant/admin/dashboards')
 const builderRoute = getRouteApi('/t/$tenant/admin/dashboards/$boardId')
@@ -69,7 +73,10 @@ export function AdminDashboards() {
   const navigate = useNavigate()
 
   const [newName, setNewName] = useState('')
-  const boards = useQuery({ queryKey: ['boards', tenant], queryFn: () => listBoards(api) })
+  const boards = useQuery({
+    queryKey: ['boards', tenant],
+    queryFn: () => listBoards(api),
+  })
 
   function open(boardId: string) {
     navigate({
@@ -191,6 +198,7 @@ export function AdminDashboards() {
 // (stale link, deleted) shows a not-found state with a way back to the directory.
 export function AdminDashboardBuilder() {
   const { tenant, boardId } = builderRoute.useParams()
+  const search = builderRoute.useSearch()
   const api = useApi(tenant)
   const qc = useQueryClient()
   const navigate = useNavigate()
@@ -202,12 +210,21 @@ export function AdminDashboardBuilder() {
   const [refreshing, setRefreshing] = useState(false)
   // Drop highlight for the empty-board placeholder (the grid manages its own).
   const [emptyDropActive, setEmptyDropActive] = useState(false)
+  // A just-created blank chart whose editor the grid should auto-open (Grafana's
+  // "add a generic chart and configure it in place").
+  const [autoEditChartId, setAutoEditChartId] = useState<string | null>(null)
   // Local working copy of the board's panels — the grid edits this live; a
   // debounced effect flushes it to the gate so drags don't thrash the backend.
   const [panels, setPanels] = useState<BoardPanel[]>([])
 
-  const boards = useQuery({ queryKey: ['boards', tenant], queryFn: () => listBoards(api) })
-  const charts = useQuery({ queryKey: ['charts', tenant], queryFn: () => listCharts(api) })
+  const boards = useQuery({
+    queryKey: ['boards', tenant],
+    queryFn: () => listBoards(api),
+  })
+  const charts = useQuery({
+    queryKey: ['charts', tenant],
+    queryFn: () => listCharts(api),
+  })
 
   const board = useMemo<SavedBoard | undefined>(
     () => boards.data?.find((b) => b.id === boardId),
@@ -220,6 +237,53 @@ export function AdminDashboardBuilder() {
     return m
   }, [charts.data])
 
+  // Page context: a `?nav=<id>` deep-link binds the board to a navigation node's
+  // context (the fleet story — one board, many mounts). Load the node and read its
+  // `context.values` as the variable bindings (PAGE-CONTEXT-AND-NAV §1).
+  const navNodeId = search.nav
+  const navNode = useQuery({
+    queryKey: ['nav-node', tenant, navNodeId],
+    queryFn: () => getNavNode(api, navNodeId!),
+    enabled: Boolean(navNodeId),
+  })
+  const navValues = useMemo<Record<string, Selection>>(
+    () => (navNode.data?.context?.values ?? {}) as Record<string, Selection>,
+    [navNode.data],
+  )
+
+  // Resolve the board's variables to live selections + the wire array. Bindings
+  // come from the URL (`?var-*`) over the nav context over the board default.
+  const vars = useBoardVariables({
+    api,
+    tenant,
+    variables: board?.variables ?? [],
+    time,
+    navValues,
+    search,
+  })
+
+  // Write a variable selection into the URL so it is shareable and survives a
+  // refresh; an empty/default selection clears its key to keep the URL tidy.
+  function setVar(name: string, selection: Selection) {
+    navigate({
+      to: '/t/$tenant/admin/dashboards/$boardId',
+      params: { tenant, boardId },
+      search: (prev) => {
+        const next = { ...prev }
+        const empty = selection === '' || (Array.isArray(selection) && selection.length === 0)
+        // The URL carries strings; a scalar/array round-trips as its string form
+        // (the backend lowers string values as quoted literals regardless).
+        if (empty) delete next[varSearchKey(name)]
+        else
+          next[varSearchKey(name)] = Array.isArray(selection)
+            ? selection.map(String)
+            : String(selection)
+        return next
+      },
+      replace: true,
+    })
+  }
+
   // Seed the working panels when the board loads/changes.
   useEffect(() => {
     if (board) setPanels(board.panels)
@@ -230,8 +294,14 @@ export function AdminDashboardBuilder() {
   }
 
   const save = useMutation({
+    // Carry the board's variables through a layout write — they live in the same
+    // record content, so omitting them would drop them on the next drag/resize.
     mutationFn: (next: BoardPanel[]) =>
-      updateBoard(api, board!.id, { name: board!.name, panels: next }),
+      updateBoard(api, board!.id, {
+        name: board!.name,
+        panels: next,
+        variables: board!.variables,
+      }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['boards', tenant] }),
   })
 
@@ -257,7 +327,16 @@ export function AdminDashboardBuilder() {
   function addPanel(chartId: string) {
     if (panels.some((p) => p.chart_id === chartId)) return
     const i = panels.length
-    persist([...panels, { chart_id: chartId, x: (i % 2) * 6, y: Math.floor(i / 2) * 4, w: 6, h: 4 }])
+    persist([
+      ...panels,
+      {
+        chart_id: chartId,
+        x: (i % 2) * 6,
+        y: Math.floor(i / 2) * 4,
+        w: 6,
+        h: 4,
+      },
+    ])
   }
 
   // Materialise a preset into a kind:"chart" record, then place it on the board.
@@ -265,11 +344,27 @@ export function AdminDashboardBuilder() {
     mutationFn: (presetName: string) => {
       const preset = CHART_PRESETS.find((p) => p.name === presetName)
       if (!preset) throw new Error(`unknown preset: ${presetName}`)
-      return createChart(api, { name: preset.name, sql: preset.sql, config: preset.config })
+      return createChart(api, {
+        name: preset.name,
+        sql: preset.sql,
+        config: preset.config,
+      })
     },
     onSuccess: (c) => {
       void qc.invalidateQueries({ queryKey: ['charts', tenant] })
       addPanel(c.id)
+    },
+  })
+
+  // Add a generic, blank chart directly on the board: create the record, place it,
+  // and flag it so the grid pops the in-place editor open immediately. No trip
+  // through the Query console — author the SQL/type/columns right on the board.
+  const addBlank = useMutation({
+    mutationFn: () => createChart(api, BLANK_CHART),
+    onSuccess: (c) => {
+      void qc.invalidateQueries({ queryKey: ['charts', tenant] })
+      addPanel(c.id)
+      setAutoEditChartId(c.id)
     },
   })
 
@@ -283,7 +378,9 @@ export function AdminDashboardBuilder() {
     persist(panels.filter((p) => p.chart_id !== chartId))
   }
 
-  const availableCharts = (charts.data ?? []).filter((c) => !panels.some((p) => p.chart_id === c.id))
+  const availableCharts = (charts.data ?? []).filter(
+    (c) => !panels.some((p) => p.chart_id === c.id),
+  )
 
   usePageHeader({ crumbs: ['Admin', 'Dashboards', board?.name ?? '…'] })
 
@@ -320,6 +417,14 @@ export function AdminDashboardBuilder() {
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => addBlank.mutate()}
+            disabled={addBlank.isPending}
+            className="gap-1.5"
+          >
+            <Plus size={15} /> Add chart
+          </Button>
           <TimeRangePicker value={range} onChange={setRange} />
           <BoardRefresh value={refresh} onChange={setRefresh} refreshing={refreshing} />
           <Button
@@ -338,6 +443,15 @@ export function AdminDashboardBuilder() {
         <BoardPalette charts={availableCharts} onAdd={onAddDrag} />
 
         <div className="min-h-0 overflow-y-auto pe-1">
+          {vars.visible.length > 0 && (
+            <VariableBar
+              variables={vars.visible}
+              options={vars.options}
+              selections={vars.selections}
+              onChange={setVar}
+              boundByNav={new Set(Object.keys(navValues))}
+            />
+          )}
           {panels.length === 0 ? (
             // An empty board still needs to be a drop target — otherwise the
             // palette's "drag a tile onto the board" affordance has nothing to
@@ -365,8 +479,17 @@ export function AdminDashboardBuilder() {
               <div className="max-w-xs text-center">
                 <div className="text-[14px] font-semibold">Empty board</div>
                 <div className="mt-1 text-[12.5px] text-muted-foreground">
-                  Drag a tile from the palette onto the board, or click it to add.
+                  Drag a tile from the palette onto the board, click it to add, or add a generic
+                  chart and configure it here.
                 </div>
+                <Button
+                  size="sm"
+                  onClick={() => addBlank.mutate()}
+                  disabled={addBlank.isPending}
+                  className="mt-3 gap-1.5"
+                >
+                  <Plus size={15} /> Add chart
+                </Button>
               </div>
             </div>
           ) : (
@@ -377,7 +500,11 @@ export function AdminDashboardBuilder() {
               onLayoutChange={persist}
               onRemovePanel={removePanel}
               onAddDrag={onAddDrag}
+              autoEditChartId={autoEditChartId}
+              onAutoEditConsumed={() => setAutoEditChartId(null)}
               time={time}
+              variables={vars.queryVariables}
+              varRevision={vars.revision}
               refresh={refresh}
               onFetchingChange={setRefreshing}
             />

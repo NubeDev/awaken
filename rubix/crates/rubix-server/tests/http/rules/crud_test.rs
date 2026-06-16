@@ -327,3 +327,104 @@ async fn a_reading_backed_binding_rolls_up_the_typed_reading_table_scoped_to_a_s
         "the resolved reading binding must carry its window buckets"
     );
 }
+
+#[tokio::test]
+async fn the_catalog_discovers_record_fields_and_filter_values() {
+    let TestApp { app, .. } = boot(
+        "server_rules_catalog_records",
+        &[Capability::IngestPublish],
+    )
+    .await;
+
+    // Seed two record rows: a numeric `value` (a bindable field) narrowed by a
+    // string `measure` (a filter key with two categories).
+    for (measure, value) in [("temp", 21.5), ("co2", 410.0)] {
+        let (status, _) = send(
+            &app,
+            authed(
+                "POST",
+                "/records",
+                json!({ "content": { "value": value, "measure": measure } }),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let (status, catalog) =
+        send(&app, authed("GET", "/rules/catalog?table=records", Value::Null)).await;
+    assert_eq!(status, StatusCode::OK, "catalog: {catalog:?}");
+    assert_eq!(catalog["table"], json!("records"));
+    // `value` is the numeric field the binding rolls up; `kind` is a record's
+    // own string tag, so it surfaces as a filter key alongside `measure`.
+    let fields: Vec<&str> = catalog["fields"]
+        .as_array()
+        .expect("fields")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert!(fields.contains(&"value"), "fields: {fields:?}");
+
+    // The `measure` filter key carries both seeded categories, distinct + sorted.
+    let measure = catalog["filters"]
+        .as_array()
+        .expect("filters")
+        .iter()
+        .find(|f| f["key"] == json!("measure"))
+        .expect("a measure filter facet");
+    let values: Vec<&str> = measure["values"]
+        .as_array()
+        .expect("values")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert_eq!(values, vec!["co2", "temp"]);
+    assert_eq!(measure["truncated"], json!(false));
+}
+
+#[tokio::test]
+async fn the_catalog_discovers_reading_series_for_the_typed_plane() {
+    use rubix_core::{Reading, append_readings};
+    use surrealdb::types::Datetime;
+
+    let TestApp { app, store } = boot("server_rules_catalog_readings", &[]).await;
+
+    let at = |secs: i64| Datetime::from_timestamp(secs, 0).expect("valid instant");
+    let readings = vec![
+        Reading::new("rubix", "hq--ahu-1--zone-temp", at(0), 21.0, serde_json::json!({})),
+        Reading::new("rubix", "hq--elec-main--power", at(0), 5.0, serde_json::json!({})),
+        // A repeat series collapses to one distinct value.
+        Reading::new("rubix", "hq--ahu-1--zone-temp", at(3600), 22.0, serde_json::json!({})),
+    ];
+    append_readings(store.raw(), &readings)
+        .await
+        .expect("append readings");
+
+    let (status, catalog) =
+        send(&app, authed("GET", "/rules/catalog?table=readings", Value::Null)).await;
+    assert_eq!(status, StatusCode::OK, "catalog: {catalog:?}");
+    // The typed plane's only bindable field is `value`.
+    assert_eq!(catalog["fields"], json!(["value"]));
+    // The one narrowing key is `series`, carrying the distinct point ids sorted.
+    let series = catalog["filters"]
+        .as_array()
+        .expect("filters")
+        .iter()
+        .find(|f| f["key"] == json!("series"))
+        .expect("a series filter facet");
+    assert_eq!(
+        series["values"],
+        json!(["hq--ahu-1--zone-temp", "hq--elec-main--power"])
+    );
+}
+
+#[tokio::test]
+async fn the_catalog_rejects_an_unknown_table() {
+    let app = boot("server_rules_catalog_bad", &[]).await.app;
+    let (status, _) = send(
+        &app,
+        authed("GET", "/rules/catalog?table=not_a_table", Value::Null),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}

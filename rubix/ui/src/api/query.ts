@@ -41,9 +41,24 @@ export interface QueryExtras {
   quantities?: Record<string, string>
   /** Transform spec; only aggregate ops run server-side (§1). */
   transforms?: WireTransform[]
+  /** Resolved dashboard variables, lowered into the SQL server-side (§6). */
+  variables?: QueryVariable[]
 }
 
-export function runQuery(client: ApiClient, sql: string, extras: QueryExtras = {}): Promise<QueryResponse> {
+/** One resolved dashboard variable on the wire (VARIABLES-AND-TEMPLATING §6). The
+ *  backend lowers `$name` / `${name:csv}` / `$__sqlIn(name)` references in the SQL
+ *  into escaped literals — `value` is a scalar (single-select) or an array of
+ *  scalars (multi-select); the author never quotes a variable themselves. */
+export interface QueryVariable {
+  name: string
+  value: string | number | boolean | Array<string | number | boolean>
+}
+
+export function runQuery(
+  client: ApiClient,
+  sql: string,
+  extras: QueryExtras = {},
+): Promise<QueryResponse> {
   return client.post<QueryResponse>('query', { sql, ...extras })
 }
 
@@ -61,13 +76,22 @@ export interface BatchQueryItem {
   /** Optional transform spec. Only the aggregate ops (filter/groupBy/reduce) are
    *  executed server-side; cosmetic ops are ignored here and run client-side (§1). */
   transforms?: WireTransform[]
+  /** Resolved dashboard variables, lowered into this statement's SQL server-side
+   *  (§6) — the same array as `POST /query`. */
+  variables?: QueryVariable[]
 }
 
 /** A transform on the wire — the discriminated union the backend's aggregate tier
  *  reads (§1). The cosmetic-op variants are accepted but run client-side. */
 export type WireTransform =
   | { kind: 'rename'; from: string; to: string }
-  | { kind: 'calculated'; field: string; left: string; op: string; right: string }
+  | {
+      kind: 'calculated'
+      field: string
+      left: string
+      op: string
+      right: string
+    }
   | { kind: 'filter'; field: string; op: string; value: string }
   | { kind: 'groupBy'; by: string; field: string; agg: string; as: string }
   | { kind: 'reduce'; field: string; calc: string; as: string }

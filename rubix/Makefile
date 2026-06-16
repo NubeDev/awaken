@@ -167,11 +167,18 @@ clean:
 # the bare binary name — is what keeps this from killing the sibling nhp backend,
 # which runs the same binary from this same workspace (tagged `--nhp`). The '-'
 # prefixes keep make from failing when a tool is missing or nothing matches.
+#
+# The backend pattern is `rubix-server.* --rubix` (not `rubix-server --rubix`)
+# so it matches BOTH the running binary (`target/debug/rubix-server --rubix`)
+# AND the cargo wrapper still compiling it (`cargo run --bin rubix-server --
+# --rubix`, where the `--` separator sits between the two tokens). Killing only
+# the bare binary missed the compile window: a `make kill` fired mid-compile hit
+# nothing, cargo then exec'd an orphaned server holding the port/LOCK.
 kill:
 	-@fuser -k -KILL $(BE_PORT)/tcp 2>/dev/null || true
 	-@fuser -k -KILL $(UI_PORT)/tcp 2>/dev/null || true
 	-@pkill -KILL -f -- '--port $(UI_PORT)' 2>/dev/null || true
-	-@pkill -KILL -f 'rubix-server --rubix' 2>/dev/null || true
+	-@pkill -KILL -f 'rubix-server.* --rubix' 2>/dev/null || true
 	@echo "freed ports $(BE_PORT)/$(UI_PORT) and killed any orphaned backend/UI"
 
 # Build the image from the Dockerfile, run it detached on a named volume, then

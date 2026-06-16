@@ -112,7 +112,7 @@ fn passes(row: &serde_json::Value, filter: Option<SeriesFilter<'_>>, reading: bo
 /// object carrying an `id`/`key` (itself a string or `{ String: … }`). Anything
 /// unrecognised renders through its compact JSON so a comparison still has
 /// something deterministic to test.
-fn record_key(value: &serde_json::Value) -> String {
+pub(crate) fn record_key(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => record_key_str(s),
         serde_json::Value::Object(map) => map

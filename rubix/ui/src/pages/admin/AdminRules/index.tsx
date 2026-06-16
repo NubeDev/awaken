@@ -34,8 +34,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useApi } from '../../api/ConnectionContext'
-import { ApiError } from '../../api/client'
+import { useApi } from '../../../api/ConnectionContext'
+import { ApiError } from '../../../api/client'
 import {
   AGGREGATES,
   GRAINS,
@@ -45,6 +45,7 @@ import {
   dryRunRule,
   listRules,
   referencingRules,
+  ruleCatalog,
   updateRule,
   type Aggregate,
   type Binding,
@@ -52,22 +53,24 @@ import {
   type DryRunResponse,
   type Grain,
   type Rule,
-} from '../../api/rules'
-import { runQuery, type QueryResponse } from '../../api/query'
-import { usePageHeader } from '../../components/shell/page-header'
-import { ErrorView } from '../../components/ui/StateView'
-import { Badge } from '../../components/ui/badge'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
+  type RuleCatalog,
+} from '../../../api/rules'
+import { runQuery, type QueryResponse } from '../../../api/query'
+import { usePageHeader } from '../../../components/shell/page-header'
+import { ErrorView } from '../../../components/ui/StateView'
+import { Badge } from '../../../components/ui/badge'
+import { Button } from '../../../components/ui/button'
+import { Combobox } from '../../../components/ui/combobox'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+} from '../../../components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -75,9 +78,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../components/ui/table'
-import { SqlEditor } from '../../components/sql/SqlEditor'
-import { cn } from '../../lib/cn'
+} from '../../../components/ui/table'
+import { SqlEditor } from '../../../components/sql/SqlEditor'
+import { cn } from '../../../lib/cn'
 
 const route = getRouteApi('/t/$tenant/admin/rules')
 
@@ -457,6 +460,8 @@ function RuleDetail({
         {refs.length > 0 && <ChangeImpact referencing={refs} />}
 
         <BindingsEditor
+          api={api}
+          tenant={tenant}
           inputs={draft.inputs}
           onChange={(inputs) => setDraft({ ...draft, inputs })}
         />
@@ -481,9 +486,13 @@ function RuleDetail({
 // The bindings editor: each row declares a script input from a table/field/grain/
 // aggregate, the rubix-rules Binding shape the dry-run resolves.
 function BindingsEditor({
+  api,
+  tenant,
   inputs,
   onChange,
 }: {
+  api: ReturnType<typeof useApi>
+  tenant: string
   inputs: Binding[]
   onChange: (inputs: Binding[]) => void
 }) {
@@ -491,6 +500,25 @@ function BindingsEditor({
     onChange(inputs.map((b, j) => (j === i ? { ...b, ...patch } : b)))
   const add = () => onChange([...inputs, NEW_BINDING()])
   const remove = (i: number) => onChange(inputs.filter((_, j) => j !== i))
+
+  // Discover what each table in play actually holds, so the field/filter inputs
+  // suggest real fields and series instead of being typed blind. One query over
+  // the distinct tables used, refetched only when that set changes; each input is
+  // still free text (a datalist suggests, never constrains), so an unseeded
+  // series stays typeable.
+  const tables = useMemo(() => [...new Set(inputs.map((b) => b.table))].sort(), [inputs])
+  const catalogs = useQuery({
+    queryKey: ['rule-catalog', tenant, tables],
+    enabled: tables.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        tables.map(async (t) => [t, await ruleCatalog(api, t)] as const),
+      )
+      return Object.fromEntries(entries) as Record<string, RuleCatalog>
+    },
+  })
+  const byTable = catalogs.data ?? {}
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -505,70 +533,95 @@ function BindingsEditor({
           No inputs. The script reads each binding by its name.
         </p>
       ) : (
-        inputs.map((b, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-1.5">
-            <Input
-              value={b.name}
-              onChange={(e) => set(i, { name: e.target.value })}
-              placeholder="name"
-              className="mono h-8 w-28 text-[12px]"
-              aria-label="binding name"
-            />
-            <EnumSelect
-              value={b.table}
-              options={TABLES}
-              onChange={(v) => set(i, { table: v as CanonicalTable })}
-              width="w-[124px]"
-            />
-            <Input
-              value={b.field}
-              onChange={(e) => set(i, { field: e.target.value })}
-              placeholder="content.field"
-              className="mono h-8 w-32 text-[12px]"
-              aria-label="binding field"
-            />
-            <EnumSelect
-              value={b.grain}
-              options={GRAINS}
-              onChange={(v) => set(i, { grain: v as Grain })}
-              width="w-[96px]"
-            />
-            <EnumSelect
-              value={b.aggregate}
-              options={AGGREGATES}
-              onChange={(v) => set(i, { aggregate: v as Aggregate })}
-              width="w-[96px]"
-            />
-            {/* Optional filter: scope a reading binding to one series
-                (where series = <point id>), or narrow a record series to one
-                category (where measure = temp). Empty = the whole table. */}
-            <span className="text-[10.5px] text-muted-foreground">where</span>
-            <Input
-              value={b.filter_field ?? ''}
-              onChange={(e) => set(i, { filter_field: e.target.value })}
-              placeholder={b.table === 'readings' ? 'series' : 'measure'}
-              className="mono h-8 w-24 text-[12px]"
-              aria-label="filter field"
-            />
-            <span className="text-[10.5px] text-muted-foreground">=</span>
-            <Input
-              value={b.filter_value ?? ''}
-              onChange={(e) => set(i, { filter_value: e.target.value })}
-              placeholder={b.table === 'readings' ? 'site--equip--point' : 'temp'}
-              className="mono h-8 w-40 text-[12px]"
-              aria-label="filter value"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label="remove binding"
-              onClick={() => remove(i)}
-            >
-              <X className="size-3.5" />
-            </Button>
-          </div>
-        ))
+        inputs.map((b, i) => {
+          const catalog = byTable[b.table]
+          const loading = catalogs.isFetching && !catalog
+          const fieldOptions = catalog?.fields ?? []
+          const filterKeys = catalog?.filters.map((f) => f.key) ?? []
+          const activeFilter = catalog?.filters.find((f) => f.key === b.filter_field)
+          const valueOptions = activeFilter?.values ?? []
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-1.5">
+              <Input
+                value={b.name}
+                onChange={(e) => set(i, { name: e.target.value })}
+                placeholder="name"
+                className="mono h-8 w-28 text-[12px]"
+                aria-label="binding name"
+              />
+              <EnumSelect
+                value={b.table}
+                options={TABLES}
+                onChange={(v) => set(i, { table: v as CanonicalTable })}
+                width="w-[124px]"
+              />
+              <Combobox
+                value={b.field}
+                onChange={(v) => set(i, { field: v })}
+                options={fieldOptions}
+                placeholder="content.field"
+                emptyLabel={loading ? 'loading…' : undefined}
+                aria-label="binding field"
+                className="w-32"
+              />
+              <EnumSelect
+                value={b.grain}
+                options={GRAINS}
+                onChange={(v) => set(i, { grain: v as Grain })}
+                width="w-[96px]"
+              />
+              <EnumSelect
+                value={b.aggregate}
+                options={AGGREGATES}
+                onChange={(v) => set(i, { aggregate: v as Aggregate })}
+                width="w-[96px]"
+              />
+              {/* Optional filter: scope a reading binding to one series
+                  (where series = <point id>), or narrow a record series to one
+                  category (where measure = temp). Empty = the whole table. The
+                  comboboxes offer the keys and values discovered in the data. */}
+              <span className="text-[10.5px] text-muted-foreground">where</span>
+              <Combobox
+                value={b.filter_field ?? ''}
+                onChange={(v) => set(i, { filter_field: v })}
+                options={filterKeys}
+                placeholder={b.table === 'readings' ? 'series' : 'measure'}
+                emptyLabel={loading ? 'loading…' : undefined}
+                aria-label="filter field"
+                className="w-24"
+              />
+              <span className="text-[10.5px] text-muted-foreground">=</span>
+              <Combobox
+                value={b.filter_value ?? ''}
+                onChange={(v) => set(i, { filter_value: v })}
+                options={valueOptions}
+                placeholder={b.table === 'readings' ? 'site--equip--point' : 'temp'}
+                emptyLabel={loading ? 'loading…' : undefined}
+                truncatedNote={
+                  activeFilter?.truncated
+                    ? `First ${valueOptions.length} values shown — type to use an unlisted one.`
+                    : undefined
+                }
+                aria-label="filter value"
+                className="w-44"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="remove binding"
+                onClick={() => remove(i)}
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+          )
+        })
+      )}
+      {catalogs.isError && (
+        <p className="text-[10.5px] text-muted-foreground">
+          Couldn't load field/series suggestions — you can still type bindings by hand.
+        </p>
       )}
     </div>
   )

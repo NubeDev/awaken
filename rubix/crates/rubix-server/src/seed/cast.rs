@@ -55,6 +55,10 @@ const CAST: &[DemoPrincipal] = &[
             // writes the demo rules as the operator, so it needs this grant
             // (`/rules` mutations gate on RuleDefine, distinct from RuleInvoke).
             Capability::RuleDefine,
+            // The seed plays the poller and bulk-appends time-series history via
+            // `POST /readings`, which gates on `readings-append` (the data-plane
+            // write, distinct from the `ingest-publish` Zenoh stream).
+            Capability::ReadingsAppend,
         ],
     },
     DemoPrincipal {

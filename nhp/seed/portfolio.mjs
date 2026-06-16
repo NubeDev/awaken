@@ -13,10 +13,10 @@
 // list the kind and skip a key already present, so a re-seed against a populated
 // store is a no-op rather than a duplicate. Matches the collections registrar.
 
-import { createRecord, listRecords } from '../collections/client.mjs';
+import { createRecord, listRecords, appendReadings } from '../collections/client.mjs';
 import { METER_TYPES } from './meter-types.mjs';
 import { PORTFOLIO } from './portfolio-plan.mjs';
-import { historyContent } from './history.mjs';
+import { historySamples } from './history.mjs';
 import { pollerFields } from './poller-status.mjs';
 import {
   siteTags,
@@ -179,7 +179,7 @@ export async function seedPortfolio({ log = () => {} } = {}) {
             };
             for (const def of type.registers) {
               const regKey = `${m.key}--${def.key}`; // unique per meter
-              const { created } = await upsert(
+              const { id: registerId } = await upsert(
                 'register',
                 {
                   ...def,
@@ -191,19 +191,20 @@ export async function seedPortfolio({ log = () => {} } = {}) {
               );
               tally.registers += 1;
 
-              // Back-fill history only for a freshly-stamped register so a re-seed
-              // doesn't pile up duplicate time-series (history rows have no key to
-              // dedupe on).
-              if (!created) continue;
-              for (const row of historyContent(def, meterId, now)) {
-                const res = await createRecord(row);
-                if (!res.ok) {
-                  throw new Error(
-                    `seed history ${regKey} failed: ${res.status} ${JSON.stringify(res.body)}`,
-                  );
-                }
-                tally.history += 1;
+              // Back-fill history for every history=true register, every run: the
+              // deterministic (series, at) reading id makes a re-append an
+              // idempotent no-op, so — unlike the old keyless record path — there
+              // is no need to gate on "freshly created". `series` is the register
+              // RECORD id; the samples are lean `{ at, value }`.
+              const samples = historySamples(def, now);
+              if (samples.length === 0) continue;
+              const res = await appendReadings(registerId, samples);
+              if (!res.ok) {
+                throw new Error(
+                  `seed readings ${regKey} failed: ${res.status} ${JSON.stringify(res.body)}`,
+                );
               }
+              tally.history += res.body?.appended ?? samples.length;
             }
           }
         }

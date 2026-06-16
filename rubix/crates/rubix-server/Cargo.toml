@@ -49,6 +49,10 @@ name = "http_records_crud"
 path = "tests/http/records/crud_test.rs"
 
 [[test]]
+name = "http_readings_append_read"
+path = "tests/http/readings/append_read_test.rs"
+
+[[test]]
 name = "http_records_collection"
 path = "tests/http/records/collection_test.rs"
 

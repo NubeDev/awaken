@@ -8,7 +8,7 @@
 //
 //   node nhp/seed/check.mjs        (run after node nhp/seed/seed.mjs)
 
-import { listRecords } from '../collections/client.mjs';
+import { listRecords, getReadings } from '../collections/client.mjs';
 import { METER_TYPES } from './meter-types.mjs';
 
 let failures = 0;
@@ -18,7 +18,7 @@ const check = (ok, msg) => {
 };
 
 async function run() {
-  const [tenants, sites, gateways, networks, meters, registers, meterTypes, history] =
+  const [tenants, sites, gateways, networks, meters, registers, meterTypes] =
     await Promise.all([
       listRecords('tenant'),
       listRecords('site'),
@@ -27,7 +27,6 @@ async function run() {
       listRecords('meter'),
       listRecords('register'),
       listRecords('meter-type'),
-      listRecords('history'),
     ]);
 
   // Counts the seed is expected to have created (the portfolio plan is fixed).
@@ -71,23 +70,37 @@ async function run() {
     'at least one gateway is offline (rollup has something to show)',
   );
 
-  // History present for history=true registers. The PM5560 has 9 history=true
-  // registers (all but power_factor) × 12 PM5560 meters worth of series… simplest
-  // assertion: there is history at all, and a sample carries ts + value + register.
-  check(history.length > 0, `history rows present (got ${history.length})`);
-  const sample = history[0]?.content;
+  // History now lives in the `reading` DATA plane, not the `record` table. Read it
+  // back through the windowed historian (`GET /readings`) per series — the series
+  // IS the register record id — over a wide window covering the trailing 48h.
+  const from = new Date(Date.now() - 60 * 86400_000).toISOString();
+  const to = new Date(Date.now() + 86400_000).toISOString();
+  let historyCount = 0;
+  let leaked = 0;
+  let firstSample = null;
+  for (const reg of registers) {
+    const rows = await getReadings(reg.id, from, to);
+    if (reg.content?.history) {
+      historyCount += rows.length;
+      if (!firstSample && rows.length) firstSample = rows[0];
+    } else {
+      leaked += rows.length;
+    }
+  }
+  check(historyCount > 0, `readings present for history=true registers (got ${historyCount})`);
+  // A reading is lean: `at` (the measurement instant), `series`, `value`.
   check(
-    Boolean(sample?.ts && sample?.register && sample?.value !== undefined),
-    'a history sample carries ts + register + value',
+    Boolean(firstSample?.at && firstSample?.series && firstSample?.value !== undefined),
+    'a reading carries at + series + value',
   );
-  // Every history row's register is a history=true register (poller never persists
-  // a no-history register).
-  const historyRegisters = new Set(history.map((h) => h.content?.register?.split('--').pop()));
-  const noHistoryKeys = new Set(
-    METER_TYPES.flatMap((t) => t.registers).filter((r) => !r.history).map((r) => r.key),
+  // `series` is the register RECORD id — a direct `series === register.id` join, no
+  // string splitting (the UI relies on this).
+  check(
+    Boolean(firstSample) && registers.some((r) => r.id === firstSample.series),
+    'a reading.series matches a register record id (direct join)',
   );
-  const leaked = [...historyRegisters].filter((k) => noHistoryKeys.has(k));
-  check(leaked.length === 0, `no history written for history=false registers (leaked: ${leaked.join(', ') || 'none'})`);
+  // The poller never persists a no-history register — no readings leak onto one.
+  check(leaked === 0, `no readings for history=false registers (leaked ${leaked})`);
 
   console.log(failures === 0 ? 'seed check: all passed' : `seed check: ${failures} failed`);
   process.exit(failures === 0 ? 0 : 1);

@@ -2,15 +2,14 @@
 // polling service. NHP never polls (OVERVIEW) — the seed plays the poller and
 // writes time-series so dashboards (WS-07) have a trend to draw.
 //
-// Shape ported from rubix's seed/history.rs: one sample per hour over a trailing
-// window, each row carrying its own `ts` in content because the gate stamps every
-// record `created = now` — the time spread must live in the payload for any
-// time-bucket query to mean anything. Values are DETERMINISTIC (a fixed wave keyed
-// off the register, not randomness) so a re-seed is reproducible.
-//
-// A history sample is just a record: `kind:"history"` with `register`/`ts`/`value`
-// in content (mirrors rubix's `kind:"reading"`). Written over the same HTTP
-// records API as everything else.
+// One sample per hour over a trailing window. A sample is now a lean
+// `{ at, value }` on the time-series DATA plane (rubix's `reading` table,
+// READINGS-TIMESERIES.md): `at` IS the measurement instant the query layer buckets
+// on, no longer stuffed in `content.ts` to dodge the gate's `created` stamp. The
+// duplicated metadata (kind/meter/register/quantity/unit) is gone — the `series`
+// (the register record id) carries it, named once per batch. Values are
+// DETERMINISTIC (a fixed wave keyed off the register, not randomness) so a re-seed
+// is reproducible; the deterministic (series, at) id then makes it idempotent.
 
 // Hours of trailing history per register (one sample per hour). 48h gives the
 // dashboard a couple of days of trend without bloating the seed.
@@ -57,27 +56,20 @@ function sample(register, p, i) {
 const round2 = (n) => Math.round(n * 100) / 100;
 
 // Build the trailing-window history records for one register as `content` objects,
-// oldest first, ending at `now`. `meterId` ties the series to the meter that owns
-// the register (the register record's id is not needed — `register` key + meter is
-// enough for a query to group a series). Returns [] when the register keeps no
-// history (DOMAIN-MODEL: only `history=true` registers persist).
-export function historyContent(register, meterId, now = new Date()) {
+// oldest first, ending at `now`. Each sample is a lean `{ at, value }`: the
+// owning meter/register/quantity/unit are NOT repeated per row — they live on the
+// series (the register record), reached once via the `series` the batch is
+// appended under. Returns [] when the register keeps no history (DOMAIN-MODEL:
+// only `history=true` registers persist).
+export function historySamples(register, now = new Date()) {
   if (!register.history) return [];
   const p = profile(register);
-  const rows = [];
+  const samples = [];
   for (let i = 0; i < HISTORY_HOURS; i += 1) {
-    const ts = new Date(now.getTime() - (HISTORY_HOURS - 1 - i) * 3600_000);
-    rows.push({
-      kind: 'history',
-      meter: meterId,
-      register: register.key,
-      quantity: register.quantity,
-      unit: register.unit,
-      ts: ts.toISOString(),
-      value: sample(register, p, i),
-    });
+    const at = new Date(now.getTime() - (HISTORY_HOURS - 1 - i) * 3600_000);
+    samples.push({ at: at.toISOString(), value: sample(register, p, i) });
   }
-  return rows;
+  return samples;
 }
 
 export { HISTORY_HOURS };

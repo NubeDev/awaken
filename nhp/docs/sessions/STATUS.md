@@ -15,7 +15,7 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 | # | Workstream | Status | Started | Finished | Commit |
 | --- | --- | --- | --- | --- | --- |
 | WS-01 | App skeleton + Makefile (UI ported from rubix-old/ui, wired to rubix backend) | ✅ | 2026-06-15T23:46:06Z | 2026-06-16T00:01:17Z | 759b1b34 |
-| WS-02 | NHP collection definitions (tenant→…→register) + enum strategy | 🔵 | 2026-06-16T00:05:00Z | | |
+| WS-02 | NHP collection definitions (tenant→…→register) + enum strategy | ✅ | 2026-06-16T00:05:00Z | 2026-06-16T00:29:20Z | 749a4b86 |
 | WS-03 | Seed: mock portfolio + faked poller data (status/last_seen/history) | ⬜ | | | |
 | WS-04 | Admin: meter-types & register-map editor (history/unit/chart/group/alarm) | ⬜ | | | |
 | WS-05 | Admin: gateways, networks (485/ethernet), device-limit, users/teams/roles | ⬜ | | | |
@@ -47,3 +47,4 @@ later WS reads/writes; the seed (WS-03) gives every UI WS real data to render.
 - 2026-06-15T23:46:06Z spawned WS-01
 - 2026-06-16T00:01:17Z gated WS-01 ✅ (pnpm -C nhp/ui build green, commit 759b1b34)
 - 2026-06-16T00:05:00Z spawned WS-02
+- 2026-06-16T00:29:20Z gated WS-02 ✅ (7 collections register + check green on unmodified rubix, zero rubix diff, commit 749a4b86)

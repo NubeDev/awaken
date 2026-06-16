@@ -5,7 +5,15 @@
  * dashboards auto-build. See nhp/docs/WIZARDS.md.
  */
 import { useState } from 'react'
-import { Building2, MapPin, Router, Gauge, Users, Workflow } from 'lucide-react'
+import {
+  Building2,
+  MapPin,
+  Router,
+  Gauge,
+  ScanLine,
+  Users,
+  Workflow,
+} from 'lucide-react'
 import { Main } from '@/components/layout/main'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,12 +28,14 @@ import { TenantWizard } from './tenant-wizard/tenant-wizard'
 import { SiteWizard } from './site-wizard/site-wizard'
 import { UserWizard } from './user-wizard/user-wizard'
 import { CombinedWizard } from './combined-wizard/combined-wizard'
+import { ScanWizard } from './scan-wizard/scan-wizard'
 
 type WizardId =
   | 'tenant'
   | 'site'
   | 'gateway'
   | 'meters'
+  | 'scan'
   | 'user'
   | 'combined'
   | null
@@ -63,6 +73,12 @@ const WIZARDS = [
     icon: Gauge,
   },
   {
+    id: 'scan' as const,
+    title: 'Scan to add a device',
+    description: 'Scan a meter-type barcode (camera or manual) to add one stamped meter. Cap-aware.',
+    icon: ScanLine,
+  },
+  {
     id: 'user' as const,
     title: 'New user',
     description: 'Add a principal with a role on the rubix admin surface.',
@@ -83,6 +99,7 @@ export function WizardsPage() {
         {active === 'site' ? <SiteWizard /> : null}
         {active === 'gateway' ? <GatewayWizard /> : null}
         {active === 'meters' ? <MetersWizard /> : null}
+        {active === 'scan' ? <ScanWizard /> : null}
         {active === 'user' ? <UserWizard /> : null}
         {active === 'combined' ? <CombinedWizard /> : null}
       </Main>

@@ -69,10 +69,11 @@ that need a trend only offer history-enabled registers.
 
 > **Enum caveat.** `net_type`, `protocol`, register `datatype`/`fn_code`/
 > `byte_order`, and `chart_type` are conceptually closed enums but there is no
-> native `Select` field type in rubix yet (OVERVIEW gap #1). Until a `Select`
-> variant is added, enforce the allowed set in the admin form **and** a collection
-> `writeRule`. Adding `Select { options }` to `FieldType` is the clean fix and is
-> recommended before launch.
+> native `Select` field type in rubix yet (OVERVIEW gap #1). NHP enforces the
+> allowed set in the admin form **and** a collection `writeRule` — **NHP never adds
+> the type to rubix itself.** A native `Select { options }` on `FieldType` is a
+> *generic, reusable* addition, so it's a **rubix-team task** (proposed + approved
+> upstream), not an NHP change. Rubix is frozen for NHP.
 
 ## 6. Roles & access (point #5)
 

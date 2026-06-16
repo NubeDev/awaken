@@ -82,25 +82,31 @@ against the current code, not aspiration:
 | Live/realtime | ✅ `/ws/records`, row-filtered per principal | SCOPE.md |
 | Unit conversion engine | ✅ `rubix-prefs` crate (metric↔imperial, unit registry) | rubix-prefs |
 
-**Gaps to be aware of (fixable — you said you can patch rubix):**
+**Rubix is FROZEN for NHP.** NHP never edits rubix source. These gaps in rubix are
+each handled the NHP way — a data/UI workaround now, and (where a real backend
+change is warranted) a **task for the rubix team** to add it as a *generic,
+reusable* capability with their approval, or an NHP **extension** (`rubix-ext`) if
+the need is NHP-specific Rust. The loop never patches rubix core; see
+[ADMIN.md](./ADMIN.md) and the orchestration charter.
 
 1. **No `Select`/enum field type.** Closed enums NHP wants — network *type*
    (`485` / `ethernet`), *protocol* (`modbus`), register *datatype*, *chart type* —
-   have no native field type. **Workaround now:** model them as `Text` with the
-   allowed set enforced by a collection `writeRule` (or validated in the wizard).
-   **Proper fix:** add a `Select { options }` variant to `FieldType` (a deliberate
-   enum change in [field.rs](../../rubix/crates/rubix-core/src/collection/field.rs)
-   — see BACKEND-COLLECTIONS open question 3). Recommended before launch; the enums
-   are core to the admin UX.
+   have no native field type. **NHP handling:** model them as `Text` with the
+   allowed set enforced by a collection `writeRule` + the UI dropdown. **If a native
+   type is wanted:** it's a *generic, reusable* addition → a **rubix-team task**
+   (`Select { options }` on `FieldType`, BACKEND-COLLECTIONS open question 3),
+   proposed and approved upstream — **not** done from NHP.
 2. **File field bytes are deferred.** The `File` field type and its reference shape
    exist, but the blob storage subsystem is not built
    (BACKEND-COLLECTIONS build-order step 6). NHP needs this only for things like a
-   site floor-plan / gateway photo — not on the critical path.
+   site floor-plan / gateway photo — not on the critical path. Out of POC scope;
+   a rubix-team item if needed later.
 3. **`rubix-prefs` is not wired to HTTP.** The converter exists; there is **no
    `GET/PATCH /prefs` endpoint** and the frontend consumes none of it yet
    (DASHBOARDS-SCOPE §2). Units display as raw labels until this is wired. NHP's
    per-register unit metadata (DOMAIN-MODEL) is unaffected — that's stored data —
-   but live unit *conversion/formatting* waits on this endpoint.
+   but live unit *conversion/formatting* waits on this endpoint — a **rubix-team
+   task** (generic), not an NHP edit.
 
 None of these block the domain model or the docs below; they are noted so the
 build plan budgets for them.

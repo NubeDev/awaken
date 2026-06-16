@@ -19,7 +19,8 @@ import { AdminRecordsPage } from './pages/admin/AdminRecordsPage'
 import { AdminPrincipals } from './pages/admin/AdminPrincipals'
 import { AdminAgents } from './pages/admin/AdminAgents'
 import { AdminQuery } from './pages/admin/AdminQuery'
-import { AdminDashboards } from './pages/admin/AdminDashboards'
+import { AdminRules } from './pages/admin/AdminRules'
+import { AdminDashboards, AdminDashboardBuilder } from './pages/admin/AdminDashboards'
 import { GenericPage } from './pages/GenericPage'
 import { AppShell } from './components/shell/AppShell'
 
@@ -114,10 +115,26 @@ const adminQueryRoute = createRoute({
   component: AdminQuery,
 })
 
+const adminRulesRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'rules',
+  component: AdminRules,
+})
+
+// The dashboards directory (table of boards) and the per-board builder are two
+// real routes so a board deep-links, refreshes, and works with back/forward:
+//   /admin/dashboards            → the list
+//   /admin/dashboards/$boardId   → that board's builder
 const adminDashboardsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'dashboards',
   component: AdminDashboards,
+})
+
+const adminDashboardBuilderRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: 'dashboards/$boardId',
+  component: AdminDashboardBuilder,
 })
 
 // Generic native page (devices/data/rules/reports/settings). Last so the static
@@ -142,7 +159,9 @@ const routeTree = rootRoute.addChildren([
       adminPrincipalsRoute,
       adminAgentsRoute,
       adminQueryRoute,
+      adminRulesRoute,
       adminDashboardsRoute,
+      adminDashboardBuilderRoute,
     ]),
     pageRoute,
   ]),

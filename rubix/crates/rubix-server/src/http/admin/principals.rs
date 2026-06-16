@@ -40,8 +40,8 @@ pub async fn create_principal_route(
     let namespace = require_admin(&auth.principal)?;
     let kind = parse_kind(&body.kind)
         .map_err(|k| ApiError::BadRequest(format!("unknown principal kind `{k}`")))?;
-    let role = parse_role(&body.role)
-        .map_err(|r| ApiError::BadRequest(format!("unknown role `{r}`")))?;
+    let role =
+        parse_role(&body.role).map_err(|r| ApiError::BadRequest(format!("unknown role `{r}`")))?;
 
     let full_subject = prefix_subject(&namespace, &body.subject);
     // Provision is non-idempotent; re-creating an existing subject is a conflict.
@@ -92,7 +92,10 @@ pub async fn list_principals_route(
         .await
         .map_err(map_admin_error)?;
     Ok(Json(
-        principals.iter().map(PrincipalDto::from_principal).collect(),
+        principals
+            .iter()
+            .map(PrincipalDto::from_principal)
+            .collect(),
     ))
 }
 
@@ -119,8 +122,8 @@ pub async fn update_principal_route(
     Json(body): Json<UpdatePrincipalRequest>,
 ) -> ApiResult<Json<PrincipalDto>> {
     let namespace = require_admin(&auth.principal)?;
-    let role = parse_role(&body.role)
-        .map_err(|r| ApiError::BadRequest(format!("unknown role `{r}`")))?;
+    let role =
+        parse_role(&body.role).map_err(|r| ApiError::BadRequest(format!("unknown role `{r}`")))?;
     let full_subject = prefix_subject(&namespace, &subject);
 
     let current = get_principal(state.store.raw(), &namespace, &full_subject)
@@ -163,9 +166,14 @@ pub async fn delete_principal_route(
         guard_not_last_admin(&state, &namespace).await?;
     }
 
-    delete_principal(state.store.raw(), &auth.principal, &namespace, &full_subject)
-        .await
-        .map_err(map_admin_error)?;
+    delete_principal(
+        state.store.raw(),
+        &auth.principal,
+        &namespace,
+        &full_subject,
+    )
+    .await
+    .map_err(map_admin_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 

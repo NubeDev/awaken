@@ -95,9 +95,7 @@ mod tests {
 
     #[test]
     fn a_script_can_return_a_decision_map() {
-        let rule = temp_rule(
-            r#"#{ fired: temp > 25.0, value: temp, reason: "avg over window" }"#,
-        );
+        let rule = temp_rule(r#"#{ fired: temp > 25.0, value: temp, reason: "avg over window" }"#);
         let mut inputs = HashMap::new();
         inputs.insert("temp".to_owned(), 28.0_f64);
         let decision = run_script(&rule, &inputs, HashMap::new()).unwrap();

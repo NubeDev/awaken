@@ -15,6 +15,8 @@ use std::sync::Arc;
 
 use rhai::{Engine, EvalAltResult};
 
+use crate::error::RuleError;
+
 /// The host name a script calls to read a sub-rule's decision value.
 pub const INVOKE_FN: &str = "invoke";
 
@@ -42,17 +44,36 @@ pub fn build_engine(child_values: HashMap<String, f64>) -> Engine {
     engine.set_max_call_levels(MAX_CALL_LEVELS);
 
     let values = Arc::new(child_values);
-    engine.register_fn(INVOKE_FN, move |id: &str| -> Result<f64, Box<EvalAltResult>> {
-        values
-            .get(id)
-            .copied()
-            .ok_or_else(|| Box::new(EvalAltResult::ErrorRuntime(
-                format!("invoke: sub-rule '{id}' was not evaluated").into(),
-                rhai::Position::NONE,
-            )))
-    });
+    engine.register_fn(
+        INVOKE_FN,
+        move |id: &str| -> Result<f64, Box<EvalAltResult>> {
+            values.get(id).copied().ok_or_else(|| {
+                Box::new(EvalAltResult::ErrorRuntime(
+                    format!("invoke: sub-rule '{id}' was not evaluated").into(),
+                    rhai::Position::NONE,
+                ))
+            })
+        },
+    );
 
     engine
+}
+
+/// Check that `script` compiles under the rule engine, without running it.
+///
+/// The cheap, side-effect-free validation a write path runs before storing a
+/// rule: a script that does not compile is a [`RuleError::Compile`], caught at
+/// author time rather than on the next tick. Compilation does not bind inputs or
+/// resolve `invoke`, so it validates syntax and shape only — a runtime error
+/// (a missing binding, an unevaluated sub-rule) still surfaces at evaluation.
+///
+/// # Errors
+/// Returns [`RuleError::Compile`] if the script is not valid Rhai.
+pub fn compile_check(script: &str) -> crate::error::Result<()> {
+    build_engine(HashMap::new())
+        .compile(script)
+        .map(|_| ())
+        .map_err(|e| RuleError::Compile(e.to_string()))
 }
 
 #[cfg(test)]

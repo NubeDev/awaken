@@ -25,7 +25,10 @@ use update::update_record_route;
 /// The record routes mounted under `/records`.
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/records", post(create_record_route).get(list_records_route))
+        .route(
+            "/records",
+            post(create_record_route).get(list_records_route),
+        )
         .route(
             "/records/:id",
             get(get_record_route)

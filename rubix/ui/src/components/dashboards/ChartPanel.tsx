@@ -1,62 +1,79 @@
-// One dashboard panel: runs its chart's SQL and renders it via the vendored
-// chart layer. Self-contained — given a `kind:"chart"` record it fetches and
-// draws independently, so a board is just a grid of these. The header is the
-// drag handle (`.panel-drag`); the × removes the panel from the board.
+// One dashboard panel: renders a single chart from a query result the board
+// fetched in its batch (§3). The board issues ONE `POST /query/batch` keyed by
+// chart id and hands each panel its slice, so a panel no longer runs its own
+// request — it is a pure renderer of `{ rows, columns, error, loading }`. The
+// header is the drag handle (`.panel-drag`); the × removes the panel.
 
 import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { GripVertical, X } from 'lucide-react'
-import { useApi } from '../../api/ConnectionContext'
-import { runQuery } from '../../api/query'
+import { GripVertical, Settings2, X } from 'lucide-react'
 import type { SavedChart } from '../../api/charts'
+import type { QueryColumn } from '../../api/query'
 import { ChartRendererCore } from '../chart-builder/charts'
 import { transformDataToColumns, type DataRow } from '../chart-builder/utils'
-import { applyParameters } from '../sql/sql-editor-store'
+
+/** The board-supplied state of this panel's query. */
+export interface PanelResult {
+  rows?: Record<string, unknown>[]
+  /** Backend column types, when present (preferred over sniffing rows). */
+  columns?: QueryColumn[]
+  error?: string
+  loading?: boolean
+}
 
 interface ChartPanelProps {
-  tenant: string
   chart: SavedChart
   syncId: string
   onRemove: () => void
-  /** Board time-range params substituted into the chart's `{{…}}` placeholders. */
-  params?: Record<string, string | number>
+  /** Open the chart settings editor for this panel. Omitted → no gear shown. */
+  onEdit?: () => void
+  /** This panel's slice of the board's batch query. */
+  result: PanelResult
 }
 
-export function ChartPanel({ tenant, chart, syncId, onRemove, params }: ChartPanelProps) {
-  const api = useApi(tenant)
-
-  // Substitute the board's time range into the chart SQL before running. A chart
-  // with no placeholders is unaffected, so non-time-series panels ignore the range.
-  const sql = params ? applyParameters(chart.sql, params) : chart.sql
-
-  const q = useQuery({
-    queryKey: ['chart-panel', tenant, chart.id, sql],
-    queryFn: () => runQuery(api, sql),
-  })
-
-  const rows = q.data?.rows ?? []
-  const columns = useMemo(() => transformDataToColumns(rows as DataRow[]), [rows])
+export function ChartPanel({ chart, syncId, onRemove, onEdit, result }: ChartPanelProps) {
+  const rows = result.rows ?? []
+  // Prefer the backend's column types; fall back to sniffing the first row when a
+  // panel renders before the batch lands (or for an empty result).
+  const columns = useMemo(() => {
+    if (result.columns && result.columns.length > 0) {
+      return result.columns.map((c) => ({ name: c.name, type: coarseType(c.type) }))
+    }
+    return transformDataToColumns(rows as DataRow[])
+  }, [result.columns, rows])
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card/40">
       <div className="panel-drag flex cursor-move items-center gap-1.5 border-b border-border px-3 py-2">
         <GripVertical size={14} className="text-muted-foreground" />
         <span className="truncate text-sm font-medium">{chart.name}</span>
-        <button
-          onClick={onRemove}
-          // Excluded from drag via the grid's dragConfig.cancel selector.
-          className="panel-no-drag ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Remove panel"
-        >
-          <X size={14} />
-        </button>
+        {/* Controls live in the drag strip but opt out of dragging via
+            .panel-no-drag (the grid's dragConfig.cancel selector). */}
+        <div className="panel-no-drag ml-auto flex items-center gap-0.5">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Edit chart"
+              title="Edit chart"
+            >
+              <Settings2 size={14} />
+            </button>
+          )}
+          <button
+            onClick={onRemove}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Remove panel"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 p-3">
-        {q.isPending ? (
+        {result.loading ? (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading…</div>
-        ) : q.error ? (
+        ) : result.error ? (
           <div className="grid h-full place-items-center px-3 text-center text-xs text-destructive">
-            {(q.error as Error).message}
+            {result.error}
           </div>
         ) : rows.length === 0 ? (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">No rows.</div>
@@ -66,4 +83,13 @@ export function ChartPanel({ tenant, chart, syncId, onRemove, params }: ChartPan
       </div>
     </div>
   )
+}
+
+// Map the backend's coarse column type onto the chart layer's narrower set.
+// `timestamp`/`other` render as strings on the axis (the instant is still the raw
+// value); numbers and booleans keep their kind.
+function coarseType(type: QueryColumn['type']): 'string' | 'number' | 'boolean' {
+  if (type === 'number') return 'number'
+  if (type === 'boolean') return 'boolean'
+  return 'string'
 }

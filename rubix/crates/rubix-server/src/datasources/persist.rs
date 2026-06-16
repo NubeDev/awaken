@@ -131,6 +131,9 @@ pub async fn forget(db: &Surreal<Db>, id: &str) -> Result<(), String> {
 /// # Errors
 /// Returns the rendered store error if the table read fails.
 pub async fn load_all(db: &Surreal<Db>) -> Result<Vec<StoredDatasource>, String> {
-    let rows: Vec<DatasourceRow> = db.select(DATASOURCE_TABLE).await.map_err(|e| e.to_string())?;
+    let rows: Vec<DatasourceRow> = db
+        .select(DATASOURCE_TABLE)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(rows.into_iter().map(DatasourceRow::into_decl).collect())
 }

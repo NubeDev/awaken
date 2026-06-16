@@ -25,7 +25,12 @@ async fn health_route_reports_ok() {
         .expect("route responds");
 
     assert_eq!(response.status(), StatusCode::OK);
-    let body = response.into_body().collect().await.expect("body").to_bytes();
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).expect("json body");
     assert_eq!(json["status"], "ok");
 }

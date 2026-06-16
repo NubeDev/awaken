@@ -10,12 +10,16 @@ use utoipa::OpenApi;
 use utoipa::openapi::OpenApi as OpenApiDoc;
 
 use crate::dto::{
-    AgentDto, AskRequest, AskResponse, CreateDeviceRequest, CreatePrincipalRequest,
-    CreateRecordRequest, CreateTenantRequest, CreatedPrincipalDto, DatasourceDto, DeviceDto,
-    GrantDto, LoginRequest, LoginResponse, MeResponse, PersistRequest, PersistedDto, PrincipalDto,
-    ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse, RecallRequest,
-    RecalledDto, RecordDto, RegisterDatasourceRequest, TenantDto, UpdateDatasourceRequest,
-    UpdateDeviceRequest, UpdatePrincipalRequest, UpdateRecordRequest,
+    AgentDto, AskRequest, AskResponse, BatchQueryItem, BatchQueryRequest, BatchQueryResponse,
+    BatchQueryResult, BindingDto, BucketDto, ColumnDto, CreateDeviceRequest,
+    CreatePrincipalRequest, CreateRecordRequest, CreateRuleRequest, CreateTenantRequest,
+    CreatedPrincipalDto, DatasourceDto, DeviceDto, DryRunRequest, DryRunResponse, GrantDto,
+    LoginRequest, LoginResponse, MeResponse, PersistRequest, PersistedDto, PreferencesDto,
+    PrincipalDto, ProvisionAgentRequest, ProvisionedAgentDto, QueryRequest, QueryResponse,
+    QuerySchemaResponse, RecallRequest, RecalledDto, RecordDto, RegisterDatasourceRequest,
+    ResolvedInputDto, RuleDto, TableSchemaDto, TenantDto, TimeBoundDto, TimeScopeDto, TransformDto,
+    UpdateDatasourceRequest, UpdateDeviceRequest, UpdatePreferencesRequest, UpdatePrincipalRequest,
+    UpdateRecordRequest, UpdateRuleRequest,
 };
 
 /// The OpenAPI definition for the rubix transport.
@@ -36,6 +40,10 @@ use crate::dto::{
         crate::openapi::paths::update_record,
         crate::openapi::paths::delete_record,
         crate::openapi::paths::run_query,
+        crate::openapi::paths::run_batch,
+        crate::openapi::paths::query_schema,
+        crate::openapi::paths::get_prefs,
+        crate::openapi::paths::patch_prefs,
         crate::openapi::paths::list_datasources,
         crate::openapi::paths::create_datasource,
         crate::openapi::paths::get_datasource,
@@ -57,7 +65,14 @@ use crate::dto::{
         crate::openapi::paths::list_devices,
         crate::openapi::paths::get_device,
         crate::openapi::paths::update_device,
-        crate::openapi::paths::delete_device
+        crate::openapi::paths::delete_device,
+        crate::openapi::paths::list_rules,
+        crate::openapi::paths::create_rule,
+        crate::openapi::paths::get_rule,
+        crate::openapi::paths::update_rule,
+        crate::openapi::paths::delete_rule,
+        crate::openapi::paths::dryrun_rule,
+        crate::openapi::paths::referencing_rules
     ),
     components(schemas(
         LoginRequest,
@@ -68,6 +83,18 @@ use crate::dto::{
         UpdateRecordRequest,
         QueryRequest,
         QueryResponse,
+        QuerySchemaResponse,
+        TableSchemaDto,
+        ColumnDto,
+        TimeScopeDto,
+        TimeBoundDto,
+        TransformDto,
+        BatchQueryRequest,
+        BatchQueryItem,
+        BatchQueryResponse,
+        BatchQueryResult,
+        PreferencesDto,
+        UpdatePreferencesRequest,
         DatasourceDto,
         RegisterDatasourceRequest,
         UpdateDatasourceRequest,
@@ -89,7 +116,15 @@ use crate::dto::{
         PersistRequest,
         PersistedDto,
         AskRequest,
-        AskResponse
+        AskResponse,
+        RuleDto,
+        BindingDto,
+        CreateRuleRequest,
+        UpdateRuleRequest,
+        DryRunRequest,
+        DryRunResponse,
+        ResolvedInputDto,
+        BucketDto
     ))
 )]
 pub struct ApiDoc;

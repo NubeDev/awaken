@@ -19,9 +19,15 @@ mod error;
 mod provider;
 mod query;
 mod search;
+mod time;
+mod transform;
 
 pub use aggregate::{BucketRollup, Grain, Sample, rollup_window};
 pub use error::{QueryError, Result};
-pub use provider::{CanonicalTable, build_context};
+pub use provider::{
+    CanonicalTable, ContextCache, ScopeIdentity, build_context, build_context_cached,
+};
 pub use query::{ensure_read_only, run, run_authorized};
 pub use search::{Neighbour, nearest};
+pub use time::{ResolvedTimeScope, TimeBound, TimeScope, apply_time_scope, now_ms};
+pub use transform::{Agg, CompareOp, ReduceCalc, Transform, apply_transforms};

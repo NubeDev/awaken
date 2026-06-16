@@ -14,6 +14,7 @@
 mod clock;
 mod compose;
 mod context;
+mod dryrun;
 mod publish;
 mod record;
 mod run;
@@ -35,6 +36,7 @@ use context::EvalContext;
 use publish::publish_insight;
 use record::record_insight;
 
+pub use dryrun::{DryRun, ResolvedInput, dry_run};
 pub use publish::INSIGHT_EVENT_TYPE;
 pub use record::Recorded;
 pub use span::RULE_SPAN_NAME;

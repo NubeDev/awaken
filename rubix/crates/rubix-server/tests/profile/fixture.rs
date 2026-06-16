@@ -7,8 +7,8 @@
 //! against the same construction path the server boots through.
 
 use rubix_core::RuntimeConfig;
-use rubix_server::profile::Profile;
 use rubix_server::AppState;
+use rubix_server::profile::Profile;
 use rubix_store::StoreHandle;
 
 /// Namespace the profile boot tests configure as the single/base namespace.

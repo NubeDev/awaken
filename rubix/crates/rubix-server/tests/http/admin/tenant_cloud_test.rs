@@ -26,7 +26,12 @@ use fixture::app::{ADMIN_FULL_SUBJECT, ADMIN_SECRET, TestApp, boot_admin_with_pr
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -51,8 +56,7 @@ fn root(method: &str, uri: &str, body: Value) -> Request<Body> {
 #[tokio::test]
 async fn tenant_onboards_lists_and_deletes_on_cloud() {
     let profile = select("cloud").expect("cloud is compiled in");
-    let TestApp { app, .. } =
-        boot_admin_with_profile("admin_tenant_cloud", &[], profile).await;
+    let TestApp { app, .. } = boot_admin_with_profile("admin_tenant_cloud", &[], profile).await;
 
     // ONBOARD — bootstrap namespace + first admin + registry record.
     let (status, created) = send(
@@ -68,7 +72,9 @@ async fn tenant_onboards_lists_and_deletes_on_cloud() {
     assert_eq!(created["id"], json!("acme"));
     assert_eq!(created["namespace"], json!("tenant_acme"));
     assert!(
-        created["created_at"].as_str().is_some_and(|s| !s.is_empty()),
+        created["created_at"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()),
         "created_at should be an RFC3339 timestamp"
     );
 
@@ -106,14 +112,21 @@ async fn tenant_onboards_lists_and_deletes_on_cloud() {
         .body(Body::empty())
         .expect("build request");
     let (status, principals) = send(&app, tenant_call).await;
-    assert_eq!(status, StatusCode::OK, "tenant admin should list its principals");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "tenant admin should list its principals"
+    );
     let subjects: Vec<&str> = principals
         .as_array()
         .expect("principals")
         .iter()
         .filter_map(|p| p["subject"].as_str())
         .collect();
-    assert!(subjects.contains(&"owner"), "tenant admin missing: {subjects:?}");
+    assert!(
+        subjects.contains(&"owner"),
+        "tenant admin missing: {subjects:?}"
+    );
 
     // DELETE without confirmation is refused.
     let (status, _) = send(&app, root("DELETE", "/tenants/acme", Value::Null)).await;
@@ -146,5 +159,9 @@ async fn tenant_onboards_lists_and_deletes_on_cloud() {
         .body(Body::empty())
         .expect("build request");
     let (status, _) = send(&app, gone).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "purged admin must not authenticate");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "purged admin must not authenticate"
+    );
 }

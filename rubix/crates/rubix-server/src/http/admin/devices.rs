@@ -14,7 +14,9 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use rubix_core::{Id, Record, read_record};
-use rubix_gate::{Capability, Change, Command, apply, read_record_on_session, read_records_on_session_filtered};
+use rubix_gate::{
+    Capability, Change, Command, apply, read_record_on_session, read_records_on_session_filtered,
+};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -181,7 +183,12 @@ fn device_content(label: &str, class: &str, metadata: &BTreeMap<String, Value>) 
     map.insert("class".to_owned(), Value::String(class.to_owned()));
     map.insert(
         "metadata".to_owned(),
-        Value::Object(metadata.iter().map(|(k, v)| (k.clone(), v.clone())).collect()),
+        Value::Object(
+            metadata
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        ),
     );
     Value::Object(map)
 }

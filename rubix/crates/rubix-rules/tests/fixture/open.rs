@@ -47,7 +47,12 @@ pub async fn granted_session(
     database: &str,
     subject: &str,
 ) -> (Principal, ScopedSession) {
-    let principal = Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator);
+    let principal = Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
     provision_principal(handle.raw(), &principal, "pw")
         .await
         .expect("provision principal");
@@ -79,7 +84,12 @@ pub async fn ungranted_session(
     database: &str,
     subject: &str,
 ) -> (Principal, ScopedSession) {
-    let principal = Principal::new(Id::from_raw(subject), NS, PrincipalKind::User, Role::Operator);
+    let principal = Principal::new(
+        Id::from_raw(subject),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
     provision_principal(handle.raw(), &principal, "pw")
         .await
         .expect("provision principal");

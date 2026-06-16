@@ -27,9 +27,10 @@ mod error;
 mod evaluate;
 mod rule;
 
-pub use engine::Decision;
+pub use engine::{Decision, compile_check};
 pub use error::{Result, RuleError};
 pub use evaluate::{
-    Evaluation, INSIGHT_EVENT_TYPE, RULE_SPAN_NAME, Recorded, RuleRuntime, evaluate,
+    DryRun, Evaluation, INSIGHT_EVENT_TYPE, RULE_SPAN_NAME, Recorded, ResolvedInput, RuleRuntime,
+    dry_run, evaluate,
 };
 pub use rule::{Aggregate, Binding, Rule, RuleRegistry};

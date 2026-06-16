@@ -13,7 +13,7 @@ use rubix_gate::{Change, Command, apply};
 use crate::auth::Authenticated;
 use crate::error::ApiResult;
 use crate::http::records::capability::RECORD_WRITE;
-use crate::http::records::create::map_gate_error;
+use crate::http::records::create::{invalidate_scanned_context, map_gate_error};
 use crate::state::AppState;
 
 /// Delete record `id` through the gate, returning `204 No Content`.
@@ -31,5 +31,6 @@ pub async fn delete_record_route(
     apply(state.store.raw(), &command, None)
         .await
         .map_err(map_gate_error)?;
+    invalidate_scanned_context(&state, &auth.principal);
     Ok(StatusCode::NO_CONTENT)
 }

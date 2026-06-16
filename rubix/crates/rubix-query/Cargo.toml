@@ -12,6 +12,7 @@ workspace = true
 rubix-core = { workspace = true }
 rubix-store = { workspace = true }
 rubix-gate = { workspace = true }
+chrono = { workspace = true }
 datafusion = { workspace = true }
 serde_json = { workspace = true }
 surrealdb = { workspace = true }
@@ -41,6 +42,14 @@ path = "tests/query/authorize_test.rs"
 [[test]]
 name = "query_trace_summary"
 path = "tests/query/trace_summary_test.rs"
+
+[[test]]
+name = "query_time_scope"
+path = "tests/query/time_scope_test.rs"
+
+[[test]]
+name = "query_context_cache"
+path = "tests/query/context_cache_test.rs"
 
 [[test]]
 name = "aggregate_rollup"

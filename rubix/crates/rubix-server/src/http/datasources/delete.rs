@@ -42,9 +42,7 @@ pub async fn delete_datasource_route(
 /// unknown id `404`, anything else `500`.
 fn map_remove_error(error: DatasourceError) -> ApiError {
     match error {
-        DatasourceError::Denied => {
-            ApiError::Forbidden("cannot remove this datasource".to_owned())
-        }
+        DatasourceError::Denied => ApiError::Forbidden("cannot remove this datasource".to_owned()),
         DatasourceError::Unknown(_) => ApiError::NotFound,
         other => ApiError::Internal(other.to_string()),
     }

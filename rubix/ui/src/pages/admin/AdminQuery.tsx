@@ -36,8 +36,13 @@ import { ParametersPanel } from '../../components/sql/ParametersPanel'
 import { applyParameters, useSqlEditorStore } from '../../components/sql/sql-editor-store'
 import { ChartRendererCore } from '../../components/chart-builder/charts'
 import { useChartZoom } from '../../components/chart-builder/charts/useChartZoom'
-import { transformDataToColumns, type ColumnInfo, type DataRow } from '../../components/chart-builder/utils'
-import { ChartType, type ChartConfig, type DisplayMode } from '../../components/chart-builder/types'
+import { transformDataToColumns, type DataRow } from '../../components/chart-builder/utils'
+import { ChartType, type ChartConfig } from '../../components/chart-builder/types'
+import { TransformEditor } from '../../components/chart-builder/TransformEditor'
+import { FieldConfigEditor } from '../../components/chart-builder/FieldConfigEditor'
+import { ChartConfigBar } from '../../components/chart-builder/ChartConfigBar'
+import type { FieldConfig } from '../../components/chart-builder/field-config'
+import { applyCosmeticTransforms, splitTransforms, type Transform } from '../../components/chart-builder/transforms'
 
 const route = getRouteApi('/t/$tenant/admin/query')
 
@@ -53,7 +58,6 @@ const STARTER =
 const BY_KIND =
   "SELECT json_get(json_get(content, 'content'), 'kind') AS kind, count(*) AS n FROM record GROUP BY kind ORDER BY n DESC"
 
-const NONE = '__none__'
 const NEW = '__new__'
 
 interface Preset {
@@ -124,8 +128,11 @@ export function AdminQuery() {
     queryFn: () => listSavedQueries(api),
   })
 
+  // The console preview honours the chart's transforms (§1): aggregate ops go to
+  // the backend, cosmetic ops are applied to the previewed rows below.
   const query = useMutation<QueryResponse, Error, string>({
-    mutationFn: (text) => runQuery(api, text),
+    mutationFn: (text) =>
+      runQuery(api, text, { transforms: splitTransforms(chart.transforms).aggregate }),
     onSuccess: () => {
       zoom.reset()
       setDrillRow(null)
@@ -171,8 +178,16 @@ export function AdminQuery() {
 
   const chartColumns = useMemo(() => transformDataToColumns(rows as DataRow[]), [rows])
 
-  // Rows shown in the chart, narrowed to the active drag-zoom window (if any).
-  const chartRows = useMemo(() => zoom.apply(rows, chart.x), [zoom, rows, chart.x])
+  // Rows shown in the chart: cosmetic transforms applied client-side (§1, the
+  // aggregate tier already ran server-side), then narrowed to the drag-zoom window.
+  const transformedRows = useMemo(
+    () => applyCosmeticTransforms(rows, splitTransforms(chart.transforms).cosmetic),
+    [rows, chart.transforms],
+  )
+  const chartRows = useMemo(
+    () => zoom.apply(transformedRows, chart.x),
+    [zoom, transformedRows, chart.x],
+  )
 
   function run() {
     if (sql.trim()) query.mutate(resolve(sql))
@@ -331,6 +346,10 @@ export function AdminQuery() {
             <TabsContent value="chart">
               <div className="flex flex-wrap items-center gap-2">
                 <ChartConfigBar columns={chartColumns} config={chart} onChange={setChart} />
+                <FieldConfigEditor
+                  value={chart.fieldConfig}
+                  onChange={(fieldConfig: FieldConfig | undefined) => setChart({ ...chart, fieldConfig })}
+                />
                 {zoom.zoomed && (
                   <Button variant="ghost" onClick={zoom.reset} className="gap-1.5 text-muted-foreground">
                     <ZoomOut size={15} /> Reset zoom
@@ -354,6 +373,14 @@ export function AdminQuery() {
               {chart.type === ChartType.LineChart || chart.type === ChartType.BarChart ? (
                 <p className="mt-2 text-xs text-muted-foreground">Drag across the chart to zoom into a range.</p>
               ) : null}
+              {/* Transform pipeline (§1): aggregate ops apply on the next Run;
+                  cosmetic ops apply to the preview immediately. */}
+              <div className="mt-4 rounded-xl border border-border bg-card/40 p-3">
+                <TransformEditor
+                  value={chart.transforms}
+                  onChange={(transforms: Transform[]) => setChart({ ...chart, transforms })}
+                />
+              </div>
               {drillRow && <DrillPanel row={drillRow} onClose={() => setDrillRow(null)} />}
             </TabsContent>
           </Tabs>
@@ -413,93 +440,6 @@ function DrillPanel({ row, onClose }: { row: Record<string, any>; onClose: () =>
       </div>
       <pre className="overflow-auto rounded-md bg-bg/50 p-3 text-xs mono">{JSON.stringify(row, null, 2)}</pre>
     </div>
-  )
-}
-
-// The chart builder fields on the committed spine: type, x/y, breakdown
-// (multi-series split), and display mode (headline total/average). The no-SQL
-// structured builder (§1c) stays deferred.
-function ChartConfigBar({
-  columns,
-  config,
-  onChange,
-}: {
-  columns: ColumnInfo[]
-  config: ChartConfig
-  onChange: (config: ChartConfig) => void
-}) {
-  const set = (patch: Partial<ChartConfig>) => onChange({ ...config, ...patch } as ChartConfig)
-  const isAxis = config.type !== ChartType.Table
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={config.type ?? ChartType.LineChart} onValueChange={(v) => set({ type: v as ChartType })}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Chart type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ChartType.LineChart}>Line</SelectItem>
-          <SelectItem value={ChartType.BarChart}>Bar</SelectItem>
-          <SelectItem value={ChartType.HorizontalBarChart}>Horizontal bar</SelectItem>
-          <SelectItem value={ChartType.Table}>Table</SelectItem>
-        </SelectContent>
-      </Select>
-      {isAxis && (
-        <>
-          <ColumnPicker label="X" value={config.x} columns={columns} onChange={(x) => set({ x })} />
-          <ColumnPicker label="Y" value={config.y} columns={columns} onChange={(y) => set({ y })} />
-          <ColumnPicker
-            label="Breakdown"
-            value={config.breakdown}
-            columns={columns}
-            allowNone
-            onChange={(b) => set({ breakdown: b === NONE ? undefined : b })}
-          />
-          <Select
-            value={config.displayMode ?? 'none'}
-            onValueChange={(v) => set({ displayMode: v as DisplayMode })}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Display" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No headline</SelectItem>
-              <SelectItem value="total">Total</SelectItem>
-              <SelectItem value="average">Average</SelectItem>
-            </SelectContent>
-          </Select>
-        </>
-      )}
-    </div>
-  )
-}
-
-function ColumnPicker({
-  label,
-  value,
-  columns,
-  allowNone,
-  onChange,
-}: {
-  label: string
-  value?: string
-  columns: { name: string }[]
-  allowNone?: boolean
-  onChange: (value: string) => void
-}) {
-  return (
-    <Select value={value ?? (allowNone ? NONE : '')} onValueChange={onChange}>
-      <SelectTrigger className="w-[150px]">
-        <SelectValue placeholder={label} />
-      </SelectTrigger>
-      <SelectContent>
-        {allowNone && <SelectItem value={NONE}>No {label.toLowerCase()}</SelectItem>}
-        {columns.map((c) => (
-          <SelectItem key={c.name} value={c.name}>
-            {c.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   )
 }
 

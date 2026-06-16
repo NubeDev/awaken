@@ -1,13 +1,22 @@
-// Admin · Dashboards — pinned boards of saved charts on a draggable grid (§2,
-// LAMINAR-BORROW.md). Boards and charts are records (kind:"board"/"chart"), so
-// they ride the gate; layout changes persist debounced (one audited write per
-// settle). Charts are authored in the Query console ("Save as chart"); here they
-// are placed, arranged, and resized.
+// Admin · Dashboards — two real routes over the boards/charts record surface (§2,
+// LAMINAR-BORROW.md):
+//
+//   • /admin/dashboards            → the directory: a table of every board (name,
+//     panel count, last updated) with create / open / delete.
+//   • /admin/dashboards/$boardId   → the builder: a draggable palette rail + the
+//     responsive grid + a popover time-range picker. Pin charts by dragging a
+//     palette tile onto the grid (or clicking it); drag/resize to arrange; the
+//     layout persists debounced (one audited gate write per settle).
+//
+// The open board lives in the URL, not React state, so a board deep-links,
+// survives refresh, and works with browser back/forward. Boards and charts are
+// records (kind:"board"/"chart"), so every edit is audited/undoable.
 
-import { getRouteApi } from '@tanstack/react-router'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LayoutDashboard, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, Plus, Trash2 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import { useApi } from '../../api/ConnectionContext'
 import { createChart, listCharts, type SavedChart } from '../../api/charts'
 import {
@@ -22,45 +31,187 @@ import { usePageHeader } from '../../components/shell/page-header'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
 import { DashboardGrid } from '../../components/dashboards/DashboardGrid'
-import { BoardTimeRange } from '../../components/dashboards/BoardTimeRange'
-import { CHART_PRESETS, type ChartPreset, type PresetGroup } from '../../components/dashboards/chart-presets'
-import { DEFAULT_RANGE, formatBoardParams, type BoardTimeRange as Range } from '../../components/dashboards/board-params'
-import { EmptyView } from '../../components/ui/StateView'
+import { BoardPalette } from '../../components/dashboards/BoardPalette'
+import { TimeRangePicker } from '../../components/dashboards/TimeRangePicker'
+import { BoardRefresh } from '../../components/dashboards/BoardRefresh'
+import { DEFAULT_REFRESH, type RefreshInterval } from '../../components/dashboards/board-refresh'
+import { CHART_PRESETS } from '../../components/dashboards/chart-presets'
+import {
+  decodeDrag,
+  PALETTE_DND_TYPE,
+  type PaletteDrag,
+} from '../../components/dashboards/board-palette'
+import {
+  DEFAULT_RANGE,
+  boardTimeScope,
+  type BoardTimeRange as Range,
+} from '../../components/dashboards/board-params'
+import { EmptyView, ErrorView, LoadingView } from '../../components/ui/StateView'
 
-const PRESET_GROUPS: PresetGroup[] = ['Records', 'Audit', 'Traces']
+const listRoute = getRouteApi('/t/$tenant/admin/dashboards')
+const builderRoute = getRouteApi('/t/$tenant/admin/dashboards/$boardId')
 
-const route = getRouteApi('/t/$tenant/admin/dashboards')
-
+// ── List view ─────────────────────────────────────────────────────────────────
+// The dashboards directory: a table of every board. Opening one navigates to its
+// builder route; creating one drops straight into it.
 export function AdminDashboards() {
-  const { tenant } = route.useParams()
+  const { tenant } = listRoute.useParams()
   const api = useApi(tenant)
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
-  // Board-wide time range — substituted into every panel's `{{…}}` placeholders
-  // so one control re-scopes the whole board (§3). Memoised into a params map so
-  // panels only re-run when the formatted window actually changes.
+  const boards = useQuery({ queryKey: ['boards', tenant], queryFn: () => listBoards(api) })
+
+  function open(boardId: string) {
+    navigate({
+      to: '/t/$tenant/admin/dashboards/$boardId',
+      params: { tenant, boardId },
+    })
+  }
+
+  const create = useMutation({
+    mutationFn: (name: string) => createBoard(api, name),
+    onSuccess: (b) => {
+      setNewName('')
+      void qc.invalidateQueries({ queryKey: ['boards', tenant] })
+      open(b.id) // open the new board straight into the builder
+    },
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteBoard(api, id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['boards', tenant] }),
+  })
+
+  usePageHeader({ crumbs: ['Admin', 'Dashboards'] })
+
+  const list = boards.data ?? []
+  return (
+    <div className="px-6 py-6">
+      <div className="mx-auto max-w-[1100px]">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="grid size-11 place-items-center rounded-xl border border-border bg-card">
+            <LayoutDashboard size={20} className="text-muted-foreground" />
+          </div>
+          <div>
+            <h1 className="text-[22px] font-semibold tracking-tight">Dashboards</h1>
+            <div className="text-[13px] text-muted-foreground">
+              A board of saved charts, arranged on a draggable grid.
+            </div>
+          </div>
+        </div>
+
+        {/* Create row. */}
+        <div className="mb-4 flex items-center gap-2">
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New dashboard name"
+            className="w-[260px]"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newName.trim()) create.mutate(newName.trim())
+            }}
+          />
+          <Button
+            onClick={() => newName.trim() && create.mutate(newName.trim())}
+            disabled={create.isPending || !newName.trim()}
+            className="gap-1.5"
+          >
+            <Plus size={15} /> Create dashboard
+          </Button>
+        </div>
+
+        {boards.isPending ? (
+          <LoadingView label="Loading dashboards…" />
+        ) : boards.error ? (
+          <ErrorView error={boards.error} />
+        ) : list.length === 0 ? (
+          <EmptyView
+            title="No dashboards yet"
+            hint="Create one above, then drag charts onto it from the palette."
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Name</TableHead>
+                  <TableHead className="w-[120px]">Panels</TableHead>
+                  <TableHead className="w-[180px]">Updated</TableHead>
+                  <TableHead className="w-[140px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.map((b) => (
+                  <TableRow key={b.id} className="cursor-pointer" onClick={() => open(b.id)}>
+                    <TableCell className="font-medium">{b.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{b.panels.length}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {b.updated ? `${formatDistanceToNow(new Date(b.updated))} ago` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="outline" size="sm" onClick={() => open(b.id)}>
+                          Open
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground hover:text-destructive"
+                          title="Delete dashboard"
+                          onClick={() => remove.mutate(b.id)}
+                          disabled={remove.isPending}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Builder view ────────────────────────────────────────────────────────────────
+// One board, identified by the `$boardId` route param. A board that doesn't exist
+// (stale link, deleted) shows a not-found state with a way back to the directory.
+export function AdminDashboardBuilder() {
+  const { tenant, boardId } = builderRoute.useParams()
+  const api = useApi(tenant)
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+
+  // Board-wide time range → a structured, UTC time scope sent to every panel (§5).
   const [range, setRange] = useState<Range>(DEFAULT_RANGE)
-  const params = useMemo(() => formatBoardParams(range), [range])
-  // Local working copy of the open board's panels — the grid edits this live; a
+  const time = useMemo(() => boardTimeScope(range), [range])
+  const [refresh, setRefresh] = useState<RefreshInterval>(DEFAULT_REFRESH)
+  const [refreshing, setRefreshing] = useState(false)
+  // Drop highlight for the empty-board placeholder (the grid manages its own).
+  const [emptyDropActive, setEmptyDropActive] = useState(false)
+  // Local working copy of the board's panels — the grid edits this live; a
   // debounced effect flushes it to the gate so drags don't thrash the backend.
   const [panels, setPanels] = useState<BoardPanel[]>([])
 
   const boards = useQuery({ queryKey: ['boards', tenant], queryFn: () => listBoards(api) })
   const charts = useQuery({ queryKey: ['charts', tenant], queryFn: () => listCharts(api) })
 
-  const selected = useMemo<SavedBoard | undefined>(
-    () => boards.data?.find((b) => b.id === selectedId),
-    [boards.data, selectedId],
+  const board = useMemo<SavedBoard | undefined>(
+    () => boards.data?.find((b) => b.id === boardId),
+    [boards.data, boardId],
   )
 
   const chartMap = useMemo(() => {
@@ -69,75 +220,63 @@ export function AdminDashboards() {
     return m
   }, [charts.data])
 
-  // Seed the working panels when the selected board loads/changes.
+  // Seed the working panels when the board loads/changes.
   useEffect(() => {
-    if (selected) setPanels(selected.panels)
-  }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (board) setPanels(board.panels)
+  }, [board?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Default the selection to the first board once they load.
-  useEffect(() => {
-    if (selectedId === null && boards.data && boards.data.length > 0) {
-      setSelectedId(boards.data[0].id)
-    }
-  }, [boards.data, selectedId])
+  function back() {
+    navigate({ to: '/t/$tenant/admin/dashboards', params: { tenant } })
+  }
 
   const save = useMutation({
     mutationFn: (next: BoardPanel[]) =>
-      updateBoard(api, selected!.id, { name: selected!.name, panels: next }),
+      updateBoard(api, board!.id, { name: board!.name, panels: next }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['boards', tenant] }),
   })
 
   // Debounce layout writes: update local panels now, flush 600ms after the last
-  // change — one gate write per settle (PRODUCT-UI's debounced PATCH).
+  // change — one gate write per settle.
   const flush = useRef<ReturnType<typeof setTimeout> | null>(null)
   function persist(next: BoardPanel[]) {
     setPanels(next)
     if (flush.current) clearTimeout(flush.current)
     flush.current = setTimeout(() => {
-      if (selected) save.mutate(next)
+      if (board) save.mutate(next)
     }, 600)
   }
-
-  const create = useMutation({
-    mutationFn: (name: string) => createBoard(api, name),
-    onSuccess: (b) => {
-      setNewName('')
-      setSelectedId(b.id)
-      void qc.invalidateQueries({ queryKey: ['boards', tenant] })
-    },
-  })
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteBoard(api, id),
     onSuccess: () => {
-      setSelectedId(null)
       void qc.invalidateQueries({ queryKey: ['boards', tenant] })
+      back()
     },
   })
 
   function addPanel(chartId: string) {
     if (panels.some((p) => p.chart_id === chartId)) return
-    // Place two-per-row, stacking downward.
     const i = panels.length
     persist([...panels, { chart_id: chartId, x: (i % 2) * 6, y: Math.floor(i / 2) * 4, w: 6, h: 4 }])
   }
 
-  // One-click preset: materialise the preset as a kind:"chart" record, then place
-  // it on the board. Time-series presets carry `{{start_time}}`/`{{end_time}}`
-  // placeholders, so they immediately track the board range.
+  // Materialise a preset into a kind:"chart" record, then place it on the board.
   const addPreset = useMutation({
-    mutationFn: (preset: ChartPreset) =>
-      createChart(api, { name: preset.name, sql: preset.sql, config: preset.config }),
+    mutationFn: (presetName: string) => {
+      const preset = CHART_PRESETS.find((p) => p.name === presetName)
+      if (!preset) throw new Error(`unknown preset: ${presetName}`)
+      return createChart(api, { name: preset.name, sql: preset.sql, config: preset.config })
+    },
     onSuccess: (c) => {
       void qc.invalidateQueries({ queryKey: ['charts', tenant] })
       addPanel(c.id)
     },
   })
 
-  function onPick(value: string) {
-    const preset = CHART_PRESETS.find((p) => p.name === value)
-    if (preset) addPreset.mutate(preset)
-    else addPanel(value)
+  // The single add path for both the palette drag/drop and click-to-add.
+  function onAddDrag(drag: PaletteDrag) {
+    if (drag.source === 'preset') addPreset.mutate(drag.preset)
+    else addPanel(drag.chartId)
   }
 
   function removePanel(chartId: string) {
@@ -146,139 +285,104 @@ export function AdminDashboards() {
 
   const availableCharts = (charts.data ?? []).filter((c) => !panels.some((p) => p.chart_id === c.id))
 
-  usePageHeader({ crumbs: ['Admin', 'Dashboards'] })
+  usePageHeader({ crumbs: ['Admin', 'Dashboards', board?.name ?? '…'] })
+
+  // A board still loading vs. one that genuinely doesn't exist (stale/deleted link).
+  if (boards.isPending) return <LoadingView label="Loading dashboard…" />
+  if (boards.error) return <ErrorView error={boards.error} />
+  if (!board) {
+    return (
+      <div className="px-6 py-6">
+        <div className="mx-auto max-w-[1100px] space-y-4">
+          <Button variant="ghost" size="sm" onClick={back} className="gap-1.5">
+            <ArrowLeft size={15} /> All dashboards
+          </Button>
+          <EmptyView
+            title="Dashboard not found"
+            hint="It may have been deleted. Pick one from the list."
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="px-6 py-6">
-      <div className="mx-auto max-w-[1280px]">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-xl border border-border bg-card">
-            <LayoutDashboard size={20} className="text-muted-foreground" />
+    <div className="flex h-full flex-col px-6 py-6">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={back} className="gap-1.5">
+          <ArrowLeft size={15} /> All dashboards
+        </Button>
+        <div className="flex items-center gap-2">
+          <div className="grid size-8 place-items-center rounded-lg border border-border bg-card">
+            <LayoutDashboard size={15} className="text-muted-foreground" />
           </div>
-          <div>
-            <h1 className="text-[22px] font-semibold tracking-tight">Dashboards</h1>
-            <div className="text-[13px] text-muted-foreground">
-              Pin saved charts to a board, drag and resize to arrange.
-            </div>
-          </div>
+          <h1 className="text-[17px] font-semibold tracking-tight">{board.name}</h1>
         </div>
 
-        {/* Board bar: select, create, delete. */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Select value={selectedId ?? ''} onValueChange={setSelectedId}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Select a board" />
-            </SelectTrigger>
-            <SelectContent>
-              {(boards.data ?? []).map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="New board name"
-            className="w-[200px]"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newName.trim()) create.mutate(newName.trim())
-            }}
-          />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <TimeRangePicker value={range} onChange={setRange} />
+          <BoardRefresh value={refresh} onChange={setRefresh} refreshing={refreshing} />
           <Button
-            variant="outline"
-            onClick={() => newName.trim() && create.mutate(newName.trim())}
-            disabled={create.isPending}
-            className="gap-1.5"
+            variant="ghost"
+            size="sm"
+            onClick={() => remove.mutate(board.id)}
+            disabled={remove.isPending}
+            className="gap-1.5 text-muted-foreground"
           >
-            <Plus size={15} /> Create
+            <Trash2 size={15} /> Delete
           </Button>
+        </div>
+      </div>
 
-          {selected && (
-            <>
-              <Select value="" onValueChange={onPick}>
-                <SelectTrigger className="ml-auto w-[200px]">
-                  <span className="flex items-center gap-1.5">
-                    <Plus size={14} /> <SelectValue placeholder="Add chart" />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Presets — one-click charts, grouped by surface. */}
-                  {PRESET_GROUPS.map((group) => (
-                    <SelectGroup key={group}>
-                      <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {group}
-                      </div>
-                      {CHART_PRESETS.filter((p) => p.group === group).map((p) => (
-                        <SelectItem key={p.name} value={p.name}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                  {/* Saved charts authored in the Query console. */}
-                  {availableCharts.length > 0 && (
-                    <SelectGroup>
-                      <div className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Saved charts
-                      </div>
-                      {availableCharts.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                onClick={() => remove.mutate(selected.id)}
-                disabled={remove.isPending}
-                className="gap-1.5 text-muted-foreground"
-              >
-                <Trash2 size={15} /> Delete board
-              </Button>
-            </>
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[240px_1fr]">
+        <BoardPalette charts={availableCharts} onAdd={onAddDrag} />
+
+        <div className="min-h-0 overflow-y-auto pe-1">
+          {panels.length === 0 ? (
+            // An empty board still needs to be a drop target — otherwise the
+            // palette's "drag a tile onto the board" affordance has nothing to
+            // catch it (the grid only mounts once there's a panel).
+            <div
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+                if (!emptyDropActive) setEmptyDropActive(true)
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget === e.target) setEmptyDropActive(false)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                setEmptyDropActive(false)
+                const drag = decodeDrag(e.dataTransfer.getData(PALETTE_DND_TYPE))
+                if (drag) onAddDrag(drag)
+              }}
+              className={
+                'grid h-full min-h-[260px] place-items-center rounded-xl border-2 border-dashed transition-colors ' +
+                (emptyDropActive ? 'border-primary/50 bg-primary/[0.06]' : 'border-border')
+              }
+            >
+              <div className="max-w-xs text-center">
+                <div className="text-[14px] font-semibold">Empty board</div>
+                <div className="mt-1 text-[12.5px] text-muted-foreground">
+                  Drag a tile from the palette onto the board, or click it to add.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <DashboardGrid
+              tenant={tenant}
+              panels={panels}
+              charts={chartMap}
+              onLayoutChange={persist}
+              onRemovePanel={removePanel}
+              onAddDrag={onAddDrag}
+              time={time}
+              refresh={refresh}
+              onFetchingChange={setRefreshing}
+            />
           )}
         </div>
-
-        {/* Board time range — one control re-scopes every parameterised panel. */}
-        {selected && panels.length > 0 && (
-          <div className="mb-4">
-            <BoardTimeRange value={range} onChange={setRange} />
-          </div>
-        )}
-
-        {!selected ? (
-          <EmptyView
-            title="No board selected"
-            hint={
-              (boards.data?.length ?? 0) === 0
-                ? 'Create a board, then add charts saved from the Query console.'
-                : 'Pick a board above.'
-            }
-          />
-        ) : panels.length === 0 ? (
-          <EmptyView
-            title="Empty board"
-            hint={
-              (charts.data?.length ?? 0) === 0
-                ? 'Save a chart in the Query console first ("Save as chart"), then add it here.'
-                : 'Use "Add chart" to place a saved chart.'
-            }
-          />
-        ) : (
-          <DashboardGrid
-            tenant={tenant}
-            panels={panels}
-            charts={chartMap}
-            onLayoutChange={persist}
-            onRemovePanel={removePanel}
-            params={params}
-          />
-        )}
       </div>
     </div>
   )

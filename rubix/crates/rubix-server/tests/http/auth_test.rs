@@ -22,7 +22,12 @@ use fixture::app::{SECRET, SUBJECT, TestApp, boot};
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -55,7 +60,14 @@ async fn login_token_authenticates_then_logout_revokes() {
     let TestApp { app, .. } = boot("server_auth_flow", &[Capability::IngestPublish]).await;
 
     // LOGIN
-    let (status, login) = send(&app, json_post("/auth/login", json!({ "subject": SUBJECT, "secret": SECRET }))).await;
+    let (status, login) = send(
+        &app,
+        json_post(
+            "/auth/login",
+            json!({ "subject": SUBJECT, "secret": SECRET }),
+        ),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let token = login["token"].as_str().expect("token").to_owned();
     assert!(!token.is_empty());
@@ -64,7 +76,12 @@ async fn login_token_authenticates_then_logout_revokes() {
     // The bearer token authorizes a gated write.
     let (status, created) = send(
         &app,
-        bearer("POST", "/records", &token, json!({ "content": { "temp": 21 } })),
+        bearer(
+            "POST",
+            "/records",
+            &token,
+            json!({ "content": { "temp": 21 } }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -90,7 +107,14 @@ async fn login_token_authenticates_then_logout_revokes() {
 #[tokio::test]
 async fn login_with_a_wrong_secret_is_unauthorized() {
     let TestApp { app, .. } = boot("server_auth_badlogin", &[]).await;
-    let (status, _) = send(&app, json_post("/auth/login", json!({ "subject": SUBJECT, "secret": "wrong" }))).await;
+    let (status, _) = send(
+        &app,
+        json_post(
+            "/auth/login",
+            json!({ "subject": SUBJECT, "secret": "wrong" }),
+        ),
+    )
+    .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 

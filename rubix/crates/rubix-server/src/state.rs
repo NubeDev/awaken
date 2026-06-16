@@ -9,6 +9,7 @@
 use std::sync::Arc;
 
 use rubix_datasource::Registry;
+use rubix_query::ContextCache;
 use rubix_store::StoreHandle;
 use tokio::sync::RwLock;
 
@@ -23,6 +24,13 @@ use crate::profile::Profile;
 /// for a connection's lifetime, so registration cost is paid once.
 pub type SharedRegistry = Arc<RwLock<Registry>>;
 
+/// The per-principal scanned-context cache shared across handlers (§4a).
+///
+/// One instance per server, behind an `Arc`, so a board tick and different SQL on
+/// the same tables reuse a principal's scan instead of rescanning every canonical
+/// table. The cache locks internally, so it needs no outer `RwLock`.
+pub type SharedContextCache = Arc<ContextCache>;
+
 /// Shared state injected into every request handler.
 #[derive(Clone)]
 pub struct AppState {
@@ -34,6 +42,8 @@ pub struct AppState {
     pub database: String,
     /// The shared datasource registry (native default + registered connectors).
     pub datasources: SharedRegistry,
+    /// The per-principal scanned-context cache (§4a).
+    pub context_cache: SharedContextCache,
     /// The deployment profile this server booted into (WS-14). The gate reads its
     /// namespace strategy to resolve a request's tenant; routes read its
     /// `auth_required`/`sync_enabled` defaults from one place.
@@ -50,8 +60,17 @@ impl AppState {
     /// this constructor keeps the single-namespace edge default for callers (and
     /// tests) that do not select one.
     #[must_use]
-    pub fn new(store: StoreHandle, namespace: impl Into<String>, database: impl Into<String>) -> Self {
-        Self::with_profile(store, namespace, database, crate::profile::default_profile())
+    pub fn new(
+        store: StoreHandle,
+        namespace: impl Into<String>,
+        database: impl Into<String>,
+    ) -> Self {
+        Self::with_profile(
+            store,
+            namespace,
+            database,
+            crate::profile::default_profile(),
+        )
     }
 
     /// Build state around an open store handle, namespace/database, and a selected
@@ -72,6 +91,7 @@ impl AppState {
             namespace: namespace.into(),
             database: database.into(),
             datasources: Arc::new(RwLock::new(Registry::with_native_default())),
+            context_cache: Arc::new(ContextCache::default()),
             profile,
         }
     }

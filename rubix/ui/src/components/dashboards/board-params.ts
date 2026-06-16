@@ -1,14 +1,17 @@
-// Board-level time range → query parameters (§2/§3, LAMINAR-BORROW.md). This is
-// the signature dashboard feature Laminar has and we lacked: one time control at
-// the top of a board re-scopes every panel at once. It reuses the parameter
-// substitution the SQL console already ships (applyParameters), so a panel's
-// chart SQL referencing `{{start_time}}` / `{{end_time}}` / `{{interval_unit}}`
-// is filled from the board's range before it runs. Panels with no placeholders
-// are untouched — the range is opt-in per chart.
+// Board-level time range → a structured, UTC time scope (DASHBOARDS-SCOPE.md §5).
+// One time control at the top of a board re-scopes every panel at once. The board
+// no longer formats a locale datetime string into SQL — that was the timezone bug
+// (a UTC+10 browser asking for "last 1h" compared a local window against UTC
+// `created`). Instead it sends absolute UTC epoch milliseconds plus a grain, and
+// the backend injects the window/bucket by expanding the chart's `$__timeFilter`
+// / `$__timeBucket` / `$__interval` macros. Charts opt in by using those macros;
+// a panel with none ignores the range.
 
-import { format, subDays, subHours } from 'date-fns'
+import { subDays, subHours } from 'date-fns'
 
-export type IntervalUnit = 'minute' | 'hour' | 'day' | 'week'
+import type { Grain, TimeScope } from '../../api/query'
+
+export type IntervalUnit = Grain
 
 export interface BoardTimeRange {
   start: Date
@@ -37,13 +40,13 @@ export const DEFAULT_RANGE: BoardTimeRange = (() => {
   return { start, end, interval: r.interval }
 })()
 
-// Format a range into the `{{…}}` substitution map applyParameters consumes.
-// Datetimes are emitted as 'yyyy-MM-dd HH:mm:ss.SSS' (quoted on substitution);
-// interval_unit is a bare word (spliced unquoted, e.g. date_trunc('hour', …)).
-export function formatBoardParams(range: BoardTimeRange): Record<string, string | number> {
+// Convert a range into the structured TimeScope the query API sends. A JS Date's
+// getTime() is epoch milliseconds in UTC regardless of the browser's timezone, so
+// this is timezone-correct by construction — the fix for the old wall-clock bug.
+export function boardTimeScope(range: BoardTimeRange): TimeScope {
   return {
-    start_time: format(range.start, 'yyyy-MM-dd HH:mm:ss.SSS'),
-    end_time: format(range.end, 'yyyy-MM-dd HH:mm:ss.SSS'),
-    interval_unit: range.interval,
+    from: range.start.getTime(),
+    to: range.end.getTime(),
+    grain: range.interval,
   }
 }

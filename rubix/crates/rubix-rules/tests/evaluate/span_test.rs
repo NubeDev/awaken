@@ -80,7 +80,11 @@ async fn the_span_tree_nests_the_subrule_and_shows_the_decision() {
     assert_eq!(root.span.attributes["inputs"]["humidity"], 80.0);
     assert_eq!(root.span.attributes["decision"]["fired"], true);
 
-    assert_eq!(root.children.len(), 1, "the sub-rule nests under the parent");
+    assert_eq!(
+        root.children.len(),
+        1,
+        "the sub-rule nests under the parent"
+    );
     let child_node = &root.children[0];
     assert_eq!(child_node.span.attributes["rule"], "hot");
     assert_eq!(child_node.span.attributes["inputs"]["temp"], 30.0);
@@ -129,6 +133,9 @@ async fn a_leaf_rule_produces_a_single_root_span() {
         .await
         .expect("assemble trace");
     assert_eq!(forest.len(), 1);
-    assert!(forest[0].children.is_empty(), "a leaf rule has no sub-spans");
+    assert!(
+        forest[0].children.is_empty(),
+        "a leaf rule has no sub-spans"
+    );
     assert_eq!(forest[0].span.attributes["rule"], "high-temp");
 }

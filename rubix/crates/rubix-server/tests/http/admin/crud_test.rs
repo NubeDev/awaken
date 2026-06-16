@@ -22,7 +22,12 @@ use fixture::app::{ADMIN_FULL_SUBJECT, ADMIN_SECRET, ADMIN_SUBJECT, TestApp, boo
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
     let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -88,7 +93,10 @@ async fn principal_crud_round_trips_and_strips_the_prefix() {
         .filter_map(|p| p["subject"].as_str())
         .collect();
     assert!(subjects.contains(&"alice"), "missing alice: {subjects:?}");
-    assert!(subjects.contains(&ADMIN_SUBJECT), "missing admin: {subjects:?}");
+    assert!(
+        subjects.contains(&ADMIN_SUBJECT),
+        "missing admin: {subjects:?}"
+    );
 
     // PATCH role.
     let (status, patched) = send(
@@ -125,7 +133,11 @@ async fn the_last_admin_cannot_be_demoted_or_deleted() {
     // Deleting the last admin is refused too.
     let (status, _) = send(
         &app,
-        authed("DELETE", &format!("/principals/{ADMIN_SUBJECT}"), Value::Null),
+        authed(
+            "DELETE",
+            &format!("/principals/{ADMIN_SUBJECT}"),
+            Value::Null,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -138,7 +150,11 @@ async fn grants_are_nested_and_require_an_existing_principal() {
     // Granting to an unknown subject is a 404 (no orphan grants).
     let (status, _) = send(
         &app,
-        authed("PUT", "/principals/ghost/grants/ingest-publish", Value::Null),
+        authed(
+            "PUT",
+            "/principals/ghost/grants/ingest-publish",
+            Value::Null,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -180,13 +196,21 @@ async fn grants_are_nested_and_require_an_existing_principal() {
     // Revoke (idempotent — second revoke is still 204).
     let (status, _) = send(
         &app,
-        authed("DELETE", "/principals/bob/grants/ingest-publish", Value::Null),
+        authed(
+            "DELETE",
+            "/principals/bob/grants/ingest-publish",
+            Value::Null,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
     let (status, _) = send(
         &app,
-        authed("DELETE", "/principals/bob/grants/ingest-publish", Value::Null),
+        authed(
+            "DELETE",
+            "/principals/bob/grants/ingest-publish",
+            Value::Null,
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
@@ -258,7 +282,10 @@ async fn device_registry_crud_through_the_gate() {
         .await
         .expect("query audit");
     let audited: Vec<Value> = rows.take(0).expect("audit rows");
-    let actions: Vec<&str> = audited.iter().filter_map(|r| r["action"].as_str()).collect();
+    let actions: Vec<&str> = audited
+        .iter()
+        .filter_map(|r| r["action"].as_str())
+        .collect();
     assert!(actions.contains(&"create"), "missing create: {actions:?}");
     assert!(actions.contains(&"delete"), "missing delete: {actions:?}");
 }

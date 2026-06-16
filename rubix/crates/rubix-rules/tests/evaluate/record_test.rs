@@ -80,7 +80,11 @@ async fn an_ungranted_principal_is_denied_the_insight_write() {
         .expect("read records")
         .take(0)
         .expect("decode");
-    assert_eq!(records.unwrap_or(0), 0, "denied evaluation writes no insight");
+    assert_eq!(
+        records.unwrap_or(0),
+        0,
+        "denied evaluation writes no insight"
+    );
 }
 
 #[tokio::test]
@@ -108,7 +112,10 @@ async fn a_firing_is_published_on_the_bus_with_the_correlation_id() {
         .await
         .expect("evaluate");
 
-    assert!(evaluation.event_reach >= 1, "the subscriber must be reached");
+    assert!(
+        evaluation.event_reach >= 1,
+        "the subscriber must be reached"
+    );
     let event = subscription.recv().await.expect("receive firing");
     assert_eq!(event.event_type(), INSIGHT_EVENT_TYPE);
     assert_eq!(event.correlation_id(), &evaluation.correlation_id);

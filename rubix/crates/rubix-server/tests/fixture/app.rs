@@ -58,7 +58,12 @@ pub async fn boot(database: &str, capabilities: &[Capability]) -> TestApp {
         .await
         .expect("define audit schema");
 
-    let principal = Principal::new(Id::from_raw(SUBJECT), NS, PrincipalKind::User, Role::Operator);
+    let principal = Principal::new(
+        Id::from_raw(SUBJECT),
+        NS,
+        PrincipalKind::User,
+        Role::Operator,
+    );
     provision_principal(store.raw(), &principal, SECRET)
         .await
         .expect("provision principal");
@@ -98,8 +103,7 @@ pub const ADMIN_SECRET: &str = "root-pw";
 /// is itself the `state.namespace` admin, so it also satisfies the root/system
 /// rule the tenant routes check on the edge default profile.
 pub async fn boot_admin(database: &str, capabilities: &[Capability]) -> TestApp {
-    let app_state =
-        |store: StoreHandle, db: &str| AppState::new(store, NS, db);
+    let app_state = |store: StoreHandle, db: &str| AppState::new(store, NS, db);
     boot_admin_inner(database, capabilities, app_state).await
 }
 

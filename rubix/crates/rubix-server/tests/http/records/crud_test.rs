@@ -19,13 +19,14 @@ use fixture::app::{SECRET, SUBJECT, TestApp, boot};
 
 /// Send a request through the app, returning the status and JSON body (or null).
 async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value) {
-    let response = app
-        .clone()
-        .oneshot(request)
-        .await
-        .expect("route responds");
+    let response = app.clone().oneshot(request).await.expect("route responds");
     let status = response.status();
-    let bytes = response.into_body().collect().await.expect("body").to_bytes();
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
     let json = if bytes.is_empty() {
         Value::Null
     } else {
@@ -61,8 +62,7 @@ async fn record_round_trips_through_the_gate_with_audit_rows() {
     assert_eq!(created["content"]["temp"], json!(21.5));
 
     // GET on the scoped session
-    let (status, fetched) =
-        send(&app, authed("GET", &format!("/records/{id}"), Value::Null)).await;
+    let (status, fetched) = send(&app, authed("GET", &format!("/records/{id}"), Value::Null)).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(fetched["id"], json!(id));
 
@@ -80,7 +80,11 @@ async fn record_round_trips_through_the_gate_with_audit_rows() {
     assert_eq!(updated["content"]["temp"], json!(30.0));
 
     // DELETE
-    let (status, _) = send(&app, authed("DELETE", &format!("/records/{id}"), Value::Null)).await;
+    let (status, _) = send(
+        &app,
+        authed("DELETE", &format!("/records/{id}"), Value::Null),
+    )
+    .await;
     assert_eq!(status, StatusCode::NO_CONTENT);
 
     // GET after delete is not found
@@ -99,18 +103,32 @@ async fn record_round_trips_through_the_gate_with_audit_rows() {
         .iter()
         .filter_map(|row| row["action"].as_str())
         .collect();
-    assert!(actions.contains(&"create"), "missing create audit: {audited:?}");
-    assert!(actions.contains(&"update"), "missing update audit: {audited:?}");
-    assert!(actions.contains(&"delete"), "missing delete audit: {audited:?}");
+    assert!(
+        actions.contains(&"create"),
+        "missing create audit: {audited:?}"
+    );
+    assert!(
+        actions.contains(&"update"),
+        "missing update audit: {audited:?}"
+    );
+    assert!(
+        actions.contains(&"delete"),
+        "missing delete audit: {audited:?}"
+    );
     for row in &audited {
         let corr = row["correlation_id"].as_str().expect("correlation id");
-        assert!(!corr.is_empty(), "audit row missing correlation id: {row:?}");
+        assert!(
+            !corr.is_empty(),
+            "audit row missing correlation id: {row:?}"
+        );
     }
 }
 
 #[tokio::test]
 async fn unauthenticated_create_is_rejected() {
-    let app = boot("server_crud_unauth", &[Capability::IngestPublish]).await.app;
+    let app = boot("server_crud_unauth", &[Capability::IngestPublish])
+        .await
+        .app;
     let request = Request::builder()
         .method("POST")
         .uri("/records")
@@ -125,10 +143,6 @@ async fn unauthenticated_create_is_rejected() {
 async fn create_without_the_grant_is_forbidden() {
     // Boot with no capabilities granted: the gate denies the write.
     let app = boot("server_crud_nogrant", &[]).await.app;
-    let (status, _) = send(
-        &app,
-        authed("POST", "/records", json!({ "content": {} })),
-    )
-    .await;
+    let (status, _) = send(&app, authed("POST", "/records", json!({ "content": {} }))).await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }

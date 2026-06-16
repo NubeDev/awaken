@@ -35,8 +35,9 @@ async fn an_external_id_resolves_to_its_providers() {
     .expect("register");
 
     let providers = resolve(&registry, "mirror").expect("resolve mirror");
-    // The SurrealDB connector offers the four canonical tables.
-    assert_eq!(providers.len(), 4);
+    // The SurrealDB connector offers every canonical table
+    // (`CanonicalTable::ALL`): record, tag, audit, insight, trace_summary.
+    assert_eq!(providers.len(), 5);
 }
 
 #[tokio::test]

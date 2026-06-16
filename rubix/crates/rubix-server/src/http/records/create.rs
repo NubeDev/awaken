@@ -37,12 +37,24 @@ pub async fn create_record_route(
     apply(state.store.raw(), &command, None)
         .await
         .map_err(map_gate_error)?;
+    invalidate_scanned_context(&state, &auth.principal);
 
     let stored = read_record(state.store.raw(), &id)
         .await
         .map_err(|e| ApiError::Internal(e.to_string()))?
         .ok_or(ApiError::NotFound)?;
     Ok(Json(stored.into()))
+}
+
+/// Evict the writing principal's namespace from the scanned-context cache (§4a).
+///
+/// A record write is the data-change signal the cache must honour: every
+/// principal scoped to this namespace re-scans on its next query rather than
+/// serving rows from before the write until the TTL. Called on the success path
+/// of every record mutation (create/update/delete) so the board reflects a write
+/// on its next tick.
+pub(crate) fn invalidate_scanned_context(state: &AppState, principal: &rubix_core::Principal) {
+    state.context_cache.invalidate_namespace(&principal.namespace);
 }
 
 /// Map a gate failure to its transport status: a denied grant is `403`, anything

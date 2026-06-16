@@ -55,12 +55,14 @@ pub async fn forward_changes(
 fn matches_kind(change: &DataChange, kind: Option<&str>) -> bool {
     match kind {
         None => true,
-        Some(kind) => change
-            .record()
-            .content
-            .get("kind")
-            .and_then(serde_json::Value::as_str)
-            == Some(kind),
+        Some(kind) => {
+            change
+                .record()
+                .content
+                .get("kind")
+                .and_then(serde_json::Value::as_str)
+                == Some(kind)
+        }
     }
 }
 

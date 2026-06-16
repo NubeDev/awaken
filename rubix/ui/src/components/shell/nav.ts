@@ -56,6 +56,7 @@ export const NAV: NavGroup[] = [
       { label: 'Principals', to: '/t/$tenant/admin/principals', icon: KeyRound },
       { label: 'Agents', to: '/t/$tenant/admin/agents', icon: Bot },
       { label: 'Query', to: '/t/$tenant/admin/query', icon: TerminalSquare },
+      { label: 'Rules', to: '/t/$tenant/admin/rules', icon: GitBranch },
       { label: 'Dashboards', to: '/t/$tenant/admin/dashboards', icon: LayoutDashboard },
     ],
   },

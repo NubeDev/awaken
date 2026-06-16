@@ -15,8 +15,8 @@ use rubix_agent::provision_agent;
 use rubix_core::Id;
 
 use crate::auth::Authenticated;
-use crate::dto::agent::{ProvisionAgentRequest, ProvisionedAgentDto, parse_tier, tier_str};
 use crate::dto::admin::prefix_subject;
+use crate::dto::agent::{ProvisionAgentRequest, ProvisionedAgentDto, parse_tier, tier_str};
 use crate::error::{ApiError, ApiResult};
 use crate::state::AppState;
 

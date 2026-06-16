@@ -40,7 +40,10 @@ pub struct SeedError {
 impl SeedError {
     /// Wrap `cause` with the step `context` it failed in.
     fn new(context: &'static str, cause: impl fmt::Display) -> Self {
-        Self { context, cause: cause.to_string() }
+        Self {
+            context,
+            cause: cause.to_string(),
+        }
     }
 }
 
@@ -82,7 +85,11 @@ pub async fn seed_dev(db: &Surreal<Db>) -> Result<(), SeedError> {
                 .map(|c| c.as_str())
                 .collect::<Vec<_>>()
                 .join(",");
-            let grants = if grants.is_empty() { "—".to_owned() } else { grants };
+            let grants = if grants.is_empty() {
+                "—".to_owned()
+            } else {
+                grants
+            };
             println!("{:<20} {:<14} {}", cred.subject, cred.secret, grants);
         }
         let tally = seed_tenant(db, namespace, &operator, now, &mut tags).await?;
@@ -104,5 +111,8 @@ fn report(tallies: &[TenantTally]) {
             t.namespace, t.sites, t.nodes, t.readings, count
         );
     }
-    println!("seed complete: {total} records across {} tenants", tallies.len());
+    println!(
+        "seed complete: {total} records across {} tenants",
+        tallies.len()
+    );
 }

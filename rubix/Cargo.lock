@@ -5816,6 +5816,7 @@ dependencies = [
 name = "rubix-query"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "datafusion",
  "rubix-core",
  "rubix-gate",
@@ -5863,6 +5864,7 @@ dependencies = [
  "rubix-gate",
  "rubix-prefs",
  "rubix-query",
+ "rubix-rules",
  "rubix-store",
  "serde",
  "serde_json",

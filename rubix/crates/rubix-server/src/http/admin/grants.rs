@@ -11,7 +11,9 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use rubix_gate::{Capability, create_grant_audited, get_principal, list_grants, revoke_grant_audited};
+use rubix_gate::{
+    Capability, create_grant_audited, get_principal, list_grants, revoke_grant_audited,
+};
 
 use crate::auth::Authenticated;
 use crate::dto::admin::{GrantDto, prefix_subject, strip_subject_prefix};
@@ -97,7 +99,8 @@ async fn load_principal(
 
 /// Parse a capability path segment, `400` for an unknown capability.
 fn parse_capability(raw: &str) -> Result<Capability, ApiError> {
-    Capability::parse(raw).ok_or_else(|| ApiError::BadRequest(format!("unknown capability `{raw}`")))
+    Capability::parse(raw)
+        .ok_or_else(|| ApiError::BadRequest(format!("unknown capability `{raw}`")))
 }
 
 /// Map a gate grant failure to its transport status — a denial is `403`.

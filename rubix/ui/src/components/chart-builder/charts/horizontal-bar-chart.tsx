@@ -6,6 +6,8 @@ import { type DisplayMode } from "@/components/chart-builder/types";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
+import { usePreferences } from "@/context/PreferencesContext";
+
 import { formatMetricValue } from "./format-value";
 import { calculateDisplayValue, createAxisFormatter } from "./utils";
 
@@ -45,7 +47,13 @@ const HorizontalBarChart = ({
   const valueColumn = x;
   const categoryColumn = y;
 
-  const yAxisFormatter = useMemo(() => createAxisFormatter(data, categoryColumn), [data, categoryColumn]);
+  const prefs = usePreferences();
+  // The category (y) axis may carry datetime buckets — format in the user's
+  // tz/pattern; the value (x) axis is numeric.
+  const yAxisFormatter = useMemo(
+    () => createAxisFormatter(data, categoryColumn, prefs),
+    [data, categoryColumn, prefs]
+  );
   const xAxisFormatter = useMemo(() => createAxisFormatter(data, valueColumn), [data, valueColumn]);
 
   const maxTextWidth = useMemo(

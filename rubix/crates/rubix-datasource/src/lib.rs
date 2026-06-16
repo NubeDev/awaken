@@ -26,8 +26,8 @@ mod postgres;
 pub use connector::{Connector, DatasourceConfig, NATIVE_KIND};
 pub use error::{DatasourceError, Result};
 pub use registry::{
-    NATIVE_SURREAL_ID, Registry, authorize_register, find, list, register, register_materialized,
-    remove, resolve, span,
+    ColumnSchema, NATIVE_SURREAL_ID, Registry, TableSchema, authorize_register, find, list,
+    register, register_materialized, remove, resolve, schema_of, span, span_batch,
 };
 pub use surreal::SurrealConnector;
 

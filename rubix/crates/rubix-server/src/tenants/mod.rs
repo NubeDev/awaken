@@ -115,10 +115,7 @@ pub async fn get_tenant(db: &Surreal<Db>, id: &str) -> Result<Option<StoredTenan
 /// # Errors
 /// Returns the rendered store error if the read fails.
 pub async fn list_tenants(db: &Surreal<Db>) -> Result<Vec<StoredTenant>, String> {
-    let rows: Vec<TenantRow> = db
-        .select(TENANT_TABLE)
-        .await
-        .map_err(|e| e.to_string())?;
+    let rows: Vec<TenantRow> = db.select(TENANT_TABLE).await.map_err(|e| e.to_string())?;
     Ok(rows.into_iter().map(TenantRow::into_tenant).collect())
 }
 

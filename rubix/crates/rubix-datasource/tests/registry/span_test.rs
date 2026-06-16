@@ -44,7 +44,8 @@ async fn a_query_spans_surrealdb_and_the_registered_connector() {
     // The native `record` table and the connector's `"mirror"."record"` table
     // both reflect the principal's scope; the union spans both sources.
     let sql = r#"SELECT id FROM record UNION ALL SELECT id FROM "mirror"."record""#;
-    let batches = span(&registry, handle.raw(), &session, sql)
+    let cache = ContextCache::default();
+    let batches = span(&registry, handle.raw(), &session, &cache, sql)
         .await
         .expect("spanning query runs");
     let rows: usize = batches.iter().map(|b| b.num_rows()).sum();
@@ -59,7 +60,8 @@ async fn the_spanning_query_is_gated_on_external_query() {
         scoped_session_for(&handle, database, "mallory", Role::Operator).await;
 
     let registry = Registry::with_native_default();
-    let err = span(&registry, handle.raw(), &session, "SELECT id FROM record")
+    let cache = ContextCache::default();
+    let err = span(&registry, handle.raw(), &session, &cache, "SELECT id FROM record")
         .await
         .expect_err("ungranted span must be denied");
     assert!(matches!(err, DatasourceError::Denied), "got {err:?}");
@@ -73,12 +75,14 @@ async fn a_query_naming_an_unregistered_datasource_fails_to_plan() {
     grant(&handle, &principal, Capability::ExternalQuery).await;
 
     let registry = Registry::with_native_default();
+    let cache = ContextCache::default();
     // `ghost` is not a registered datasource, so its table is not in the catalog;
     // DataFusion cannot resolve the name and the query fails rather than escaping.
     let err = span(
         &registry,
         handle.raw(),
         &session,
+        &cache,
         r#"SELECT id FROM "ghost"."record""#,
     )
     .await

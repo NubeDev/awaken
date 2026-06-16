@@ -19,6 +19,7 @@ use datafusion::arrow::array::{Array, Int64Array, StringArray};
 use rubix_core::Role;
 use rubix_datasource::{DatasourceError, PostgresConnector, Registry, register, span};
 use rubix_gate::Capability;
+use rubix_query::ContextCache;
 
 use fixture::open::{grant, open_datasource_store, scoped_session_for};
 
@@ -61,10 +62,12 @@ async fn a_query_spans_surrealdb_and_live_postgres() {
     // aggregate (`count(measure)`) is used rather than `count(*)`: the latter
     // projects zero columns, which trips a DataFusion/table-providers schema
     // mismatch on the external scan.
+    let cache = ContextCache::default();
     let batches = span(
         &registry,
         handle.raw(),
         &session,
+        &cache,
         "SELECT count(measure) AS n FROM \"warehouse\".\"sensor_readings\"",
     )
     .await
@@ -82,6 +85,7 @@ async fn a_query_spans_surrealdb_and_live_postgres() {
         &registry,
         handle.raw(),
         &session,
+        &cache,
         "SELECT measure, count(measure) AS n FROM \"warehouse\".\"sensor_readings\" \
          GROUP BY measure ORDER BY measure",
     )
@@ -125,10 +129,12 @@ async fn the_span_query_fails_closed_without_external_query() {
         .await
         .expect("register the warehouse connector");
 
+    let cache = ContextCache::default();
     let err = span(
         &registry,
         handle.raw(),
         &session,
+        &cache,
         "SELECT count(*) FROM \"warehouse\".\"sensor_readings\"",
     )
     .await

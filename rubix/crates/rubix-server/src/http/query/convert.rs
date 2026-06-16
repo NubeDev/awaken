@@ -38,10 +38,10 @@ pub fn convert_rows(rows: &mut [Value], quantities: &HashMap<String, String>, sy
             continue;
         };
         for (col, quantity) in &resolved {
-            if let Some(value) = object.get(col.as_str()) {
-                if let Ok(converted) = convert_json(value, *quantity, system) {
-                    object.insert((*col).clone(), converted);
-                }
+            if let Some(value) = object.get(col.as_str())
+                && let Ok(converted) = convert_json(value, *quantity, system)
+            {
+                object.insert((*col).clone(), converted);
             }
         }
     }

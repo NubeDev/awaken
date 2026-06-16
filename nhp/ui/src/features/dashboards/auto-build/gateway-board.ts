@@ -12,8 +12,12 @@ import type {
   Net485Params,
   NetEthernetParams,
   NetworkRecord,
+  RegisterRec,
 } from '@/api/records'
-import { gatewayTag, networkTag } from '@/enums/tags'
+import { gatewayTag, meterTag, networkTag } from '@/enums/tags'
+import type { HistorySample } from '../query/batch'
+import { resolveWindow, type WindowToken } from '../query/time-window'
+import { energyTrend, type EnergyTrend } from './energy-trend'
 import type { RollupStatus } from '../widgets/status-tile'
 
 /** One network's device utilisation against its cap, plus a human params hint. */
@@ -41,6 +45,15 @@ export interface GatewayKpis {
   metersOnline: number
 }
 
+/** One meter under the gateway: identity + status + its energy (kWh) trend. */
+export interface MeterRow {
+  id: string
+  name: string
+  status: string
+  lastSeen?: string
+  energy: EnergyTrend
+}
+
 export interface GatewayBoard {
   status: RollupStatus
   lastSeen?: string
@@ -48,6 +61,7 @@ export interface GatewayBoard {
   host?: string
   kpis: GatewayKpis
   networks: NetworkRow[]
+  meters: MeterRow[]
 }
 
 /** Build the params hint shown under a network's name (serial vs tcp shapes). */
@@ -66,7 +80,10 @@ export function buildGatewayBoard(
   gatewayKey: string,
   gateways: GatewayRecord[],
   networks: NetworkRecord[],
-  meters: MeterRecord[]
+  meters: MeterRecord[],
+  registers: RegisterRec[],
+  history: HistorySample[],
+  window: WindowToken
 ): GatewayBoard | null {
   const gw = gateways.find((g) => g.content.key === gatewayKey)
   if (!gw) return null
@@ -74,6 +91,7 @@ export function buildGatewayBoard(
   const gTag = gatewayTag(gatewayKey)
   const gwNetworks = networks.filter((n) => (n.content.tags ?? []).includes(gTag))
   const gwMeters = meters.filter((m) => (m.content.tags ?? []).includes(gTag))
+  const resolved = resolveWindow(window)
 
   const rows: NetworkRow[] = gwNetworks
     .map((net) => {
@@ -99,6 +117,16 @@ export function buildGatewayBoard(
     metersOnline: gwMeters.filter((m) => m.content.status === 'online').length,
   }
 
+  const meterRows: MeterRow[] = gwMeters
+    .map((m) => ({
+      id: m.id,
+      name: m.content.name,
+      status: m.content.status ?? 'unknown',
+      lastSeen: m.content.last_seen,
+      energy: energyTrend(meterTag(m.content.key), registers, history, resolved),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   return {
     status: (gw.content.status as RollupStatus) ?? 'unknown',
     lastSeen: gw.content.last_seen,
@@ -106,5 +134,6 @@ export function buildGatewayBoard(
     host: gw.content.host,
     kpis,
     networks: rows,
+    meters: meterRows,
   }
 }

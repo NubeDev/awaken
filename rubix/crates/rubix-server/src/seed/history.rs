@@ -2,31 +2,25 @@
 //!
 //! Topology records (sites, equipment, points) describe the plant; the readings
 //! generated here give the query surface something to roll up. Each point gets
-//! one sample per hour over the trailing window, carrying its own `ts` in the
-//! content (the gate stamps every row `created = now`, so the spread must live in
-//! the payload for `GROUP BY` time-bucket queries to mean anything). Values are
-//! deterministic — a fixed wave, not randomness — so a seeded store is
-//! reproducible and a diff of two runs is empty.
+//! one sample per hour over the trailing window as a [`Reading`] in the data
+//! plane — `at` carries the measurement instant (the query layer buckets on it,
+//! never on receive-time `created`), so the trailing spread is real history.
+//! Values are deterministic — a fixed wave, not randomness — so a seeded store is
+//! reproducible and a diff of two runs is empty. Display metadata (`unit`,
+//! `measure`, …) lives on the point record the `series` id points at, not copied
+//! onto every lean sample.
 
 use chrono::{DateTime, Duration, Utc};
-use rubix_core::Id;
-use serde_json::{Value, json};
+use rubix_core::{Id, Reading};
+use serde_json::json;
 
 /// Hours of trailing history generated per point (one sample per hour).
 const HISTORY_HOURS: i64 = 24;
 
 /// A point's reading shape, enough to synthesize its trailing samples.
 pub struct Series<'a> {
-    /// The owning point's record id (readings key off it).
+    /// The owning point's record id — the `series` every sample keys off.
     pub point_id: &'a Id,
-    /// What the point measures, e.g. `temp` / `kw` / `flow`.
-    pub measure: &'a str,
-    /// The engineering unit, e.g. `degC` / `kW` / `L/min`.
-    pub unit: &'a str,
-    /// The point's domain (`hvac` / `energy` / `water`).
-    pub domain: &'a str,
-    /// The owning site key.
-    pub site: &'a str,
     /// The central value the wave oscillates around (or the rate, if cumulative).
     pub base: f64,
     /// The peak deviation from `base` for an oscillating point.
@@ -35,25 +29,24 @@ pub struct Series<'a> {
     pub cumulative: bool,
 }
 
-/// Build the trailing-window reading records for one point as `(id, content)`
-/// pairs, oldest first, ending at `now`.
-pub fn readings(series: &Series, now: DateTime<Utc>) -> Vec<(Id, Value)> {
+/// Build the trailing-window [`Reading`]s for one point in `namespace`, oldest
+/// first, ending at `now`.
+///
+/// The `series` is the bare point id; content stays lean (`{}`) — the point
+/// record carries the display metadata. Ids are derived from `(series, at)`, so a
+/// re-seed re-appends the same rows idempotently.
+pub fn readings(series: &Series, namespace: &str, now: DateTime<Utc>) -> Vec<Reading> {
     (0..HISTORY_HOURS)
         .map(|i| {
             let ts = now - Duration::hours(HISTORY_HOURS - 1 - i);
             let value = sample(series, i);
-            let id = Id::from_raw(format!("{}--r{i}", series.point_id.as_str()));
-            let content = json!({
-                "kind": "reading",
-                "point": series.point_id.as_str(),
-                "measure": series.measure,
-                "domain": series.domain,
-                "site": series.site,
-                "ts": ts.to_rfc3339(),
-                "value": value,
-                "unit": series.unit,
-            });
-            (id, content)
+            Reading::new(
+                namespace,
+                series.point_id.as_str(),
+                ts.into(),
+                value,
+                json!({}),
+            )
         })
         .collect()
 }

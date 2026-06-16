@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/table'
 import { useDeleteSite, useGateways, useSites, useTenants } from './hooks'
 import { SiteForm } from './site-form'
-import { SiteMap } from './site-map'
 
 export function SiteList() {
   const sites = useSites()
@@ -54,8 +53,6 @@ export function SiteList() {
           <Plus className='mr-1 size-4' /> New site
         </Button>
       </div>
-
-      <SiteMap />
 
       <Card className='overflow-x-auto p-0'>
         <Table>

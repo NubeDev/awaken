@@ -229,6 +229,8 @@ export function DashboardPage() {
       {top?.level === 'gateway' && (
         <GatewayPage
           gatewayKey={top.key}
+          window={window}
+          history={history.data ?? []}
           onOpenMeter={(id) =>
             openMeter(search.site ?? '', top.key, id)
           }

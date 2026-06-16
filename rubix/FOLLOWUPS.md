@@ -69,14 +69,16 @@ slots into the historian seam landed here without a refactor.
   `Record`-typed) was left untouched; reading batches are ordered inline by
   `(created, id)`.
 
-## Out of explicit scope but worth a follow-up
+## Done since the readings pass
 
-- **The Rust `--seed-dev` demo seed still writes `kind:"reading"` records into the
-  `record` table** (`rubix/crates/rubix-server/src/seed/history.rs`). The explicit
-  step-4 scope was the NHP seed (`nhp/seed/*`), which now writes to the `reading`
-  data plane. The server-side demo seed is a separate fixture; moving it onto
-  `append_readings` (so `--seed-dev` history also lands in `reading`, off the
-  command gate) is a clean, additive follow-up that mirrors the NHP seed change.
+- **The Rust `--seed-dev` demo seed now writes into the `reading` data plane.**
+  Previously it wrote `kind:"reading"` records into the `record` table through the
+  command gate. `seed/history.rs` now builds lean [`Reading`]s keyed off the bare
+  point id (`series`, `at`, `value`; display metadata stays on the point record),
+  and `seed/portfolio.rs` appends each point's trailing window via
+  `append_readings` off the gate — mirroring the NHP seed and the live
+  ingest/append path. Re-seed stays idempotent (deterministic `(series, at)` ids),
+  and the per-reading tag-graph attach is dropped (readings are not records).
 
 ## Environment-blocked verification (NOT a code issue)
 

@@ -4,28 +4,53 @@
  * and the meter list (drill into a meter page). Pure builder (gateway-board.ts);
  * every number is an honest rollup of the fetched records (no fabricated values).
  */
-import { Cable, Cpu, Gauge, Network as NetworkIcon, Router } from 'lucide-react'
+import { Cable, ChevronRight, Cpu, Gauge, Network as NetworkIcon, Router } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { useGateways, useMeters, useNetworks } from '../query/batch'
-import { gatewayTag } from '@/enums/tags'
-import { buildGatewayBoard, type NetworkRow } from '../auto-build/gateway-board'
+import { Sparkline } from '@/components/charts/sparkline'
+import {
+  useGateways,
+  useMeters,
+  useNetworks,
+  useRegisters,
+  type HistorySample,
+} from '../query/batch'
+import type { WindowToken } from '../query/time-window'
+import {
+  buildGatewayBoard,
+  type MeterRow,
+  type NetworkRow,
+} from '../auto-build/gateway-board'
+import { formatValue } from '../_shared/format-value'
 import { KpiTile } from '../widgets/kpi-tile'
 import { StatusPill } from '../widgets/status-tile'
 import { Empty } from '../widgets/empty'
 
 export function GatewayPage({
   gatewayKey,
+  window,
+  history,
   onOpenMeter,
 }: {
   gatewayKey: string
+  window: WindowToken
+  history: HistorySample[]
   onOpenMeter: (meterId: string, name: string) => void
 }) {
   const gateways = useGateways()
   const networks = useNetworks()
   const meters = useMeters()
+  const registers = useRegisters()
 
-  if (gateways.isLoading || networks.isLoading || meters.isLoading) {
+  if (gateways.isLoading || networks.isLoading || meters.isLoading || registers.isLoading) {
     return <Empty message='Loading…' />
   }
 
@@ -33,14 +58,14 @@ export function GatewayPage({
     gatewayKey,
     gateways.data ?? [],
     networks.data ?? [],
-    meters.data ?? []
+    meters.data ?? [],
+    registers.data ?? [],
+    history,
+    window
   )
   if (!board) return <Empty message='Gateway not found' />
 
-  const gTag = gatewayTag(gatewayKey)
-  const gwMeters = (meters.data ?? [])
-    .filter((m) => (m.content.tags ?? []).includes(gTag))
-    .sort((a, b) => a.content.name.localeCompare(b.content.name))
+  const energyUnit = board.meters.find((m) => m.energy.unit)?.energy.unit
 
   const { kpis } = board
 
@@ -104,35 +129,65 @@ export function GatewayPage({
         )}
       </Card>
 
-      {/* Meters — drill into a meter page. */}
-      <Card className='gap-0 p-4'>
-        <div className='mb-3 text-sm font-medium'>Meters</div>
-        {gwMeters.length === 0 ? (
+      {/* Meters — status + energy (kWh) sparkline; drill into a meter page. */}
+      <Card className='gap-0 overflow-hidden p-0'>
+        <div className='border-b px-4 py-3 text-sm font-medium'>Meters</div>
+        {board.meters.length === 0 ? (
           <Empty message='No meters' />
         ) : (
-          <ul className='divide-y'>
-            {gwMeters.map((m) => (
-              <li
-                key={m.id}
-                className='hover:bg-muted/50 -mx-2 flex cursor-pointer items-center justify-between rounded-md px-2 py-2.5 text-sm transition-colors'
-                onClick={() => onOpenMeter(m.id, m.content.name)}
-              >
-                <span className='flex items-center gap-2.5'>
-                  <span className='bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-md'>
-                    <Cable className='size-3.5' />
-                  </span>
-                  <span className='font-medium'>{m.content.name}</span>
-                </span>
-                <StatusPill
-                  status={(m.content.status as never) ?? 'unknown'}
-                  lastSeen={m.content.last_seen}
-                />
-              </li>
-            ))}
-          </ul>
+          <Table>
+            <TableHeader>
+              <TableRow className='hover:bg-transparent'>
+                <TableHead>Meter</TableHead>
+                <TableHead className='w-48'>Energy ({energyUnit ?? 'kWh'})</TableHead>
+                <TableHead className='text-right'>Status</TableHead>
+                <TableHead className='w-8' />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {board.meters.map((m) => (
+                <MeterRowItem key={m.id} meter={m} onOpen={() => onOpenMeter(m.id, m.name)} />
+              ))}
+            </TableBody>
+          </Table>
         )}
       </Card>
     </div>
+  )
+}
+
+function MeterRowItem({ meter, onOpen }: { meter: MeterRow; onOpen: () => void }) {
+  return (
+    <TableRow className='group cursor-pointer' onClick={onOpen}>
+      <TableCell>
+        <div className='flex items-center gap-2.5'>
+          <span className='bg-muted text-muted-foreground flex size-7 items-center justify-center rounded-md'>
+            <Cable className='size-3.5' />
+          </span>
+          <span className='font-medium'>{meter.name}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className='flex items-center gap-3'>
+          <span className='w-20 text-sm font-medium tabular-nums'>
+            {formatValue(meter.energy.latest, { precision: 0 })}
+          </span>
+          <div className='h-8 flex-1'>
+            {meter.energy.points.length > 1 ? (
+              <Sparkline points={meter.energy.points} color='var(--chart-5)' height={32} />
+            ) : (
+              <span className='text-muted-foreground text-xs'>—</span>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className='text-right'>
+        <StatusPill status={(meter.status as never) ?? 'unknown'} lastSeen={meter.lastSeen} />
+      </TableCell>
+      <TableCell>
+        <ChevronRight className='text-muted-foreground/40 group-hover:text-muted-foreground size-4 transition-colors' />
+      </TableCell>
+    </TableRow>
   )
 }
 

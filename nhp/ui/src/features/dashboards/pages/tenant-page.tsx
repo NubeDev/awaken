@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { Sparkline } from '@/components/charts/sparkline'
+import { SiteMap } from '@/features/sites'
 import {
   useGateways,
   useMeters,
@@ -90,6 +91,8 @@ export function TenantPage({
           alarm={totalAlarms > 0}
         />
       </div>
+
+      <SiteMap tenantKey={tenantKey} height={320} />
 
       <Card className='gap-0 overflow-hidden p-0'>
         <div className='border-b px-4 py-3 text-sm font-medium'>Sites</div>

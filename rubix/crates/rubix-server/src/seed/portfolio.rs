@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use rubix_core::{Id, Principal, Tag, attach_tag, create_tag};
+use rubix_core::{Id, Principal, Tag, append_readings, attach_tag, create_tag};
 use rubix_gate::{Capability, Change, Command, apply};
 use serde_json::{Value, json};
 use surrealdb::Surreal;
@@ -321,19 +321,19 @@ pub async fn seed_tenant(
 
                 let series = Series {
                     point_id: &point_id,
-                    measure: point.measure,
-                    unit: point.unit,
-                    domain: equip.domain,
-                    site: site_key,
                     base: point.base,
                     swing: point.swing,
                     cumulative: point.cumulative,
                 };
-                for (reading_id, content) in readings(&series, now) {
-                    put(db, operator, &reading_id, content).await?;
-                    attach(db, &reading_id, &["reading", equip.domain], tags).await?;
-                    tally.readings += 1;
-                }
+                // Readings append into the data plane (`reading` table), never the
+                // command gate — so the demo seed's history matches the NHP seed
+                // and the live ingest/append path, not the legacy `kind:"reading"`
+                // record shape.
+                let batch = readings(&series, namespace, now);
+                tally.readings += batch.len();
+                append_readings(db, &batch)
+                    .await
+                    .map_err(|e| SeedError::new("append readings", e))?;
             }
         }
     }

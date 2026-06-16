@@ -38,8 +38,12 @@ export const nhpNavGroups: NavGroup[] = [
         icon: Settings2,
         // Meter-types is WS-04; gateways/networks + users are WS-05.
         items: [
-          { title: 'Meter-types', url: '/admin/meter-types' },
+          { title: 'Tenants', url: '/admin/tenants' },
+          { title: 'Sites', url: '/admin/sites' },
           { title: 'Gateways', url: '/admin/gateways' },
+          { title: 'Meters', url: '/admin/meters' },
+          { title: 'Meter-types', url: '/admin/meter-types' },
+          { title: 'Data Console', url: '/admin/data-console' },
           { title: 'Users', url: '/admin/users' },
         ],
       },

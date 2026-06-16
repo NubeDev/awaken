@@ -7,7 +7,7 @@
  * Shown in a dialog from the meter-type list. The QR encodes exactly what the scan
  * wizard decodes back to this meter-type — the round-trip the unit test guards.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { Download, Printer } from 'lucide-react'
 import type { MeterTypeRecord } from '@/api/records'
@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { BarcodePreview } from './barcode-preview'
 
 interface BarcodeLabelProps {
   type: MeterTypeRecord
@@ -29,16 +30,12 @@ interface BarcodeLabelProps {
 
 export function BarcodeLabel({ type, open, onOpenChange }: BarcodeLabelProps) {
   const code = barcodeFor(type)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [dataUrl, setDataUrl] = useState('')
 
-  // Render the QR once the dialog is open and the canvas mounted. `qrcode` draws
-  // to the canvas and we also keep a PNG data-URL for download/print.
+  // The on-screen QR is BarcodePreview; here we keep a high-res PNG data-URL for the
+  // download/print affordances (printed at 360px, so render at 480 for crispness).
   useEffect(() => {
-    if (!open || !canvasRef.current) return
-    QRCode.toCanvas(canvasRef.current, code, { width: 240, margin: 2 }).catch(
-      () => undefined
-    )
+    if (!open) return
     QRCode.toDataURL(code, { width: 480, margin: 2 })
       .then(setDataUrl)
       .catch(() => setDataUrl(''))
@@ -81,7 +78,7 @@ export function BarcodeLabel({ type, open, onOpenChange }: BarcodeLabelProps) {
           </DialogDescription>
         </DialogHeader>
         <div className='flex flex-col items-center gap-3'>
-          <canvas ref={canvasRef} className='rounded border' />
+          <BarcodePreview code={code} size={240} />
           <code className='text-muted-foreground text-xs'>{code}</code>
           <div className='flex gap-2'>
             <Button variant='outline' size='sm' onClick={print} disabled={!dataUrl}>

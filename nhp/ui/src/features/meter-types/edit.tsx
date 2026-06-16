@@ -12,6 +12,7 @@ import { encodeBarcode } from '@/enums/barcode'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BarcodePreview } from './barcode-preview'
 import { RegisterTable } from './register-table'
 import { useCreateMeterType, useUpdateMeterType } from './hooks'
 
@@ -151,24 +152,31 @@ export function MeterTypeEditor({ state, onDone }: MeterTypeEditorProps) {
         </div>
       </div>
 
-      <div className='grid max-w-2xl gap-1'>
-        <Label htmlFor='mt-barcode'>Scan barcode</Label>
-        <Input
-          id='mt-barcode'
-          value={effectiveBarcode}
-          onChange={(e) => {
-            setBarcodeCustom(true)
-            setBarcode(e.target.value)
-          }}
-          placeholder='nhp-mt:acme-pm5560'
-          className='font-mono text-xs'
-        />
-        <p className='text-muted-foreground text-xs'>
-          The printable scan code for this type (WS-09). Defaults to{' '}
-          <code>nhp-mt:&lt;key&gt;</code> and tracks the key; the scan-to-add wizard
-          decodes it back to this meter-type. Print the label from the meter-type
-          list.
-        </p>
+      <div className='flex max-w-2xl items-start gap-4'>
+        <div className='grid flex-1 gap-1'>
+          <Label htmlFor='mt-barcode'>Scan barcode</Label>
+          <Input
+            id='mt-barcode'
+            value={effectiveBarcode}
+            onChange={(e) => {
+              setBarcodeCustom(true)
+              setBarcode(e.target.value)
+            }}
+            placeholder='nhp-mt:acme-pm5560'
+            className='font-mono text-xs'
+          />
+          <p className='text-muted-foreground text-xs'>
+            The printable scan code for this type (WS-09). Defaults to{' '}
+            <code>nhp-mt:&lt;key&gt;</code> and tracks the key; the scan-to-add
+            wizard decodes it back to this meter-type. Print the label from the
+            meter-type list.
+          </p>
+        </div>
+        {/* Live preview — the QR updates as you edit the key/code, before saving. */}
+        <div className='flex flex-col items-center gap-1'>
+          <BarcodePreview code={effectiveBarcode} />
+          <span className='text-muted-foreground text-[11px]'>Preview</span>
+        </div>
       </div>
 
       <div>

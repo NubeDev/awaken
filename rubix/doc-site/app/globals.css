@@ -1,0 +1,51 @@
+/* Doc-site global overrides on top of the Nextra docs theme. */
+
+/* Give every page a bit more room than the theme default (90rem) — prose still
+   reads fine and the wider reference/table pages stop feeling cramped. */
+:root {
+  --nextra-content-width: 100rem;
+}
+
+/* The API Explorer (Scalar) is a dense two-pane reference that wants the full
+   viewport, not the prose column. `full-bleed` breaks the embed out of the
+   centered content container and drops the article's reading padding so Scalar
+   can use the whole width between the sidebar and the window edge. */
+.rubix-api-explorer {
+  /* Cancel the article's horizontal padding for this block. */
+  margin-inline: calc(-1 * max(env(safe-area-inset-left), 1.5rem))
+    calc(-1 * max(env(safe-area-inset-right), 1.5rem));
+}
+
+/* Let Scalar manage its own height; give it a tall, scrollable viewport so the
+   reference isn't squeezed into a short box. */
+.rubix-api-explorer .scalar-app,
+.rubix-api-explorer .scalar-api-reference {
+  min-height: calc(100vh - 8rem);
+}
+
+/* Mermaid diagrams.
+
+   Nextra's <Mermaid> renders an SVG that Mermaid sizes to its intrinsic width.
+   Mermaid caps the SVG at that intrinsic width, so a wide graph (e.g. the ER
+   diagram) gets shrunk into the prose column and becomes unreadable. Force the
+   SVG to use the full content width and scale up; give genuinely wide diagrams a
+   readable floor with horizontal scroll on the container instead of squashing.
+
+   Mermaid SVGs are the only ones carrying `aria-roledescription` (its value is
+   the diagram type — flowchart-v2, er, statediagram…), so we target them without
+   depending on Nextra's wrapper markup. */
+svg[aria-roledescription] {
+  width: 100%;
+  max-width: 100%;
+  /* Readable floor — below this the diagram scrolls rather than crushing. */
+  min-width: 44rem;
+  height: auto;
+  display: block;
+  margin-inline: auto;
+}
+
+/* The Mermaid component renders its SVG inside a plain <div>; let that wrapper
+   scroll horizontally when the floor above exceeds the viewport. */
+div:has(> svg[aria-roledescription]) {
+  overflow-x: auto;
+}

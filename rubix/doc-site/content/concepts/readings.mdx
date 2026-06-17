@@ -1,0 +1,42 @@
+---
+title: Readings (Time-Series)
+---
+
+# Readings (Time-Series)
+
+High-volume, append-only time-series — meter readings, sensor samples — live in a
+**distinct readings plane**, separate from the config-plane record store. They are
+written, queried, rolled up, and aged out on their own path.
+
+## A sample is `(series, at, value)`
+
+Samples land in a dedicated `reading` table via `POST /readings`. This is a **data-plane
+write**: it bypasses the command gate (no audit row, no undo per sample) but is checked
+once per request against the `readings-append` capability, fail-closed. A deterministic
+`(series, at)` id makes re-append and sync-replay idempotent.
+
+## Measurement-time, not write-time
+
+Aggregation buckets on the typed `at` column (when the measurement happened), not the
+`created` write time. A back-dated sample lands in its correct historical bucket rather
+than collapsing onto "now."
+
+## Windowed reads
+
+Charts query one series over one window — `GET /readings?series=…&from=…&to=…` — which
+issues a filtered, index-served range scan, never a full-table pull. Reads run on the
+scoped session, so a principal only sees its own namespace's readings.
+
+## Retention & rollups
+
+A cheap range-delete sweep removes samples older than a cutoff by measurement time.
+Raw samples can be rolled up into epoch-aligned buckets at any grain
+(minute/hour/day/week); a persistent rollup table and a scheduled fold are deferred until
+cardinality demands them.
+
+## Sync
+
+Readings ship edge→cloud keyed by their deterministic `(series, at)` id, so a replayed
+sample is a no-op — the same idempotent contract as records, no new merge logic.
+
+The full design lives in the internal `READINGS-TIMESERIES.md` spec.

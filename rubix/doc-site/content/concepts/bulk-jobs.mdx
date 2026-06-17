@@ -1,0 +1,41 @@
+---
+title: Bulk & Jobs
+---
+
+# Bulk & Jobs
+
+A spine for work that may not finish inside one request: bulk writes and wide streaming
+reads promote to **background jobs** with a ticketed WebSocket channel for progress.
+
+## Tiered execution
+
+- **Tier 1 (synchronous).** `POST /records/bulk` runs each item through the gate with
+  per-item isolation and returns `200` if it finishes by a soft deadline (~10s).
+- **Tier 2 (promoted).** If the deadline passes — or for `POST /query` with
+  `stream: true` — the request returns `202` with a **job id** and keeps running in the
+  background.
+
+## Job tickets & registry
+
+A **job ticket** is a short-TTL (~15 min), hashed-at-rest bearer credential, scoped
+narrower than a session token. A live job lives in an in-memory **registry** with
+per-principal and per-namespace caps (over the cap → `429`). Terminal jobs are evicted
+after a grace window by a background sweeper, which also reaps expired tickets.
+
+## Progress channel
+
+`GET /ws/jobs/{id}` streams typed frames (`Item` / `Chunk` / `Done` / `Failed`). The
+ticket is presented via the WebSocket **subprotocol** (browser-friendly, not a query
+string). A backlog ring replays recent frames to a late or reconnecting subscriber, then
+tails the live broadcast until terminal.
+
+## Polling & cancel
+
+- `GET /bulk/jobs/{id}` — status always; **poll-transport** jobs (bulk CRUD) also return
+  the buffered per-item result; **stream-transport** jobs (queries) are status-only with
+  a hint to consume the WS.
+- `DELETE /bulk/jobs/{id}` — cancels and eagerly revokes the ticket.
+
+After a restart the registry is empty, so an orphan ticket resolves to `404` ("job
+unknown"), not an auth error — a safe failure. The full design lives in the internal
+`BULK-AND-JOBS.md` spec.

@@ -2,6 +2,7 @@ import { Footer, Layout, Navbar } from 'nextra-theme-docs'
 import { Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import 'nextra-theme-docs/style.css'
+import './globals.css'
 
 // Source repo link. Set DOCS_REPO_URL in the environment to point the navbar /
 // "Edit this page" links at the repository. Defaults to a neutral placeholder.
@@ -27,12 +28,18 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
-      <body>
+      {/* Browser extensions (ColorZilla, Grammarly, …) inject attributes like
+          `cz-shortcut-listen` onto <body> before React hydrates, which trips a
+          hydration mismatch warning. Suppress it here — same as on <html>. */}
+      <body suppressHydrationWarning>
         <Layout
           navbar={navbar}
           footer={footer}
           pageMap={pageMap}
           docsRepositoryBase={`${repoUrl}/tree/main/doc-site`}
+          // Show the collapse control so readers can fold the sidebar away and
+          // give wide pages (like the API Explorer) the full width.
+          sidebar={{ toggleButton: true, defaultMenuCollapseLevel: 1 }}
         >
           {children}
         </Layout>

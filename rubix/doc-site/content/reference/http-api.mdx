@@ -11,12 +11,26 @@ it rather than hand-maintaining endpoint lists.
 
 ## Surfaces (high level)
 
-- **Records / collections** — typed CRUD over the generic record store, with
-  tag-based listing and filtered realtime.
-- **Query** — run queries across registered datasources, with templating and
-  rendering for charts.
-- **Admin / control plane** — manage principals, capability grants, tenants, and
-  devices.
-- **Extensions** — register, start, stop, and inspect extensions.
+- **Records / collections** — typed CRUD over the generic record store
+  (`/records`, `/ws/records`), with `kind`/tag listing and filtered realtime.
+- **Readings** — append-only time-series append and windowed reads
+  (`/readings`).
+- **Query** — run queries across registered datasources, batched and streaming,
+  with variable templating and chart rendering (`/query`, `/query/batch`).
+- **Rules** — author, dry-run, and inspect rules; discover bindable fields
+  (`/rules`, `/rules/:name/dryrun`, `/rules/catalog`).
+- **Files** — upload and download blob-backed file fields (`/files`).
+- **Preferences** — per-principal unit system, datetime pattern, timezone
+  (`/prefs`).
+- **Admin / control plane** — manage principals, capability grants, teams,
+  tenants, and devices.
+- **Extensions** — list, drive lifecycle, and inspect process/metrics/health
+  (`/extensions`).
+- **Jobs** — poll and cancel promoted background jobs and consume their progress
+  channel (`/bulk/jobs`, `/ws/jobs/:id`).
+- **Auth** — login and identity (`/auth/login`, `/auth/me`).
 
-> Placeholder. Wire this page to the generated OpenAPI document when published.
+For the full, interactive endpoint reference — every path, schema, and
+example, generated from the OpenAPI document — see the
+[API Explorer](/reference/api-explorer). The raw spec is published at
+[`/openapi.json`](/openapi.json).

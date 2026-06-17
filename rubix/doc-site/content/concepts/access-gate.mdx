@@ -1,0 +1,40 @@
+---
+title: Access Gate & Principals
+---
+
+# Access Gate & Principals
+
+Everything that talks to Rubix is a **scoped principal** — a user or an extension,
+authenticated and authorized the same way. Authorization splits into two paths that are
+deliberately never conflated.
+
+## Two paths
+
+- **Commands go through the gate.** Every mutation is submitted as a `Command`. The gate
+  authorizes it against the principal's capability grants (fail-closed), writes an
+  immutable audit row, records an undo, and mints a **correlation id** — then applies it.
+- **Reads are SurrealDB-native.** Reads and live subscriptions run on the **scoped
+  SurrealDB session** the gate issues at authentication. SurrealDB's own row-level
+  permissions decide what is visible — reads are not proxied message-by-message.
+
+Native record reads are therefore **not a capability** — they are row-permission scoped.
+Cross-plane actions (registering a datasource, defining a rule, actuating a device) are
+**capability grants** from a closed, fail-closed allow-set: an unknown capability is
+denied, so every new surface is a deliberate addition.
+
+## Principals
+
+A principal is `{ subject, namespace, kind, role }`. `kind` distinguishes a user from an
+extension service account; they share one identity model and one set of management
+endpoints. The `namespace` **field** (not the connection namespace) is the tenant
+boundary — the gate binds it to `$auth.namespace`, and row permissions key reads off it.
+Subjects are stored namespace-prefixed (`{namespace}_{subject}`) for per-tenant subject
+spaces over a global record key.
+
+## The control plane
+
+The admin/control surfaces — principals, capability grants, teams, tenants, devices —
+all cross the gate as commands, are audited, and are per-namespace by construction. A
+**team** groups principals; a capability granted to a team flows to its members. See the
+[HTTP API reference](/reference/http-api) for the surfaces, and the internal
+`ADMIN-API.md` design spec for the full contract.

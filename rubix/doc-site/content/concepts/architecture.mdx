@@ -22,6 +22,101 @@ layers below all attach around SurrealDB.
 | **Ingestion / transport** | Zenoh streams data in and carries edge↔cloud transport. |
 | **Internal events** | Tokio channels decouple in-process components. |
 
+## Full-stack overview
+
+Every box below is a crate (or a frontend surface). Mutations descend through
+the access gate; reads run on a gate-issued scoped session straight against the
+store. Everything attaches around SurrealDB.
+
+```mermaid
+flowchart TB
+  subgraph Client["Client surfaces"]
+    UI["Dashboards · Boards<br/>(React · Vite · TanStack)"]
+    EXTUI["Extension UIs<br/>(Module Federation)"]
+    API["HTTP / WS clients"]
+  end
+
+  subgraph Server["rubix-server — HTTP transport (Axum · WS · OpenAPI)"]
+    direction LR
+    R1["/records · /readings<br/>/query · /rules"]
+    R2["/datasources · /files<br/>/teams · /principals"]
+    R3["/extensions · /agent<br/>/jobs · /prefs"]
+  end
+
+  subgraph Core["Core services"]
+    direction LR
+    GATE["rubix-gate<br/>authz · audit · undo<br/>correlation id"]
+    QUERY["rubix-query<br/>DataFusion · templates<br/>aggregation"]
+    RULES["rubix-rules<br/>Rhai engine · insights"]
+    DS["rubix-datasource<br/>connectors"]
+    EXT["rubix-ext<br/>supervisor · metrics"]
+    AGENT["rubix-agent<br/>brain · memory · tiers"]
+  end
+
+  subgraph Cross["Cross-cutting"]
+    direction LR
+    BUS["rubix-bus<br/>in-proc + live-query"]
+    TRACE["rubix-trace<br/>correlated spans"]
+    BLOB["rubix-blob<br/>file bytes"]
+  end
+
+  subgraph Edge["Ingestion · transport"]
+    direction LR
+    INGEST["rubix-ingest<br/>Zenoh subscriber"]
+    SYNC["rubix-sync<br/>edge↔cloud shipper"]
+  end
+
+  STORE[("SurrealDB / SurrealKV<br/>document · graph · vector<br/>time-series · auth")]
+
+  Client -->|HTTP / WS| Server
+
+  Server -->|mutations| GATE
+  Server -->|reads: scoped session| STORE
+  Server --> QUERY & RULES & EXT & AGENT
+
+  GATE -->|apply + audit| STORE
+  QUERY --> DS --> STORE
+  RULES --> QUERY
+  RULES -->|record insight| GATE
+  AGENT -->|memory recall| STORE
+  AGENT -->|memory persist| GATE
+  EXT -->|gated lifecycle| GATE
+
+  STORE -.live query.-> BUS
+  GATE -.spans.-> TRACE
+  BUS -.events.-> EXT
+  BUS -.events.-> AGENT
+  BUS -.events.-> RULES
+  Server --> BLOB
+
+  INGEST -->|append samples| GATE
+  SYNC <-->|replicate| STORE
+```
+
+> **The two-path split, visually:** the `mutations → gate → store` arrow and the
+> `reads → store` arrow are the whole model. Audit, undo, correlation and tracing
+> hang off the command path; reads stay unburdened.
+
+### Crate map
+
+| Crate | Responsibility |
+| --- | --- |
+| `rubix-server` | HTTP/WS transport — Axum routes, live-query bridge, OpenAPI. |
+| `rubix-gate` | Authorize · audit · undo · correlation id; scoped-session issuance; capability grants + team inheritance. |
+| `rubix-core` | Domain model (Principal, Record, Tag, Reading, Collection, Hook) + shared contracts. |
+| `rubix-store` | SurrealDB bootstrap, scoped-session issuance, health, schema seam. |
+| `rubix-bus` | Event spine — Tokio in-process channels + SurrealDB live-query pub/sub. |
+| `rubix-query` | DataFusion unification, read-only SQL surface, injection-safe templates, vectorized aggregation. |
+| `rubix-rules` | Embedded Rhai runtime, deterministic composable rules, insight emission. |
+| `rubix-datasource` | Pluggable connectors as DataFusion `TableProvider`s; registry. |
+| `rubix-ingest` | Zenoh subscriber; in-flight pre-processing (decimate · filter · enrich). |
+| `rubix-sync` | Application-level edge↔cloud shipper; append-only conflict model. |
+| `rubix-trace` | Correlated span emission/persistence; bounded retention; tree assembly. |
+| `rubix-ext` | Extension supervisor, per-extension metrics, lifecycle bridge + reconciler. |
+| `rubix-agent` | AI agent provisioning, memory recall/persist, brain wiring. |
+| `rubix-blob` | Namespace-keyed file bytes; pluggable backend. |
+| `rubix-prefs` | Per-user display preferences (units · datetime), applied at the DTO layer. |
+
 ## The two-path authorization model
 
 The most load-bearing design decision: **commands and reads take different
@@ -42,5 +137,3 @@ separate layers.
 The same build runs on a Pi, a Windows box, or in the cloud. Differences are
 configuration only: single namespace vs. namespace-per-tenant, sync on/off, and
 cloud-only add-ons.
-
-> Diagrams and a deeper walkthrough belong here as the platform stabilizes.

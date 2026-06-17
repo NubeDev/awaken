@@ -1,0 +1,150 @@
+---
+title: Collections & Records
+---
+
+# Collections & Records
+
+Rubix has no baked-in domain schema. Everything is a **record** on one generic store;
+structure comes from a record's `kind` and its tags, not a fixed ontology. A
+**collection** turns that schemaless store into a typed, validated backend at runtime —
+without migrations or per-domain code.
+
+## Collections are records
+
+A collection is itself a `kind:"collection"` record. Defining one is a normal gated
+write; its `content.schema` is the contract for every record of that kind. A built-in
+meta-collection seeds idempotently on first boot.
+
+## Typed fields & validation
+
+Collections declare a small closed field set — `text`, `number`, `bool`, `date`,
+`file`, `relation`. On write, the gate validates the record's content against its
+collection's schema **before commit** (required fields, type checks). Unknown kinds
+write unconstrained (the migration ramp) until a namespace flips to **strict mode**,
+which makes validation fail-closed.
+
+## Generic CRUD, filtered
+
+- **Write** through `POST/PATCH/DELETE /records` — every mutation crosses the gate.
+- **List** with `GET /records?kind=…&tag=…` — filters apply *on top of* row-level
+  permissions (they narrow, never widen).
+- **Realtime** with `/ws/records?kind=…` — the same row-filtered live stream, narrowed
+  by kind.
+
+## File fields
+
+A `file` field stores a reference `{ id, filename, size, contentType }`, never raw
+bytes. Bytes go through a separate blob store (`POST /files`, gated on the `FileUpload`
+capability); the returned reference is stored through the normal gated record write. See
+[Hooks & Files](/concepts/hooks-files).
+
+## The stored schema
+
+Most tables are `SCHEMALESS` by design — no domain is baked in. Collections and
+hooks are themselves `record`s (distinguished by `kind`); `reading` is the only
+table with typed columns. Two enforcement layers guard every row: SurrealDB
+row-level permissions (namespace scoping) plus app-enforced capability grants.
+
+```mermaid
+erDiagram
+  PRINCIPAL ||--o{ GRANT : has
+  PRINCIPAL ||--o{ MEMBERSHIP : in
+  TEAM ||--o{ MEMBERSHIP : groups
+  TEAM ||--o{ TEAM_GRANT : "grants flow to members"
+  PRINCIPAL ||--o{ SESSION_TOKEN : authenticates
+  PRINCIPAL ||--o{ AUDIT : "acts → audited"
+
+  RECORD ||--o{ TAGGED : "tagged (graph edge)"
+  TAG ||--o{ TAGGED : labels
+  RECORD ||--o{ READING : "series ← samples"
+  COLLECTION ||--o{ RECORD : "kind contract"
+  HOOK }o--|| RULE : "fires on write"
+
+  JOB_TICKET }o--|| PRINCIPAL : "observes (one job)"
+
+  PRINCIPAL {
+    string id PK "from subject"
+    string namespace
+    string kind "User | Extension"
+    string secret "hashed"
+    string role
+  }
+  GRANT {
+    link principal FK
+    string capability "kebab-case enum"
+  }
+  TEAM {
+    string id PK "namespace:slug"
+    string slug
+    string namespace
+    string display_name
+  }
+  MEMBERSHIP {
+    string id PK "ns:team:subject"
+    string team_slug FK
+    string subject FK
+  }
+  SESSION_TOKEN {
+    string hashed_token PK
+    link principal FK
+    datetime expires
+  }
+  JOB_TICKET {
+    string hashed_token PK
+    string job_id
+    string subject FK
+    datetime expires "~15min TTL"
+  }
+  AUDIT {
+    string id PK
+    link principal FK
+    string correlation_id
+    json before_after "immutable"
+    datetime at
+  }
+  RECORD {
+    string id PK
+    string namespace
+    string kind "type tag"
+    json content
+  }
+  TAG {
+    string id PK
+    string name
+  }
+  TAGGED {
+    link in FK "record"
+    link out FK "tag"
+  }
+  READING {
+    string id PK "from series,at"
+    link series FK "→ record"
+    datetime at "measurement instant"
+    number value
+    string namespace
+  }
+  COLLECTION {
+    string name "kind:collection record"
+    json schema "typed field defs"
+    string listRule
+    string writeRule
+  }
+  HOOK {
+    string match "collection kind"
+    array on "create|update|delete"
+    string rule FK "→ rule id"
+  }
+  RULE {
+    string id PK
+    string script "Rhai"
+    array inputs "time-window bindings"
+    string output "insight kind"
+  }
+```
+
+> Two planes, distinct write paths: the **config/document plane** (`record`,
+> `tag`, `tagged`, and the collection/hook records on top of it) and the
+> high-volume append-only **readings plane**. Agents and extensions have no
+> tables of their own — they are `PRINCIPAL`s of `kind:"Extension"`.
+
+The authoritative contract lives in the internal `BACKEND-COLLECTIONS.md` design spec.

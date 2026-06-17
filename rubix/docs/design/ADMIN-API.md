@@ -20,6 +20,7 @@ path record writes take. There are no owner-handle side writes.
 | **Grants** (capabilities) | `create_grant` / `revoke_grant` / `list_grants` exist | HTTP surface, gate-audited |
 | **Tenants** (namespaces) | resolved per request; compile-time const set | cloud runtime onboarding + a tenant registry record |
 | **Devices** (edge registry) | does not exist | new entity + CRUD + `device-manage` capability |
+| **Teams** (principal groups) | does not exist | groups + memberships + team grants, capabilities inherited by members |
 
 Principals and grants are one identity model (SCOPE §5) — users and extensions are
 the same `Principal`; "user management" and "extension management" are the same
@@ -181,16 +182,18 @@ a control-plane registration, distinct from commanding hardware.
 | PATCH | `/devices/:id` | Admin@ns + `device-manage` | `200` + `DeviceDto` |
 | DELETE | `/devices/:id` | Admin@ns + `device-manage` | `204` / `404` |
 
-- **New capability `Capability::DeviceManage`** ("device-manage") — governs the
-  *registry*, separate from `DeviceActuate` (commands the hardware). Single-file
-  change to `crates/rubix-gate/src/capability/kind.rs`: enum variant + `ALL` array
-  (length `8 → 9`) + `as_str` arm + length-assertion test.
+- **Capability `Capability::DeviceManage`** ("device-manage") — governs the
+  *registry*, separate from `DeviceActuate` (commands the hardware). Lives in
+  `crates/rubix-gate/src/capability/kind.rs` (one entry in the `ALL` array, now 15
+  capabilities; the length-assertion test guards the count).
 - **Persistence — concrete contract.** A device is a gate-written record (audited,
   namespace-scoped):
   - record `content.kind` = `"device"` (the collection discriminator).
-  - record id = `device:{namespace}_{id}` — namespace-prefixed for the same
-    per-tenant isolation as principals; `id` is caller-supplied and unique within the
-    namespace (collision → `409`).
+  - storage id = `{namespace}_{id}` — namespace-prefixed for the same per-tenant
+    isolation as principals (the table discriminator is `content.kind == "device"`,
+    not an id prefix); `id` is caller-supplied and unique within the namespace
+    (collision → `409`). See `device_storage_id` in
+    `crates/rubix-server/src/http/admin/devices.rs`.
   - body: `{ label: String, kind: String, metadata: Map<String, Json> }` — `kind` is
     the device class (free-form, e.g. `"gateway"`, `"sensor"`), `metadata` is an
     open key/value bag (no fixed schema, consistent with SCOPE's "generic, not
@@ -200,6 +203,34 @@ a control-plane registration, distinct from commanding hardware.
 - The device id doubles as the **sync partition key** SCOPE's sync model references
   (SCOPE §sync, Open Q #1) — making that identity explicit.
 - **DeviceDto** = `{ id, namespace, label, kind, metadata }`.
+
+## Surface 5 — Teams  (`/teams`)  — principal groups + inherited grants
+
+A **team** is a named group of principals; capabilities granted to a team flow to its
+members. This lets an operator grant "may define rules" to a team once instead of to
+each member. Implemented in
+[`crates/rubix-server/src/http/admin/teams.rs`](../../crates/rubix-server/src/http/admin/teams.rs),
+backed by `rubix-gate` team grants and capability inheritance.
+
+| Method | Path | Authorization | Result |
+| --- | --- | --- | --- |
+| POST | `/teams` | Admin@ns | `201` (create a team) |
+| GET | `/teams` | Authenticated | `200` (list teams) |
+| GET | `/teams/:slug` | Authenticated | `200` / `404` |
+| DELETE | `/teams/:slug` | Admin@ns | `204` / `404` |
+| GET | `/teams/:slug/members` | Authenticated | `200` |
+| POST | `/teams/:slug/members` | Admin@ns | `200` (add a member by subject) |
+| DELETE | `/teams/:slug/members/:subject` | Admin@ns | `204` |
+| GET | `/teams/:slug/grants` | Authenticated | `200` |
+| PUT | `/teams/:slug/grants/:capability` | Admin@ns | `200` (idempotent grant) |
+| DELETE | `/teams/:slug/grants/:capability` | Admin@ns | `204` (idempotent revoke) |
+
+- **Inheritance.** A `team:{slug}` grant resolves to its members via the gate's
+  `teams_of` lookup, so a member's effective capabilities are *(own grants) ∪ (grants
+  of every team they belong to)*. Member subjects are stored namespace-prefixed, like
+  principals.
+- **Same boundaries as the other surfaces.** Mutations cross the gate (audited,
+  per-namespace, admin-guarded); reads run on the scoped session.
 
 ## Decisions (locked)
 

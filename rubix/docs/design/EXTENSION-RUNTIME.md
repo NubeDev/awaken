@@ -210,33 +210,63 @@ The one rubix-specific add: **capability-violation** and **denied-command** coun
 be fed from the gate's existing fail-closed denials for that principal, so the metrics
 view shows authorization health, not just process health.
 
-## Phasing
+## Status
 
-1. **Supervisor port** — `rubix-ext-supervisor`: spawn/stop/restart a `process`-flavour
-   child holding the extension's `ScopedSession`; sample `ProcessStats`; event ring.
-   No HTTP yet; drive it from a test.
-2. **Bridge + reconciler** — wire `rubix-ext` `lifecycle` to the supervisor
-   (handler-drives) and add the boot-time reconciler over lifecycle records. Real
-   start/stop now works and survives reboot.
-3. **Metrics** — `rubix-ext-metrics` leaf crate; bump it from the gate path and the
-   supervisor.
-4. **Admin HTTP** — mount `/extensions*` into `rubix-server`, projections ported from
-   `starter-ext-server`, auth via `Authenticated` + gate.
-5. **Real health** — replace the `RETURN true` session ping with a supervisor liveness
-   probe for process-flavour extensions (session ping stays the fallback for builtin).
-6. **Later** — extension SDK (`#[derive]`), wasm flavour, UI-bundle serving.
+Phases 1–5 have **shipped**; everything is ported *into* `rubix-ext` (no `starter-*`
+dependency). One integration step from phase 2 remains open (see ⚠️ below).
+
+1. ✅ **Supervisor** — ported into [`rubix-ext/src/supervisor/`](../../crates/rubix-ext/src/supervisor):
+   spawn/stop/restart a `process`-flavour child, sample `ProcessStats` off `/proc`
+   ([`stats.rs`](../../crates/rubix-ext/src/supervisor/stats.rs)), Content-Length
+   JSON-RPC framing ([`stdio.rs`](../../crates/rubix-ext/src/supervisor/stdio.rs)),
+   restart with backoff + intensity cap ([`restart.rs`](../../crates/rubix-ext/src/supervisor/restart.rs)),
+   bounded event ring ([`ring.rs`](../../crates/rubix-ext/src/supervisor/ring.rs)).
+   Cooperative shutdown over the control channel, not POSIX signals.
+2. ✅ **Bridge** — [`runtime/drive.rs`](../../crates/rubix-ext/src/runtime/drive.rs)
+   turns a gated `lifecycle` command into a supervisor action (handler-drives), threads
+   the correlation id, bumps metrics, reports the observed state in the HTTP response.
+   ✅ **Boot reconciler wired.** [`runtime/reconcile.rs`](../../crates/rubix-ext/src/runtime/reconcile.rs)
+   (`reconcile_on_session`) is invoked at startup by `spawn_extension_reconciler`
+   ([`rubix-server/src/extensions_reconcile.rs`](../../crates/rubix-server/src/extensions_reconcile.rs)),
+   called from [`main.rs`](../../crates/rubix-server/src/main.rs) alongside the hook
+   dispatcher and job sweeper. Extensions last left in `start` respawn on reboot; those
+   left `stop`/`disable` stay down — the durability half of phase 2. It runs on its own
+   thread (a slow read/spawn never delays binding the socket) and is logged-and-continue,
+   never fatal: the handler-drives path serves without it. On edge it reconciles the
+   configured namespace only (single-tenant); a multi-tenant fan-out is a later follow-up.
+   The boot identity handoff (Open question 2) is resolved by **rotating each `start`
+   extension's run secret at boot** — `reprovision_principal` mints a fresh in-memory
+   secret handed to the child, nothing persisted, the same trust model as the hook
+   dispatcher's system principal.
+3. ✅ **Metrics** — [`rubix-ext/src/metrics.rs`](../../crates/rubix-ext/src/metrics.rs):
+   atomic per-extension counters folded with supervisor gauges into `ExtensionMetrics`;
+   bumped from the gate path in `drive.rs`.
+4. ✅ **Admin HTTP** — all seven `/extensions*` routes mounted in
+   [`rubix-server/src/http/extensions/`](../../crates/rubix-server/src/http/extensions),
+   auth via `Authenticated` + gate. Projections are native rubix, not `starter-ext-server`.
+5. ✅ **Real health** — [`runtime/health.rs`](../../crates/rubix-ext/src/runtime/health.rs)
+   `probe_extension_health`: process-flavour consults supervisor liveness, builtin falls
+   back to the session ping.
+6. **Later** — extension SDK (`#[derive]`), wasm flavour, UI-bundle serving,
+   multi-tenant reconcile fan-out (boot reconciler currently does the configured
+   namespace only).
 
 ## Open questions
 
-1. **Dedicated capability.** Lifecycle currently reuses `DatasourceRegister`. A
-   first-class `extension-manage` (or `extension-lifecycle`) capability is cleaner and
-   lets an operator grant "may start/stop extensions" without granting datasource
-   registration. Needs a `Capability` variant + grant-profile entry. (See the local
-   `rubix-gate/src/capability/kind.rs` work-in-progress in the current diff.)
+1. ~~**Dedicated capability.**~~ **Resolved.** Lifecycle is now gated on a first-class
+   `Capability::ExtensionManage` (wire form `extension-manage`,
+   [`rubix-gate/src/capability/kind.rs`](../../crates/rubix-gate/src/capability/kind.rs));
+   `ControlMethod::Lifecycle.required_capability()` returns it
+   ([`control/lifecycle.rs`](../../crates/rubix-ext/src/control/lifecycle.rs)). It no
+   longer reuses `DatasourceRegister`.
 2. **Sidecar identity handoff.** How does the spawned child obtain its scoped session
    token securely? Options: pass a short-lived gate-minted token over the stdio
    handshake, or have the child authenticate as its principal at startup. Affects how
-   `process_stats` and data-plane scoping bind.
+   `process_stats` and data-plane scoping bind. **Boot half resolved:** at reboot there
+   is no operator to supply the run secret, so `spawn_extension_reconciler` rotates each
+   `start` extension's principal secret in-memory at boot and hands the fresh secret to
+   the child (nothing persisted). The HTTP path still takes the operator-supplied secret
+   per request. The remaining open part is the steady-state stdio handshake shape.
 3. **Where does `runtime.bin` come from?** rubix has no `block.yaml` manifest. Either
    add a minimal manifest record per extension principal (path, version, flavour), or
    carry it on the principal/config record `rubix-ext` `register` already writes.
@@ -255,6 +285,7 @@ view shows authorization health, not just process health.
   before effect).
 - [ADMIN-API.md](ADMIN-API.md) — the gate-boundary and `Authenticated`/per-namespace
   authorization pattern this surface mirrors.
-- Reference implementation to port from: `/home/user/code/rust/starter/starter-extensions`
+- Reference implementation the runtime was ported from (now native in `rubix-ext`, no
+  dependency): `/home/user/code/rust/starter/starter-extensions`
   (`starter-ext-supervisor`, `starter-ext-metrics`, `starter-ext-spi`,
   `starter-ext-server`).

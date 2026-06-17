@@ -45,9 +45,11 @@ cache — [aggregate/mod.rs](../../crates/rubix-query/src/aggregate/mod.rs)).
 metric↔imperial converter (`Quantity::{Temperature,Length,Mass,Speed}`,
 [quantity.rs](../../crates/rubix-prefs/src/units/quantity.rs)) and an
 `apply_to(dto, prefs, fields)` that rewrites declared DTO fields at the response
-layer ([apply.rs](../../crates/rubix-prefs/src/apply.rs)). **Gaps:** no timezone
-field (strftime only, UTC), **no HTTP endpoint**, and the frontend consumes none
-of it — charts hard-code `en-US` and do no unit conversion.
+layer ([apply.rs](../../crates/rubix-prefs/src/apply.rs)). **These gaps are now
+closed:** `Preferences` carries an IANA `timezone`
+([preferences.rs](../../crates/rubix-prefs/src/preferences.rs)), `GET`/`PATCH /prefs`
+is wired ([http/prefs](../../crates/rubix-server/src/http/prefs)), and the frontend
+consumes units + timezone + pattern (no more hard-coded `en-US`).
 
 **`nexus` (the Grafana-grade target).** Reference only, different repo. A panel is
 `{ type, config: { query, fields, fieldConfig, options, transforms, live } }`.
@@ -151,11 +153,11 @@ raw instant.)
   [format-value.ts](../../ui/src/components/chart-builder/charts/format-value.ts)),
   retiring the hard-coded `en-US`.
 
-**Gap to close — timezone.** `rubix-prefs` has *no* timezone field
-([pattern.rs](../../crates/rubix-prefs/src/datetime/pattern.rs) is strftime-only,
-always UTC). A dashboard showing "last 1h" almost certainly wants *local* time.
-Add an IANA timezone to `Preferences` and apply it at the **client** formatter
-(UTC instant + tz + pattern → label). Until then, label axes UTC and say so.
+**Timezone — shipped.** `Preferences` now carries an IANA `timezone`
+([preferences.rs](../../crates/rubix-prefs/src/preferences.rs), defaults to UTC when
+absent), exposed over `GET`/`PATCH /prefs` and applied at the **client** formatter
+(UTC instant + tz + pattern → label). A dashboard showing "last 1h" renders in the
+principal's local time; the wire stays UTC.
 
 ---
 

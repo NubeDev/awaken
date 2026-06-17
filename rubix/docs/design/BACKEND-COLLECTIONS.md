@@ -4,7 +4,7 @@ Design for the **backend changes** that turn rubix's generic record store into a
 PocketBase-shaped serverless backend: runtime-defined collections, per-kind
 typed CRUD with validation, file fields, write-triggered hooks/rules, and
 filtered realtime — all driven from data and the API, with **no per-domain
-backend code**. The UI that consumes this is [ADMIN-UI.md](ADMIN-UI.md); the
+backend code**. The UI that consumes this is [ADMIN-UI.md](ui/ADMIN-UI.md); the
 agent runtime that shares the substrate is [AGENT.md](AGENT.md). The **scope
 authority** is [SCOPE.md](../SCOPE.md) ("the domain is not baked in; structure
 comes from tagging on a graph") and the crate contracts are
@@ -36,20 +36,21 @@ already there.
 
 ## Where the backend is today (the delta)
 
-Grounded in the current code, not aspiration:
+Status against the current code (this design has since shipped — the "Delta" column
+records what was built, ✅ = landed, ⏳ = still open):
 
-| PocketBase capability | Rubix today | Delta to design here |
+| PocketBase capability | Rubix today | Delta — status |
 | --- | --- | --- |
-| Runtime-defined collections | ❌ fixed `record`/`tag`/`tagged` only | **collection-as-record + a contract layer** |
-| Generic typed CRUD | ⚠️ generic CRUD, but content is opaque JSON, no validation ([records/create.rs:25](../../crates/rubix-server/src/http/records/create.rs#L25)) | **per-kind validation in the gate write path** |
-| List filtered by collection | ❌ `GET /records` lists all readable, no kind/tag filter ([records/list.rs:17](../../crates/rubix-server/src/http/records/list.rs#L17)) | **kind/tag/field filter on list** |
-| Auth (users + service accts) | ✅ `Principal` {subject, namespace, kind, role}, real subject+secret auth, scoped sessions ([authenticate.rs:31](../../crates/rubix-gate/src/authenticate.rs#L31)) | **token/session issuance endpoint** (header-only today) |
-| File fields | ❌ none anywhere | **blob storage + file-field type** |
-| Server-side hooks on write | ❌ rules fire offline, manually invoked ([evaluate/mod.rs:97](../../crates/rubix-rules/src/evaluate/mod.rs#L97)) | **write-triggered hooks off the bus** |
-| Per-collection access rules | ⚠️ row perms (namespace) + 5 capability grants ([capability/kind.rs:37](../../crates/rubix-gate/src/capability/kind.rs#L37)) | **collection-scoped access expressions** |
+| Runtime-defined collections | ✅ `kind:"collection"` records define typed shapes at runtime ([collection/def.rs](../../crates/rubix-core/src/collection/def.rs), [bootstrap.rs](../../crates/rubix-core/src/collection/bootstrap.rs)) | ✅ collection-as-record + contract layer |
+| Generic typed CRUD | ✅ writes validated against the collection schema in the gate path ([gate command/validate.rs](../../crates/rubix-gate/src/command/validate.rs)) | ✅ per-kind validation in the gate write path |
+| List filtered by collection | ✅ `GET /records?kind=…&tag=…` filters on top of row perms ([records/list.rs](../../crates/rubix-server/src/http/records/list.rs)) | ✅ kind/tag filter on list |
+| Auth (users + service accts) | ✅ `Principal` {subject, namespace, kind, role}, subject+secret auth, scoped sessions ([authenticate.rs:31](../../crates/rubix-gate/src/authenticate.rs#L31)); `POST /auth/login` + `GET /auth/me` | ✅ token/session issuance endpoint |
+| File fields | ✅ `file` field stores a `FileRef`; blob store + `POST /files`/`GET /files/:id` ([rubix-blob](../../crates/rubix-blob/src/lib.rs)), gated on `FileUpload` | ✅ blob storage + file-field type |
+| Server-side hooks on write | ✅ `kind:"hook"` records fire rules after commit off the live-query plane ([hooks/mod.rs](../../crates/rubix-server/src/hooks/mod.rs)) | ✅ write-triggered hooks ([HOOKS-AND-FILES.md](HOOKS-AND-FILES.md)) |
+| Per-collection access rules | ⚠️ row perms (namespace) + capability grants ([capability/kind.rs](../../crates/rubix-gate/src/capability/kind.rs)); per-collection `listRule`/`writeRule` kept as raw JSON, evaluation deferred | ⏳ collection-scoped access expressions |
 | Audit / correlation | ✅ immutable audit, one correlation id ([command/apply.rs:51](../../crates/rubix-gate/src/command/apply.rs#L51)) | reuse as-is |
-| OpenAPI | ✅ utoipa, all routes ([openapi/document.rs:18](../../crates/rubix-server/src/openapi/document.rs#L18)) | **per-collection schema components** |
-| Realtime | ✅ `/ws/records` scoped by principal, row-filtered at source ([ws/subscribe.rs:29](../../crates/rubix-server/src/ws/subscribe.rs#L29)) | **filter the live stream by collection/kind** |
+| OpenAPI | ✅ utoipa, all routes ([openapi/document.rs:18](../../crates/rubix-server/src/openapi/document.rs#L18)) | ⏳ per-collection schema components |
+| Realtime | ✅ `/ws/records?kind=…` scoped by principal, row-filtered at source ([ws/subscribe.rs](../../crates/rubix-server/src/ws/subscribe.rs)) | ✅ filter the live stream by kind |
 
 The substrate columns marked ✅ are why this is additive, not a rewrite: every
 new write still goes through `apply()` (the gate), every read still runs on the
@@ -237,7 +238,7 @@ but `content` is documented as opaque `Value`. To get PocketBase-style typed
 client generation per collection, emit a **schema component per registered
 collection** (derived from its JSON Schema) and reference it from the `/records`
 paths when a `kind` is specified. This is what lets `@rubix/api`
-([ADMIN-UI.md](ADMIN-UI.md)) generate a typed client per collection. Generated at
+([ADMIN-UI.md](ui/ADMIN-UI.md)) generate a typed client per collection. Generated at
 runtime from collection records, not hand-written.
 
 ## Contracts honored

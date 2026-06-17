@@ -1,0 +1,39 @@
+---
+title: Hooks & Files
+---
+
+# Hooks & Files
+
+Two adjacent capabilities: **hooks** run rules in response to writes, and a **blob
+store** backs file fields with real bytes.
+
+## Hooks
+
+A hook is a record (`kind:"hook"`) binding "on create/update of kind X, fire rule Y."
+Hooks fire **after** the write commits, asynchronously off the live-query data plane —
+so they observe writes but cannot veto them.
+
+- **System principal.** Each namespace has a lazily-provisioned `{namespace}_system`
+  service account (secret rotated in memory each boot) that fires the rule through the
+  gate, preserving audit and correlation.
+- **Recursion guard.** The dispatcher tracks rule output kinds and skips any write whose
+  `kind` matches one — so an insight-writing rule can't re-trigger itself. Hook→rule→insight
+  loops are structurally impossible.
+
+## Files
+
+File fields never store raw bytes — only a `FileRef { id, filename, size, contentType }`.
+Bytes live in a pluggable blob store:
+
+- **Upload** — `POST /files` (multipart), gated fail-closed on the `FileUpload`
+  capability, returns a `FileRef`.
+- **Download** — `GET /files/:id`, namespace-scoped, streams bytes. A caller cannot read
+  another tenant's bytes even with a guessed id.
+- **Backend** — local filesystem on the edge; a cloud object-store backend sits behind a
+  feature flag (fails closed if absent).
+
+This keeps **two separate chokepoints**: the command gate sees only JSON (the reference);
+bytes cross only the blob store, gated independently. Orphan GC and blob↔cloud sync are
+deferred.
+
+The full design lives in the internal `HOOKS-AND-FILES.md` spec.

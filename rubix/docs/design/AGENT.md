@@ -41,12 +41,14 @@ SCOPE's non-negotiable split, restated because the agent straddles both:
 - **Reads (incl. memory recall, semantic search, native record reads)** run on the
   gate-issued **scoped SurrealDB session**; SurrealDB row-level permissions decide
   what the agent sees. **Not a capability.**
-- **Cross-plane actions** are app-enforced **capability grants**. The whole
-  vocabulary is exactly five variants ([`Capability`](../../crates/rubix-gate/src/capability/kind.rs)):
-  `datasource-register`, `rule-invoke`, `ingest-publish`, `external-query`,
-  `zenoh-subscribe`. The registry is a **fail-closed allow-set** (WS-04): an
-  unknown capability is denied, so any new agent surface is a deliberate enum
-  change, never an assumed grant.
+- **Cross-plane actions** are app-enforced **capability grants** drawn from a closed
+  vocabulary ([`Capability`](../../crates/rubix-gate/src/capability/kind.rs)). At the
+  time this design was written it was five variants (`datasource-register`,
+  `rule-invoke`, `ingest-publish`, `external-query`, `zenoh-subscribe`); the agent
+  work below has since added `agent-memory-write`, `device-actuate`, and `rule-define`,
+  among others. The registry is a **fail-closed allow-set** (WS-04): an unknown
+  capability is denied, so every new agent surface is a deliberate enum change, never
+  an assumed grant.
 
 ## Primary design — Rig brain + SurrealDB substrate
 
@@ -220,18 +222,20 @@ fail-closed registry change before they are buildable.
 | Attention queue / "2 things need you" wake ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `RX.moments`) | read | `rubix-bus` **live-query** plane (row-perm scoped) | none (scoped session) | present |
 | "Why did Rubix act" / insight provenance | read | audit + correlation id over the gate | none (the command already wrote it) | present |
 | Record an insight / "log this" (the `moments` themselves are rule firings) | command | `record_insight` → gate `Command` | `rule-invoke` | present ([record.rs](../../crates/rubix-rules/src/evaluate/record.rs)) — but see free-form caveat below |
-| "Pin to Overview", "Watch the chillers for an hour" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `compose`/`pin`) — persist a board + its embedding | command (memory-write) | `VectorStoreIndex` write → gate `Command` | **`agent-memory-write`** | **capability absent** |
-| "Apply pre-cool to L4 West" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `precool`) — setpoint offset | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
-| "Fail over to backup CRAC" (`failover`) — mode/relay select | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
-| "Restart gateway GW-02", "Arm battery to discharge" ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `ahu`/solar answer) | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | **capability + egress absent** |
+| "Pin to Overview", "Watch the chillers for an hour" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `compose`/`pin`) — persist a board + its embedding | command (memory-write) | `VectorStoreIndex` write → gate `Command` | **`agent-memory-write`** | present ([kind.rs](../../crates/rubix-gate/src/capability/kind.rs)) |
+| "Apply pre-cool to L4 West" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `precool`) — setpoint offset | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | capability present ([kind.rs](../../crates/rubix-gate/src/capability/kind.rs)); **egress worker absent** |
+| "Fail over to backup CRAC" (`failover`) — mode/relay select | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | capability present ([kind.rs](../../crates/rubix-gate/src/capability/kind.rs)); **egress worker absent** |
+| "Restart gateway GW-02", "Arm battery to discharge" ([data.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/data.js) `ahu`/solar answer) | actuate | `device-actuate` effect record → egress worker → ack | **`device-actuate`** | capability present ([kind.rs](../../crates/rubix-gate/src/capability/kind.rs)); **egress worker absent** |
 | "Roll out night profile to Level 5", "schedule" ([answers.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/answers.js) `savings`) — write/enable a rule binding | command (rule config) | gate `Command` over the rule registry record | **`rule-define`** (NOT `rule-invoke`) | **capability absent** |
 | "Draft this week's report", "Send to board" (`report`) — outbound export/email | outbound | **not `rubix-agent`** — `rubix-server`/`rubix-ext` transport | n/a here | out of scope here — `rubix-ext` transport absent |
 | ⌘K palette → "ask Rubix" (free-form) ([app.js](../../ui-demo/rubix-v2/rubix-copilot/copilot/app.js) `RX.openPal`) | read | routes into the read/command tools above | per resolved intent | present |
 
 Reading the manifest top to bottom: the demo's **analyst spine is present** in the
-substrate, its **insight-recording path exists**, and its **wow-factor — watch/pin
-and actuate — needs three deliberate grants** (`agent-memory-write`, `device-actuate`,
-`rule-define`), plus the Rig brain crate and the out-of-scope outbound transport.
+substrate, its **insight-recording path exists**, and the three deliberate grants its
+wow-factor needs — `agent-memory-write`, `device-actuate`, `rule-define` — **have all
+since landed** ([kind.rs](../../crates/rubix-gate/src/capability/kind.rs)). What
+remains for actuation is the **egress worker** (effect record → physical I/O → ack),
+plus the Rig brain crate and the out-of-scope outbound transport.
 Nothing in the actuate rows is buildable until `device-actuate` exists *and* a
 device-egress path (effect record → worker → ack) is named.
 

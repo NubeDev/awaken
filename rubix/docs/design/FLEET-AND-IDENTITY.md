@@ -218,30 +218,40 @@ the cloud management client below.
 ### `rubix-ca` — ca-server's admin surface, for management not enrollment
 
 Edge enrollment and renewal are hackline-agent's job (above), so `rubix-ca` is **not**
-an edge-PKI crate. It is a thin client of ca-server's **admin** API that powers the
-cloud management UI, plus read-only cert/identity status for display on edge.
+an edge-PKI crate. It is a **cloud-only** thin client of ca-server's **admin** API that
+powers the management UI. There is no safe "read-only edge" mode: ca-server exposes
+only `/health` and `/ca/certificate` without authentication, and every device-status /
+listing route is admin-HMAC-gated — so an edge would have to hold the `admin` secret to
+read status, which it must not. If per-device cert status is ever wanted on edge, it
+needs a *new* device-scoped status endpoint in ca-server, not the admin API.
 
 ```rust
-/// rubix's management client of ca-server. Cloud uses the admin principal; edge (if
-/// used at all) is read-only status. ca-server is Go with no SDK, so the boundary is
-/// rubix's to define — a small internal trait with one impl is fine here.
+/// rubix's CLOUD management client of ca-server. ca-server is Go with no SDK, so the
+/// boundary is rubix's to define — a small internal trait with one impl is fine here.
 pub struct CaAdmin {
     base_url: Url,
-    secret: HmacSecret,        // the "admin" principal's preshared secret
+    secret: HmacSecret,        // the "admin" principal's preshared secret — cloud only
     gate: Arc<rubix_gate::Gate>,
 }
 
 impl CaAdmin {
-    pub async fn register_device(&self, p: &Principal, uuid: &str) -> Result<OneTimeSecret>; // ca-admin
-    pub async fn revoke_device(&self, p: &Principal, uuid: &str) -> Result<()>;              // ca-admin
-    pub async fn list_devices(&self, p: &Principal, page: Page) -> Result<Vec<DeviceRow>>;   // ca-admin
+    /// ca-server's `/devices/register` does NOT mint a secret — the caller supplies
+    /// `global_uuid` + a preshared secret it generated. So rubix generates the secret,
+    /// submits it, and returns it to the operator to hand off to the device (it is
+    /// shown once and never retrievable from ca-server afterwards).
+    pub async fn register_device(&self, p: &Principal, uuid: &str) -> Result<GeneratedSecret>; // ca-admin
+    pub async fn revoke_device(&self, p: &Principal, uuid: &str) -> Result<()>;                // ca-admin
+    pub async fn list_devices(&self, p: &Principal, page: Page) -> Result<Vec<DeviceRow>>;     // ca-admin
 }
 ```
 
 It owns HMAC-SHA256 request signing (the ±5-minute window) and the `admin` preshared
-secret as a **cloud secret at rest**. Registering a device here mints the one-time
-preshared secret that an edge's hackline-agent then uses to enroll — so this client is
-the *start* of the enrollment ceremony, with hackline finishing it.
+secret as a **cloud secret at rest**. The enrollment ceremony: rubix **generates** the
+device's preshared secret client-side, registers `(global_uuid, secret)` with
+ca-server, and hands the secret to the device's hackline-agent (which then signs CSRs
+with it) — rubix is the *start* of the ceremony, ca-server stores only an encrypted
+copy, and hackline finishes it. A lost secret means re-register, since ca-server never
+returns it.
 
 ### Both are capabilities at the gate
 

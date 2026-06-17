@@ -3,7 +3,7 @@
 //! A templated chart authors variable references (`$site`, `${site:csv}`,
 //! `$__sqlIn(site)`) that a dashboard's variable bar fills in, so **one** board
 //! serves a whole fleet instead of one hand-authored board per site
-//! (`rubix/docs/design/variables-and-templating.md`). rubix has no SQL bind layer
+//! (`rubix/docs/design/VARIABLES-AND-TEMPLATING.md`). rubix has no SQL bind layer
 //! on the unified surface — `ctx.sql(sql)` takes a string only — so this engine
 //! **owns the quoting**: every value is lowered into a complete, escaped SQL
 //! literal, server-side, and the read-only guard then vets the final statement.

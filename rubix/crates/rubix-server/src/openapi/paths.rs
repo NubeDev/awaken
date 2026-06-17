@@ -29,6 +29,7 @@ use crate::dto::{
 #[utoipa::path(
     post,
     path = "/auth/login",
+    tag = "Auth",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "An opaque bearer token and its expiry", body = LoginResponse),
@@ -41,6 +42,7 @@ pub fn login() {}
 #[utoipa::path(
     post,
     path = "/auth/logout",
+    tag = "Auth",
     responses(
         (status = 204, description = "Token revoked (idempotent)"),
         (status = 400, description = "No bearer token presented")
@@ -52,6 +54,7 @@ pub fn logout() {}
 #[utoipa::path(
     get,
     path = "/auth/me",
+    tag = "Auth",
     responses(
         (status = 200, description = "The current principal and its grants", body = MeResponse),
         (status = 401, description = "Not authenticated")
@@ -63,6 +66,7 @@ pub fn me() {}
 #[utoipa::path(
     get,
     path = "/health",
+    tag = "Health",
     responses((status = 200, description = "Process and store are live"))
 )]
 pub fn health() {}
@@ -71,6 +75,7 @@ pub fn health() {}
 #[utoipa::path(
     get,
     path = "/records",
+    tag = "Records",
     params(
         ("kind" = Option<String>, Query, description = "Filter to one collection (content.kind)"),
         ("tag" = Option<String>, Query, description = "Comma-separated tag names the record must all carry")
@@ -83,6 +88,7 @@ pub fn list_records() {}
 #[utoipa::path(
     post,
     path = "/records",
+    tag = "Records",
     request_body = CreateRecordRequest,
     responses(
         (status = 200, description = "The created record", body = RecordDto),
@@ -96,6 +102,7 @@ pub fn create_record() {}
 #[utoipa::path(
     get,
     path = "/readings",
+    tag = "Readings",
     params(
         ("series" = String, Query, description = "The series-defining record id to read"),
         ("from" = String, Query, description = "Inclusive window start (RFC 3339, UTC)"),
@@ -109,6 +116,7 @@ pub fn read_readings() {}
 #[utoipa::path(
     post,
     path = "/readings",
+    tag = "Readings",
     request_body = AppendReadingsRequest,
     responses(
         (status = 200, description = "How many readings were appended", body = AppendReadingsResponse),
@@ -122,6 +130,7 @@ pub fn append_readings() {}
 #[utoipa::path(
     get,
     path = "/records/{id}",
+    tag = "Records",
     params(("id" = String, Path, description = "Record id")),
     responses(
         (status = 200, description = "The record", body = RecordDto),
@@ -134,6 +143,7 @@ pub fn get_record() {}
 #[utoipa::path(
     patch,
     path = "/records/{id}",
+    tag = "Records",
     params(("id" = String, Path, description = "Record id")),
     request_body = UpdateRecordRequest,
     responses(
@@ -147,6 +157,7 @@ pub fn update_record() {}
 #[utoipa::path(
     delete,
     path = "/records/{id}",
+    tag = "Records",
     params(("id" = String, Path, description = "Record id")),
     responses(
         (status = 204, description = "Deleted"),
@@ -159,6 +170,7 @@ pub fn delete_record() {}
 #[utoipa::path(
     post,
     path = "/query",
+    tag = "Query",
     request_body = QueryRequest,
     responses(
         (status = 200, description = "Query result rows", body = QueryResponse),
@@ -171,6 +183,7 @@ pub fn run_query() {}
 #[utoipa::path(
     post,
     path = "/query/batch",
+    tag = "Query",
     request_body = BatchQueryRequest,
     responses(
         (status = 200, description = "Per-item query results (one bad item does not fail the batch)", body = BatchQueryResponse),
@@ -184,6 +197,7 @@ pub fn run_batch() {}
 #[utoipa::path(
     get,
     path = "/query/schema",
+    tag = "Query",
     responses(
         (status = 200, description = "Readable tables + columns for the principal", body = QuerySchemaResponse),
         (status = 403, description = "Principal lacks the external-query capability")
@@ -195,6 +209,7 @@ pub fn query_schema() {}
 #[utoipa::path(
     get,
     path = "/prefs",
+    tag = "Preferences",
     responses((status = 200, description = "The principal's display preferences", body = PreferencesDto))
 )]
 pub fn get_prefs() {}
@@ -203,6 +218,7 @@ pub fn get_prefs() {}
 #[utoipa::path(
     patch,
     path = "/prefs",
+    tag = "Preferences",
     request_body = UpdatePreferencesRequest,
     responses(
         (status = 200, description = "The updated preferences", body = PreferencesDto),
@@ -215,6 +231,7 @@ pub fn patch_prefs() {}
 #[utoipa::path(
     get,
     path = "/datasources",
+    tag = "Datasources",
     responses((status = 200, description = "Declared datasources", body = [DatasourceDto]))
 )]
 pub fn list_datasources() {}
@@ -223,6 +240,7 @@ pub fn list_datasources() {}
 #[utoipa::path(
     post,
     path = "/datasources",
+    tag = "Datasources",
     request_body = RegisterDatasourceRequest,
     responses(
         (status = 200, description = "Registered datasource", body = DatasourceDto),
@@ -238,6 +256,7 @@ pub fn create_datasource() {}
 #[utoipa::path(
     get,
     path = "/datasources/{id}",
+    tag = "Datasources",
     params(("id" = String, Path, description = "Datasource id")),
     responses(
         (status = 200, description = "The declared datasource", body = DatasourceDto),
@@ -250,6 +269,7 @@ pub fn get_datasource() {}
 #[utoipa::path(
     patch,
     path = "/datasources/{id}",
+    tag = "Datasources",
     params(("id" = String, Path, description = "Datasource id")),
     request_body = UpdateDatasourceRequest,
     responses(
@@ -265,6 +285,7 @@ pub fn update_datasource() {}
 #[utoipa::path(
     delete,
     path = "/datasources/{id}",
+    tag = "Datasources",
     params(("id" = String, Path, description = "Datasource id")),
     responses(
         (status = 204, description = "Datasource deregistered"),
@@ -278,6 +299,7 @@ pub fn delete_datasource() {}
 #[utoipa::path(
     get,
     path = "/ws/records",
+    tag = "Records",
     responses((status = 101, description = "WebSocket upgrade to the live-query feed"))
 )]
 pub fn subscribe_records() {}
@@ -288,6 +310,7 @@ pub fn subscribe_records() {}
 #[utoipa::path(
     post,
     path = "/principals",
+    tag = "Admin",
     request_body = CreatePrincipalRequest,
     responses(
         (status = 201, description = "The created principal (with a generated secret if none was supplied)", body = CreatedPrincipalDto),
@@ -302,6 +325,7 @@ pub fn create_principal() {}
 #[utoipa::path(
     get,
     path = "/principals",
+    tag = "Admin",
     responses(
         (status = 200, description = "Principals in the caller's namespace", body = [PrincipalDto]),
         (status = 403, description = "Caller is not an admin in this namespace")
@@ -313,6 +337,7 @@ pub fn list_principals() {}
 #[utoipa::path(
     get,
     path = "/principals/{subject}",
+    tag = "Admin",
     params(("subject" = String, Path, description = "API-local principal subject")),
     responses(
         (status = 200, description = "The principal", body = PrincipalDto),
@@ -326,6 +351,7 @@ pub fn get_principal() {}
 #[utoipa::path(
     patch,
     path = "/principals/{subject}",
+    tag = "Admin",
     params(("subject" = String, Path, description = "API-local principal subject")),
     request_body = UpdatePrincipalRequest,
     responses(
@@ -342,6 +368,7 @@ pub fn update_principal() {}
 #[utoipa::path(
     delete,
     path = "/principals/{subject}",
+    tag = "Admin",
     params(("subject" = String, Path, description = "API-local principal subject")),
     responses(
         (status = 204, description = "Principal deleted"),
@@ -356,6 +383,7 @@ pub fn delete_principal() {}
 #[utoipa::path(
     get,
     path = "/principals/{subject}/grants",
+    tag = "Admin",
     params(("subject" = String, Path, description = "API-local principal subject")),
     responses(
         (status = 200, description = "The principal's capability grants", body = [GrantDto]),
@@ -369,6 +397,7 @@ pub fn list_grants() {}
 #[utoipa::path(
     put,
     path = "/principals/{subject}/grants/{capability}",
+    tag = "Admin",
     params(
         ("subject" = String, Path, description = "API-local principal subject"),
         ("capability" = String, Path, description = "Capability wire string")
@@ -386,6 +415,7 @@ pub fn put_grant() {}
 #[utoipa::path(
     delete,
     path = "/principals/{subject}/grants/{capability}",
+    tag = "Admin",
     params(
         ("subject" = String, Path, description = "API-local principal subject"),
         ("capability" = String, Path, description = "Capability wire string")
@@ -403,6 +433,7 @@ pub fn delete_grant() {}
 #[utoipa::path(
     post,
     path = "/tenants",
+    tag = "Admin",
     request_body = CreateTenantRequest,
     responses(
         (status = 201, description = "The onboarded tenant", body = TenantDto),
@@ -417,6 +448,7 @@ pub fn create_tenant() {}
 #[utoipa::path(
     get,
     path = "/tenants",
+    tag = "Admin",
     responses(
         (status = 200, description = "Onboarded tenants (cloud) or the single namespace (edge)", body = [TenantDto]),
         (status = 403, description = "Caller is not a root/system principal")
@@ -428,6 +460,7 @@ pub fn list_tenants() {}
 #[utoipa::path(
     delete,
     path = "/tenants/{id}",
+    tag = "Admin",
     params(
         ("id" = String, Path, description = "Tenant id"),
         ("confirm" = Option<String>, Query, description = "Must echo the tenant id to confirm the irreversible delete")
@@ -446,6 +479,7 @@ pub fn delete_tenant() {}
 #[utoipa::path(
     post,
     path = "/devices",
+    tag = "Admin",
     request_body = CreateDeviceRequest,
     responses(
         (status = 201, description = "The registered device", body = DeviceDto),
@@ -459,6 +493,7 @@ pub fn create_device() {}
 #[utoipa::path(
     get,
     path = "/devices",
+    tag = "Admin",
     responses(
         (status = 200, description = "Devices in the caller's namespace", body = [DeviceDto]),
         (status = 403, description = "Caller is not an admin in this namespace")
@@ -470,6 +505,7 @@ pub fn list_devices() {}
 #[utoipa::path(
     get,
     path = "/devices/{id}",
+    tag = "Admin",
     params(("id" = String, Path, description = "API-local device id")),
     responses(
         (status = 200, description = "The device", body = DeviceDto),
@@ -483,6 +519,7 @@ pub fn get_device() {}
 #[utoipa::path(
     patch,
     path = "/devices/{id}",
+    tag = "Admin",
     params(("id" = String, Path, description = "API-local device id")),
     request_body = UpdateDeviceRequest,
     responses(
@@ -497,6 +534,7 @@ pub fn update_device() {}
 #[utoipa::path(
     delete,
     path = "/devices/{id}",
+    tag = "Admin",
     params(("id" = String, Path, description = "API-local device id")),
     responses(
         (status = 204, description = "Device deregistered"),
@@ -510,6 +548,7 @@ pub fn delete_device() {}
 #[utoipa::path(
     get,
     path = "/rules",
+    tag = "Rules",
     responses((status = 200, description = "Rules visible to the principal", body = [RuleDto]))
 )]
 pub fn list_rules() {}
@@ -518,6 +557,7 @@ pub fn list_rules() {}
 #[utoipa::path(
     post,
     path = "/rules",
+    tag = "Rules",
     request_body = CreateRuleRequest,
     responses(
         (status = 200, description = "The created rule", body = RuleDto),
@@ -532,6 +572,7 @@ pub fn create_rule() {}
 #[utoipa::path(
     get,
     path = "/rules/{name}",
+    tag = "Rules",
     params(("name" = String, Path, description = "Rule name (the composition handle)")),
     responses(
         (status = 200, description = "The rule", body = RuleDto),
@@ -544,6 +585,7 @@ pub fn get_rule() {}
 #[utoipa::path(
     patch,
     path = "/rules/{name}",
+    tag = "Rules",
     params(("name" = String, Path, description = "Rule name (the composition handle)")),
     request_body = UpdateRuleRequest,
     responses(
@@ -559,6 +601,7 @@ pub fn update_rule() {}
 #[utoipa::path(
     delete,
     path = "/rules/{name}",
+    tag = "Rules",
     params(("name" = String, Path, description = "Rule name (the composition handle)")),
     responses(
         (status = 204, description = "Deleted"),
@@ -572,6 +615,7 @@ pub fn delete_rule() {}
 #[utoipa::path(
     post,
     path = "/rules/{name}/dryrun",
+    tag = "Rules",
     params(("name" = String, Path, description = "Rule name being debugged")),
     request_body = DryRunRequest,
     responses(
@@ -585,6 +629,7 @@ pub fn dryrun_rule() {}
 #[utoipa::path(
     get,
     path = "/rules/{name}/referencing",
+    tag = "Rules",
     params(("name" = String, Path, description = "Rule name whose composers are listed")),
     responses((status = 200, description = "Rules that compose this one", body = [RuleDto]))
 )]
@@ -594,6 +639,7 @@ pub fn referencing_rules() {}
 #[utoipa::path(
     get,
     path = "/rules/catalog",
+    tag = "Rules",
     params(("table" = String, Query, description = "Canonical table to discover bindable facets for")),
     responses(
         (status = 200, description = "The fields and filter values the table offers a binding", body = CatalogResponse),
@@ -606,6 +652,7 @@ pub fn rules_catalog() {}
 #[utoipa::path(
     post,
     path = "/files",
+    tag = "Files",
     request_body(
         content = inline(FileRefDto),
         description = "multipart/form-data with one file part",
@@ -623,6 +670,7 @@ pub fn upload_file() {}
 #[utoipa::path(
     get,
     path = "/files/{id}",
+    tag = "Files",
     params(("id" = String, Path, description = "The blob id from an upload reference")),
     responses(
         (status = 200, description = "The blob's bytes (Content-Type from the stored reference)"),
@@ -635,6 +683,7 @@ pub fn download_file() {}
 #[utoipa::path(
     post,
     path = "/records/bulk",
+    tag = "Bulk & Jobs",
     request_body = BulkRecordsRequest,
     responses(
         (status = 200, description = "Every item's per-item status (Tier 1, synchronous)", body = BulkRecordsResponse),
@@ -650,6 +699,7 @@ pub fn bulk_records() {}
 #[utoipa::path(
     post,
     path = "/bulk/jobs",
+    tag = "Bulk & Jobs",
     request_body = SubmitJobRequest,
     responses(
         (status = 202, description = "Job accepted: id, ticket, and expiry", body = JobAcceptedDto),
@@ -663,6 +713,7 @@ pub fn submit_job() {}
 #[utoipa::path(
     get,
     path = "/bulk/jobs/{id}",
+    tag = "Bulk & Jobs",
     params(("id" = String, Path, description = "The job id from the submission handle")),
     responses(
         (status = 200, description = "The job's status (and buffered result for poll-transport jobs)", body = JobStatusDto),
@@ -676,6 +727,7 @@ pub fn job_status() {}
 #[utoipa::path(
     delete,
     path = "/bulk/jobs/{id}",
+    tag = "Bulk & Jobs",
     params(("id" = String, Path, description = "The job id from the submission handle")),
     responses(
         (status = 204, description = "Job cancelled and ticket revoked"),
@@ -689,6 +741,7 @@ pub fn cancel_job() {}
 #[utoipa::path(
     get,
     path = "/ws/jobs/{id}",
+    tag = "Bulk & Jobs",
     params(("id" = String, Path, description = "The job id from the submission handle")),
     responses(
         (status = 101, description = "Upgraded; the ticket is presented via the Sec-WebSocket-Protocol subprotocol (rubix-job-ticket, <ticket>)"),

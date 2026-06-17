@@ -8,6 +8,8 @@ out
 # generated
 next-env.d.ts
 content/changelog.mdx
+public/_pagefind
+public/openapi.json
 
 # misc
 *.tsbuildinfo

@@ -52,7 +52,7 @@ pub struct QueryRequest {
     #[serde(default)]
     pub transforms: Option<Vec<TransformDto>>,
     /// An optional set of resolved dashboard variables
-    /// (`rubix/docs/design/variables-and-templating.md`). Each fills the `$name` /
+    /// (`rubix/docs/design/VARIABLES-AND-TEMPLATING.md`). Each fills the `$name` /
     /// `${name:csv}` / `$__sqlIn(name)` references in `sql`, lowered server-side
     /// into escaped SQL literals **before** the read-only guard — the injection
     /// boundary. Absent/empty → the SQL is run as authored.
@@ -340,7 +340,7 @@ pub struct BatchQueryItem {
     #[serde(default)]
     pub transforms: Option<Vec<TransformDto>>,
     /// Optional resolved dashboard variables lowered into this statement's `sql`
-    /// (`rubix/docs/design/variables-and-templating.md`), exactly as `POST /query`.
+    /// (`rubix/docs/design/VARIABLES-AND-TEMPLATING.md`), exactly as `POST /query`.
     #[serde(default)]
     pub variables: Option<Vec<QueryVariableDto>>,
 }

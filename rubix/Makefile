@@ -20,6 +20,7 @@
 #   make docs        run the docs site dev server (Nextra)
 #   make docs-build  static-export the docs site to doc-site/out
 #   make docs-clean  remove the docs build output + generated changelog
+#   make docs-kill   free the docs dev port if a previous run was left running
 #
 # The backend is the cargo workspace in this directory; the UI is a pnpm/vite
 # app under ui/.
@@ -27,9 +28,12 @@
 UI_DIR := ui
 
 # Docs site (Nextra). A pnpm workspace package (`@rubix/doc-site`) that lives in
-# doc-site/ and statically exports to doc-site/out. DOCS_PORT pins the dev
-# server (package.json defaults to 3010; keep in sync or override both). The
-# docs build is independent of the cargo backend — it needs only pnpm.
+# doc-site/ and statically exports to doc-site/out. The dev port is owned by the
+# package's `dev` script (`next dev --port 3010`); DOCS_PORT here must MATCH that
+# value — it's only used by `docs-kill` to target the right process. (We don't
+# pass --port from make: the script already sets it, and a second --port would
+# produce `next dev --port 3010 --port 3010`.) The docs build is independent of
+# the cargo backend — it needs only pnpm.
 DOCS_DIR := doc-site
 DOCS_PKG := @rubix/doc-site
 DOCS_PORT ?= 3010
@@ -113,7 +117,7 @@ DB_PORT ?= 5433
 
 .PHONY: build dev dev-be dev-ui seed test test-be test-ui lint fmt \
         build-be build-ui clean wipe kill db-up db-down db-clean \
-        docs docs-build docs-clean
+        docs docs-build docs-clean docs-kill
 
 build: build-be build-ui
 
@@ -253,7 +257,7 @@ kill:
 docs:
 	@echo "docs → http://127.0.0.1:$(DOCS_PORT)"
 	pnpm --filter $(DOCS_PKG) install
-	pnpm --filter $(DOCS_PKG) dev --port $(DOCS_PORT)
+	pnpm --filter $(DOCS_PKG) dev
 
 # Static-export the docs to $(DOCS_DIR)/out (no server at runtime). Set
 # DOCS_BASE_PATH/DOCS_REPO_URL in the environment for a sub-path or repo-linked
@@ -267,6 +271,35 @@ docs-build:
 docs-clean:
 	rm -rf $(DOCS_DIR)/out $(DOCS_DIR)/.next $(DOCS_DIR)/content/changelog.mdx
 	@echo "cleaned docs build output ($(DOCS_DIR)/out, .next, generated changelog)"
+
+# Free the docs dev port and reap any orphaned Nextra/Next dev process left by a
+# crashed or backgrounded run (the EADDRINUSE on $(DOCS_PORT) you hit when a
+# previous `make docs` is still alive). `next dev` runs a launcher plus a
+# `next-server` worker; the launcher carries `--port $(DOCS_PORT)` in its argv,
+# the worker does not — so we match the launcher by port and the worker by name.
+# Matching `next-server` broadly is safe in THIS workspace because the docs site
+# is the only Next app (apps/www is Astro, ui/admin-console are Vite).
+#
+# Same self-match guard as `make kill`: the pkill patterns lead with a bracket
+# class (`[n]ext`) so the pattern STRING ("[n]ext …") has no "next" substring and
+# pkill never SIGKILLs its own shell. SIGTERM first (let Next close sockets/clean
+# .next cleanly), then poll pgrep and escalate stragglers to SIGKILL so a wedged
+# process can't hold the port forever.
+docs-kill:
+	-@pkill -TERM -f '[n]ext dev --port $(DOCS_PORT)' 2>/dev/null || true
+	-@pkill -TERM -f '[n]ext-server' 2>/dev/null || true
+	@i=0; \
+	while pgrep -f '[n]ext dev --port $(DOCS_PORT)' >/dev/null 2>&1 \
+	   || pgrep -f '[n]ext-server' >/dev/null 2>&1; do \
+		i=$$((i+1)); \
+		if [ $$i -ge 50 ]; then \
+			pkill -KILL -f '[n]ext dev --port $(DOCS_PORT)' 2>/dev/null || true; \
+			pkill -KILL -f '[n]ext-server' 2>/dev/null || true; \
+			break; \
+		fi; \
+		sleep 0.1; \
+	done
+	@echo "freed docs port $(DOCS_PORT) and killed any orphaned docs dev server"
 
 # Build the image from the Dockerfile, run it detached on a named volume, then
 # poll pg_isready until it accepts queries — so a follow-on `make dev` finds a

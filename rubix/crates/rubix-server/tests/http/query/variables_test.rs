@@ -1,6 +1,6 @@
 //! Integration: `POST /query` lowers dashboard variables, injection-safely.
 //!
-//! The variables contract (`rubix/docs/design/variables-and-templating.md`): a
+//! The variables contract (`rubix/docs/design/VARIABLES-AND-TEMPLATING.md`): a
 //! templated chart sends `$name` / `${name:csv}` / `$__sqlIn(name)` references plus
 //! a `variables` array; the backend lowers each value into an escaped SQL literal
 //! **before** the read-only guard, so one board serves a fleet and a hostile value

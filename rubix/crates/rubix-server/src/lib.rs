@@ -12,6 +12,7 @@ mod auth;
 pub mod datasources;
 mod dto;
 mod error;
+mod extensions_reconcile;
 pub mod hooks;
 mod http;
 pub mod jobs;
@@ -26,6 +27,7 @@ use axum::Router;
 
 pub use datasources::{define_datasource_schema, rehydrate};
 pub use error::{ApiError, ApiResult};
+pub use extensions_reconcile::spawn_extension_reconciler;
 pub use hooks::spawn_hook_dispatcher;
 pub use jobs::spawn_job_sweeper;
 pub use openapi::document as openapi_document;

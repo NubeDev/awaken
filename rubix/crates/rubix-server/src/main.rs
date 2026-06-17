@@ -13,7 +13,7 @@ use rubix_core::{
 use rubix_gate::{define_audit_schema, define_gate_schema};
 use rubix_server::{
     AppState, define_datasource_schema, define_tenant_schema, profile as server_profile, rehydrate,
-    router, seed_dev, spawn_hook_dispatcher, spawn_job_sweeper,
+    router, seed_dev, spawn_extension_reconciler, spawn_hook_dispatcher, spawn_job_sweeper,
 };
 use rubix_store::StoreHandle;
 use rubix_trace::define_trace_schema;
@@ -138,6 +138,14 @@ async fn main() -> Result<()> {
     // window (revoking their tickets) and reaps expired ticket rows, bounding the
     // in-memory registry and the ticket table (BULK-AND-JOBS.md, "The job spine").
     spawn_job_sweeper(state.clone());
+
+    // Bring supervised extensions back to their persisted desired state: every
+    // extension last left in `start` (a gated `lifecycle` record) is respawned, and
+    // any left `stop`/`disable` is left down (EXTENSION-RUNTIME.md, "boot-time
+    // reconciler" — the durability half of runtime phase 2). Runs on its own thread
+    // so a slow read or child spawn never delays binding the socket, and a failure
+    // is logged-and-continue: the live HTTP lifecycle path serves without it.
+    spawn_extension_reconciler(state.clone());
 
     let bind = std::env::var("RUBIX_BIND").unwrap_or_else(|_| DEFAULT_BIND.to_owned());
     let listener = tokio::net::TcpListener::bind(&bind)

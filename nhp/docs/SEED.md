@@ -49,6 +49,20 @@ A complete mock portfolio exercising the full model (see
 - **2 tenants**, each with **2 sites**.
 - Per site: **1–2 gateways**, each with a mix of **485 and ethernet networks**
   (with `max_devices` caps), and several **meters** stamped from the meter-types.
+- **Extra device families** beyond power meters (seed/device-types.mjs) — modelled
+  as meter-types too, stamped through the same meter/register pipeline:
+  - **LoRa sensors** matched to a gateway via a **`lora` network** (net_type +
+    protocol `lora`, region/spreading-factor params). Each carries a **`battery`**
+    register with a **low-battery alarm** (`direction:'below'` ramp: warn ≤30%,
+    critical ≤15%). Sub-types: pulse input (water → m³ / electrical → kWh),
+    temperature, CO₂, and CO sensors (CO/CO₂/temp carry high-threshold ramps).
+  - **Modbus IO** on a 485/ethernet bus: a **pulse input** (read a register, scale
+    to energy — same shape as a power meter), an **on/off coil** (read state +
+    write command), and a **read/write holding register**.
+  Seeded use cases (Acme): a **switch-room over-temperature** alarm (LoRa temp,
+  biased to trip), an **electrical pulse meter** (Modbus pulse), **carpark + toilet
+  exhaust fans** (Modbus coils), and **carpark CO sensors** (one biased to high CO,
+  one to a low battery) — so the alarm panel shows the new alarm types firing.
 - **Tags** applied per [DOMAIN-MODEL.md](./DOMAIN-MODEL.md) so dashboards auto-build.
 - **Users/teams**: an admin + an operator + a viewer per tenant, and a
   **polling-service service-account** principal with write grants.

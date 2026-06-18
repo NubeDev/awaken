@@ -27,6 +27,24 @@ describe('severityFor', () => {
     const shuffled: Alarm = { thresholds: [ramp.thresholds[2], ramp.thresholds[0], ramp.thresholds[1]] }
     expect(severityFor(253, shuffled)).toBe('critical')
   })
+
+  // A LoRa low-battery ramp (DOMAIN-MODEL §Alarms): warn ≤30%, critical ≤15% — it
+  // fires as the value FALLS, so direction is 'below'.
+  const battery: Alarm = {
+    direction: 'below',
+    thresholds: [
+      { value: null, severity: 'ok' },
+      { value: 30, severity: 'warning' },
+      { value: 15, severity: 'critical' },
+    ],
+  }
+  it("trips downward for a 'below' ramp", () => {
+    expect(severityFor(80, battery)).toBe('ok')
+    expect(severityFor(30, battery)).toBe('warning')
+    expect(severityFor(15.1, battery)).toBe('warning')
+    expect(severityFor(15, battery)).toBe('critical')
+    expect(severityFor(2, battery)).toBe('critical')
+  })
 })
 
 describe('hasAlarm / thresholdLines', () => {

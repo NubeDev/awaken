@@ -44,6 +44,15 @@ export interface Alarm {
   thresholds: AlarmThreshold[]
   /** Optional dwell before firing (hysteresis), e.g. "5m". */
   for?: string
+  /**
+   * Ramp direction (default `'above'`). `'above'` trips as the value RISES into a
+   * step (`value >= step.value`) — voltage spikes, high CO/CO2/temperature.
+   * `'below'` trips as the value FALLS into a step (`value <= step.value`) — a
+   * LoRa device's low-battery alarm. Omitted ⇒ `'above'`, so every existing alarm
+   * is unchanged. Honoured by `severityFor` (field-config.ts) so the chart
+   * colouring and the alarm panel agree ("what you see is what alarms").
+   */
+  direction?: 'above' | 'below'
 }
 
 /**
@@ -170,7 +179,17 @@ export interface NetEthernetParams {
   port: number
 }
 
-export type NetParams = Net485Params | NetEthernetParams
+/**
+ * Radio params for a `lora` (LoRaWAN) network — the gateway's LoRa concentrator
+ * config that battery sensors join. `region` is the LoRaWAN frequency plan;
+ * `spreading_factor` (SF7..SF12) trades range for airtime.
+ */
+export interface NetLoraParams {
+  region: string
+  spreading_factor: number
+}
+
+export type NetParams = Net485Params | NetEthernetParams | NetLoraParams
 
 /**
  * `kind:"network"` content (DOMAIN-MODEL §network). `net_type` selects the

@@ -14,7 +14,7 @@
 // store is a no-op rather than a duplicate. Matches the collections registrar.
 
 import { createRecord, listRecords, appendReadings } from '../collections/client.mjs';
-import { METER_TYPES } from './meter-types.mjs';
+import { ALL_METER_TYPES } from './meter-types.mjs';
 import { PORTFOLIO } from './portfolio-plan.mjs';
 import { historySamples } from './history.mjs';
 import { pollerFields } from './poller-status.mjs';
@@ -26,18 +26,29 @@ import {
   registerTags,
 } from './tags.mjs';
 
-// Meters whose voltage we bias upward so their voltage series cross the alarm
-// ramp (meter-types.mjs: warn ≥250 V, critical ≥253 V). Scattered across both
-// tenants and three sites so the rollup has something to show at every level:
-//   acme-plant-m2  → critical (Acme Plant, already "Degraded")
-//   acme-hq-m4     → warning  (Acme HQ)
-//   globex-tower-m2→ critical (Globex Tower "Datacentre")
-// Nominal voltage is ~230 ±6 (peaks ~236); the bias lifts the whole wave so its
-// latest value lands above the threshold. PM5560 meters only (em24 has no voltage).
-const VOLTAGE_SPIKES = {
-  'acme-plant-m2': 25, // ~255 → critical
-  'acme-hq-m4': 22, // ~252 → warning
-  'globex-tower-m2': 26, // ~256 → critical
+// Meters whose ONE register of a given quantity we bias so its series crosses the
+// alarm ramp — how the seed produces active alarms without a rule engine (the
+// dashboards evaluate the latest value against the ramp). Keyed by meter key →
+// `{ quantity, amount }`; `amount` is signed (positive lifts over an 'above' ramp,
+// negative drops under a 'below' ramp). Scattered across tenants/sites so the
+// rollup has something to show at every level.
+//
+//   voltage (warn ≥250, critical ≥253 V) — base ~230 ±6:
+//     acme-plant-m2 +25 → ~255 critical | acme-hq-m4 +22 → ~252 warning |
+//     globex-tower-m2 +26 → ~256 critical
+//   battery (warn ≤30, critical ≤15 %, 'below') — base ~88 ±4:
+//     acme-plant-co-1 −80 → ~8% critical low battery
+//   co (warn ≥35, critical ≥100 ppm) — base ~4 ±3:
+//     acme-plant-co-2 +110 → ~114 ppm critical (carpark CO over threshold)
+//   temperature (warn ≥35, critical ≥40 °C) — base ~22 ±3:
+//     acme-hq-temp-1 +18 → ~40 °C critical (switch-room over-temp)
+const SPIKES = {
+  'acme-plant-m2': { quantity: 'voltage', amount: 25 },
+  'acme-hq-m4': { quantity: 'voltage', amount: 22 },
+  'globex-tower-m2': { quantity: 'voltage', amount: 26 },
+  'acme-plant-co-1': { quantity: 'battery', amount: -80 },
+  'acme-plant-co-2': { quantity: 'co', amount: 110 },
+  'acme-hq-temp-1': { quantity: 'temperature', amount: 18 },
 };
 
 // Create a record unless one of its kind already carries the same `key`. Returns
@@ -84,12 +95,12 @@ export async function seedPortfolio({ log = () => {} } = {}) {
   // --- meter-types first (meters stamp from them) ---
   const mtIndex = await indexByKey('meter-type');
   const typeById = new Map(); // key → { id, version, registers }
-  for (const mt of METER_TYPES) {
+  for (const mt of ALL_METER_TYPES) {
     const { registers, kind, ...fields } = mt;
     const { id } = await upsert('meter-type', { ...fields, registers }, mtIndex);
     typeById.set(mt.key, { id, version: mt.version, registers });
   }
-  log(`  meter-types: ${METER_TYPES.length}`);
+  log(`  meter-types: ${ALL_METER_TYPES.length}`);
 
   // Pre-load the indexes for every kind once (re-seed idempotency).
   const idx = {
@@ -220,13 +231,15 @@ export async function seedPortfolio({ log = () => {} } = {}) {
               // RECORD id; the samples are lean `{ at, value }`. A history=false
               // register still gets ONE latest point (its live value).
               //
-              // A few scattered meters get a voltage spike so their voltage series
-              // cross the alarm ramp (warn ≥250, critical ≥253) — this is how the
-              // seed produces active alarms without a rule engine. Keyed off the
-              // meter so it's deterministic and spread across tenants/sites.
-              const samples = historySamples(def, now, {
-                spikeVolts: VOLTAGE_SPIKES[m.key] ?? 0,
-              });
+              // A few scattered meters get a spike on ONE register (the one whose
+              // quantity matches) so its series crosses the alarm ramp — this is
+              // how the seed produces active alarms without a rule engine. Keyed
+              // off the meter so it's deterministic and spread across tenants/sites
+              // (voltage over-volt, low battery, high CO, switch-room over-temp).
+              const spike = SPIKES[m.key];
+              const amount =
+                spike && spike.quantity === def.quantity ? spike.amount : 0;
+              const samples = historySamples(def, now, { spike: amount });
               if (samples.length === 0) continue;
               const res = await appendReadings(registerId, samples);
               if (!res.ok) {

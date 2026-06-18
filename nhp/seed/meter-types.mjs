@@ -172,3 +172,10 @@ const em24 = {
 };
 
 export const METER_TYPES = [pm5560, em24];
+
+// The "extra devices" — LoRa sensors + Modbus IO — are meter-type templates too
+// (device-types.mjs), stamped through the same meter/register pipeline. The seed
+// registers ALL_METER_TYPES so the portfolio can stamp meters from any of them.
+import { DEVICE_TYPES } from './device-types.mjs';
+
+export const ALL_METER_TYPES = [...METER_TYPES, ...DEVICE_TYPES];

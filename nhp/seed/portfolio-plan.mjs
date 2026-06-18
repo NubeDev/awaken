@@ -33,6 +33,19 @@ const netEth = (key, name, maxDevices, ip, meters) => ({
   meters,
 });
 
+// A LoRaWAN network: a gateway's radio link that battery sensors join (a LoRa
+// device is "matched to a gateway" by sitting here). region/spreading_factor
+// params; net_type/protocol 'lora' (enums.mjs).
+const netLora = (key, name, maxDevices, meters) => ({
+  key,
+  name,
+  net_type: 'lora',
+  protocol: 'lora',
+  max_devices: maxDevices,
+  params: { region: 'AU915', spreading_factor: 10 },
+  meters,
+});
+
 const meter = (key, name, mt, addr) => ({ key, name, mt, addr });
 
 // Two tenants, each two sites; sites carry 1–2 gateways; gateways mix 485 +
@@ -67,6 +80,29 @@ export const PORTFOLIO = [
               ]),
             ],
           },
+          // The "extra devices" gateway — LoRa sensors + Modbus IO beyond the
+          // power meters. Demonstrates: a switch-room over-temperature alarm
+          // (LoRa temp, biased to trip), an electrical pulse meter (Modbus pulse,
+          // same shape as a power meter), and a toilet-exhaust-fan on/off coil.
+          {
+            key: 'acme-hq-gw2',
+            name: 'HQ Facilities Gateway',
+            model: 'NHP-GW-200',
+            host: '10.0.1.11',
+            networks: [
+              netLora('acme-hq-gw2-lora', 'HQ LoRa', 32, [
+                // Electrical switch-room temperature alarm (acme-hq-temp-1 is
+                // biased over the 35/40 °C ramp in portfolio.mjs SPIKES).
+                meter('acme-hq-temp-1', 'Switch Room Temp', 'nhp-lora-temp', 1),
+              ]),
+              net485('acme-hq-gw2-485io', 'HQ Modbus IO', 16, [
+                // Electrical pulse meter (Modbus pulse input — same as a power meter).
+                meter('acme-hq-pulse-1', 'Tenant Pulse Meter', 'nhp-modbus-pulse', 20),
+                // Toilet exhaust fan — on/off coil (read state + write command).
+                meter('acme-hq-fan-1', 'Toilet Exhaust Fan', 'nhp-modbus-coil', 21),
+              ]),
+            ],
+          },
         ],
       },
       {
@@ -97,6 +133,27 @@ export const PORTFOLIO = [
               netEth('acme-plant-gw2-eth1', 'Plant Ethernet 1', 64, '10.1.2.0', [
                 meter('acme-plant-m3', 'Compressor', 'acme-em24', 5),
                 meter('acme-plant-m4', 'Welding Bay', 'acme-pm5560', 6),
+              ]),
+            ],
+          },
+          // Carpark facilities — LoRa CO sensors driving Modbus exhaust fans. The
+          // classic carpark-ventilation use case: CO over threshold ⇒ run the fan.
+          {
+            key: 'acme-plant-gw3',
+            name: 'Carpark Gateway',
+            model: 'NHP-GW-200',
+            host: '10.1.1.12',
+            networks: [
+              netLora('acme-plant-gw3-lora', 'Carpark LoRa', 32, [
+                // CO sensors. acme-plant-co-1 is biased to a LOW BATTERY (≤15%),
+                // acme-plant-co-2 to HIGH CO (≥100 ppm) — both in portfolio.mjs SPIKES.
+                meter('acme-plant-co-1', 'Carpark CO — Level 1', 'nhp-lora-co', 1),
+                meter('acme-plant-co-2', 'Carpark CO — Level 2', 'nhp-lora-co', 2),
+              ]),
+              net485('acme-plant-gw3-485io', 'Carpark Modbus IO', 16, [
+                // Carpark exhaust fans — on/off coils.
+                meter('acme-plant-fan-1', 'Carpark Exhaust Fan A', 'nhp-modbus-coil', 10),
+                meter('acme-plant-fan-2', 'Carpark Exhaust Fan B', 'nhp-modbus-coil', 11),
               ]),
             ],
           },

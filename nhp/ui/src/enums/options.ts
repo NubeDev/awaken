@@ -16,8 +16,8 @@
  * Reusable by WS-05 (network net_type/protocol/status) and WS-06 (wizards).
  */
 
-export const NET_TYPE = ['485', 'ethernet'] as const
-export const PROTOCOL = ['modbus'] as const
+export const NET_TYPE = ['485', 'ethernet', 'lora'] as const
+export const PROTOCOL = ['modbus', 'lora'] as const
 
 export const FN_CODE = [
   'read_holding',
@@ -26,6 +26,7 @@ export const FN_CODE = [
   'read_discrete',
   'write_holding',
   'write_coil',
+  'lora_uplink',
 ] as const
 
 export const DATATYPE = [
@@ -36,6 +37,29 @@ export const DATATYPE = [
   'float32',
   'float64',
   'bool',
+] as const
+
+/**
+ * Register `quantity` values NHP styles in the dashboard (metric-style icons +
+ * colours), groups by, and rolls up. Electrical (power-meter) quantities plus the
+ * LoRa sensor / Modbus-IO quantities. Mirror of `QUANTITY` in enums.mjs — the
+ * drift test asserts the two are identical. A quantity outside this set still
+ * writes fine (it's a plain text field); it just falls back to a generic style.
+ */
+export const QUANTITY = [
+  'voltage',
+  'current',
+  'power',
+  'energy',
+  'frequency',
+  'power_factor',
+  'temperature',
+  'co2',
+  'co',
+  'battery',
+  'volume',
+  'pulse',
+  'state',
 ] as const
 
 export const BYTE_ORDER = ['big', 'little', 'big_swap', 'little_swap'] as const
@@ -67,6 +91,7 @@ export type FnCode = (typeof FN_CODE)[number]
 export type Datatype = (typeof DATATYPE)[number]
 export type ByteOrder = (typeof BYTE_ORDER)[number]
 export type ChartType = (typeof CHART_TYPE)[number]
+export type Quantity = (typeof QUANTITY)[number]
 
 /** `{label,value}` list for the shadcn Select / SelectDropdown components. */
 export function toOptions(

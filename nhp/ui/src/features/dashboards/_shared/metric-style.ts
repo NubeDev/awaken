@@ -12,10 +12,15 @@
  */
 import {
   Activity,
+  BatteryMedium,
+  Droplets,
   Gauge,
   Plug,
   Sigma,
+  Thermometer,
+  ToggleRight,
   Waves,
+  Wind,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,6 +43,14 @@ const BY_QUANTITY: Record<string, MetricStyle> = {
   current: { color: 'var(--chart-3)', icon: Waves },
   frequency: { color: 'var(--chart-2)', icon: Gauge },
   power_factor: { color: 'var(--chart-2)', icon: Sigma },
+  // LoRa sensor + Modbus-IO quantities (device-types.mjs).
+  temperature: { color: 'var(--chart-1)', icon: Thermometer },
+  co2: { color: 'var(--chart-3)', icon: Wind },
+  co: { color: 'var(--chart-4)', icon: Wind },
+  battery: { color: 'var(--chart-2)', icon: BatteryMedium },
+  volume: { color: 'var(--chart-3)', icon: Droplets },
+  pulse: { color: 'var(--chart-5)', icon: Activity },
+  state: { color: 'var(--chart-2)', icon: ToggleRight },
 }
 
 const FALLBACK: MetricStyle = { color: 'var(--chart-1)', icon: Activity }

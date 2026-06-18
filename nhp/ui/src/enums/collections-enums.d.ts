@@ -11,5 +11,6 @@ declare module '*/collections/enums.mjs' {
   export const BYTE_ORDER: string[]
   export const CHART_TYPE: string[]
   export const STATUS: string[]
+  export const QUANTITY: string[]
   export const ENUMS: Record<string, string[]>
 }

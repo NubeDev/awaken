@@ -53,6 +53,8 @@ docs/book/mermaid-init.js
 *.png
 # ...except checked-in documentation assets.
 !docs/assets/**/*.png
+# ...and checked-in UI image assets.
+!nhp/ui/public/images/**/*.png
 # ...and docs-site copies served from Astro public/.
 !apps/www/public/assets/admin-console/**/*.png
 # ...and Playwright visual-regression baselines (one per surface × theme × locale).

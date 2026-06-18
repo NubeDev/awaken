@@ -33,10 +33,12 @@ import { ConsumptionReport } from './reports/consumption'
 import { TrendReport } from './reports/trend'
 import { AlarmSummaryReport } from './reports/alarm-summary'
 import { RawReport } from './reports/raw'
+import { SiteOverviewReport } from './reports/site-overview'
 
-type ReportType = 'consumption' | 'trend' | 'alarms' | 'raw'
+type ReportType = 'consumption' | 'trend' | 'alarms' | 'raw' | 'site-overview'
 
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
+  { value: 'site-overview', label: 'Site overview' },
   { value: 'consumption', label: 'Energy consumption' },
   { value: 'trend', label: 'Trends (charts)' },
   { value: 'alarms', label: 'Alarm summary' },
@@ -58,13 +60,20 @@ export function ReportsPage() {
   const labels = scopeSummary(index, filter)
   const typeLabel = REPORT_TYPES.find((t) => t.value === type)!.label
   const windowed = type !== 'alarms'
+  // The site overview is a single-site document — Export stays disabled until a
+  // site is picked, so a handed-off PDF always names one site.
+  const siteRequired = type === 'site-overview'
+  const exportBlocked = siteRequired && !filter.siteId
 
-  const exportPdf = () =>
+  const exportPdf = () => {
+    const slug = (s: string) => s.toLowerCase().replace(/\s+/g, '-')
+    const date = new Date().toISOString().slice(0, 10)
     printDocument(
-      `report-${type}-${labels.tenant.toLowerCase().replace(/\s+/g, '-')}-${new Date()
-        .toISOString()
-        .slice(0, 10)}`
+      siteRequired
+        ? `site-overview-${slug(labels.site)}-${date}`
+        : `report-${type}-${slug(labels.tenant)}-${date}`
     )
+  }
 
   return (
     <Main>
@@ -78,7 +87,7 @@ export function ReportsPage() {
             or a single site. Export any view to PDF.
           </p>
         </div>
-        <Button onClick={exportPdf} disabled={isLoading}>
+        <Button onClick={exportPdf} disabled={isLoading || exportBlocked}>
           <Download className='mr-1 size-4' /> Export PDF
         </Button>
       </div>
@@ -140,6 +149,8 @@ export function ReportsPage() {
           <Card className='text-muted-foreground p-8 text-center text-sm'>
             Loading portfolio…
           </Card>
+        ) : type === 'site-overview' ? (
+          <SiteOverviewReport index={index} filter={filter} token={token} />
         ) : type === 'consumption' ? (
           <ConsumptionReport index={index} filter={filter} token={token} />
         ) : type === 'trend' ? (

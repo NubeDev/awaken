@@ -11,13 +11,14 @@ import type {
   MeterRecord,
   Net485Params,
   NetEthernetParams,
+  NetLoraParams,
   NetworkRecord,
   RegisterRec,
 } from '@/api/records'
-import { gatewayTag, meterTag, networkTag } from '@/enums/tags'
+import { gatewayTag, networkTag } from '@/enums/tags'
 import type { HistorySample } from '../query/batch'
 import { resolveWindow, type WindowToken } from '../query/time-window'
-import { energyTrend, type EnergyTrend } from './energy-trend'
+import { primaryMetric, type PrimaryMetric } from './primary-metric'
 import type { RollupStatus } from '../widgets/status-tile'
 
 /** One network's device utilisation against its cap, plus a human params hint. */
@@ -45,13 +46,18 @@ export interface GatewayKpis {
   metersOnline: number
 }
 
-/** One meter under the gateway: identity + status + its energy (kWh) trend. */
+/**
+ * One meter under the gateway: identity + status + its headline metric (value +
+ * unit + trend, device-agnostic — energy for a power meter, °C for a temp sensor,
+ * etc.) and the protocol of the network it sits on (modbus / lora).
+ */
 export interface MeterRow {
   id: string
   name: string
   status: string
   lastSeen?: string
-  energy: EnergyTrend
+  protocol?: string
+  metric: PrimaryMetric
 }
 
 export interface GatewayBoard {
@@ -71,6 +77,10 @@ function paramsDetail(net: NetworkRecord['content']): string | undefined {
     const p = net.params as Net485Params
     const parity = p.parity?.[0]?.toUpperCase() ?? 'N'
     return `${p.baud} ${p.data_bits}${parity}${p.stop_bits}`
+  }
+  if (net.net_type === 'lora') {
+    const p = net.params as NetLoraParams
+    return p.region ? `${p.region} · SF${p.spreading_factor}` : undefined
   }
   const p = net.params as NetEthernetParams
   return p.ip ? `${p.ip}:${p.port}` : undefined
@@ -117,13 +127,23 @@ export function buildGatewayBoard(
     metersOnline: gwMeters.filter((m) => m.content.status === 'online').length,
   }
 
+  // network:<key> tag → protocol, so each meter row can show its bus protocol.
+  const protocolByNetTag = new Map(
+    gwNetworks.map((n) => [networkTag(n.content.key), n.content.protocol])
+  )
+  const meterProtocol = (m: MeterRecord) => {
+    const tag = (m.content.tags ?? []).find((t) => protocolByNetTag.has(t))
+    return tag ? protocolByNetTag.get(tag) : undefined
+  }
+
   const meterRows: MeterRow[] = gwMeters
     .map((m) => ({
       id: m.id,
       name: m.content.name,
       status: m.content.status ?? 'unknown',
       lastSeen: m.content.last_seen,
-      energy: energyTrend(meterTag(m.content.key), registers, history, resolved),
+      protocol: meterProtocol(m),
+      metric: primaryMetric(m.content.key, registers, history, resolved),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 

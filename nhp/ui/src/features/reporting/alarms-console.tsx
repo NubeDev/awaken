@@ -44,7 +44,11 @@ export function AlarmsConsole() {
   const [severity, setSeverity] = useState<SeverityFilter>('all')
 
   const registers = useMemo(
-    () => selectRegisters(index, filter, { alarmsOnly: true }),
+    // includeNoHistory: a register can be in alarm on its LATEST value even when
+    // it keeps no trend (a LoRa battery / a gauge are history=false but still
+    // alarm — e.g. low-battery). The seed stands in a single latest point for
+    // those, so the console must consider them too.
+    () => selectRegisters(index, filter, { alarmsOnly: true, includeNoHistory: true }),
     [index, filter]
   )
   const { latest, isLoading: loadingReadings } = useLatestReadings(

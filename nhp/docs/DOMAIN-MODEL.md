@@ -70,10 +70,19 @@ A communications bus on a gateway. This is where the **network type** and
 | `key` | text, required, unique | e.g. `gw-01-net-1` |
 | `name` | text | |
 | `gateway` | relation → gateway | parent |
-| `net_type` | text (enum: `485`, `ethernet`) | the physical/link layer |
-| `protocol` | text (enum: `modbus`) | only modbus for now; field exists to grow |
+| `net_type` | text (enum: `485`, `ethernet`, `lora`) | the physical/link layer |
+| `protocol` | text (enum: `modbus`, `lora`) | Modbus on a 485/ethernet bus; LoRaWAN on a `lora` radio link |
 | `max_devices` | number, required | **device cap** — the wizard/writeRule rejects an N+1th meter |
-| `params` | json | net-type-specific: baud/parity/stop for 485; ip/port for ethernet |
+| `params` | json | net-type-specific: baud/parity/stop for 485; ip/port for ethernet; region/spreading_factor for lora |
+
+> **LoRa networks (extra devices).** A `lora` network is the gateway's LoRaWAN
+> radio link; a battery sensor is "matched to a gateway" by sitting on it. LoRa
+> devices are modelled as meter-types too (seed/device-types.mjs) and stamped
+> through the same meter/register pipeline — their registers are decoded from the
+> uplink payload (`fn_code: lora_uplink`, `address` = a logical channel) rather
+> than Modbus-addressed, and each carries a `battery` register with a low-battery
+> alarm. **Modbus IO** devices (pulse input, on/off coil, read/write holding
+> register) are ordinary Modbus meter-types on a 485/ethernet bus.
 
 > **Device limit.** `max_devices` is the per-network cap (point #1 from the
 > kickoff). A gateway's *total* device count is the sum across its networks and is
@@ -184,6 +193,12 @@ paint the chart and define the alarm. A register's `alarm` field:
   "for": "5m"     // optional dwell before firing (hysteresis)
 }
 ```
+
+A ramp may set `"direction": "below"` to fire as the value **falls** into a step
+(`value <= step`) instead of the default `"above"` (`value >= step`). This is how a
+LoRa device's **low-battery** alarm is expressed (warn ≤30%, critical ≤15%). The
+direction is honoured by the single `severityFor` both the chart colouring and the
+alarm panel use, so "what you see is what alarms" holds for either direction.
 
 - **Evaluation** is a rubix **rule** (Rhai) over the register's history/live value;
   it writes an `insight`/alarm record on cross, published as a data-change event.

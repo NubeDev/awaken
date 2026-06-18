@@ -8,21 +8,29 @@
 import type { Alarm, AlarmSeverity } from '@/api/records'
 
 /**
- * The severity a value lands in: the highest step whose `value` the sample is at
- * or above. The baseline step (`value: null`) is the floor (`ok`). Steps need not
- * be pre-sorted — we sort by ascending `value` (nulls first) so ramp order is
- * deterministic regardless of how the editor stored them.
+ * The severity a value lands in: walk the ramp from the baseline outward and take
+ * the last step the value has crossed. The baseline step (`value: null`) is the
+ * floor (`ok`). Steps need not be pre-sorted.
+ *
+ * Direction (`alarm.direction`, default `'above'`):
+ *  - `'above'` — sort ascending (nulls first); a step trips when `value >= step`.
+ *    The default, so every existing electrical alarm is unchanged.
+ *  - `'below'` — sort descending (nulls first); a step trips when `value <= step`.
+ *    Used by the LoRa low-battery alarm (fires as the battery DROPS into a step).
  */
 export function severityFor(value: number, alarm: Alarm | undefined): AlarmSeverity {
   if (!alarm?.thresholds?.length) return 'ok'
+  const below = alarm.direction === 'below'
   const steps = [...alarm.thresholds].sort((a, b) => {
     if (a.value === null) return -1
     if (b.value === null) return 1
-    return a.value - b.value
+    return below ? b.value - a.value : a.value - b.value
   })
   let current: AlarmSeverity = 'ok'
   for (const step of steps) {
-    if (step.value === null || value >= step.value) current = step.severity
+    const crossed =
+      step.value === null || (below ? value <= step.value : value >= step.value)
+    if (crossed) current = step.severity
     else break
   }
   return current

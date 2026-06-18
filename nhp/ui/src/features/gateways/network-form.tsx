@@ -14,11 +14,18 @@ import type {
   MeterRecord,
   Net485Params,
   NetEthernetParams,
+  NetLoraParams,
   NetParams,
   Network,
   NetworkRecord,
 } from '@/api/records'
-import { NET_TYPE, PROTOCOL, toOptions, type NetType } from '@/enums/options'
+import {
+  NET_TYPE,
+  PROTOCOL,
+  toOptions,
+  type NetType,
+  type Protocol,
+} from '@/enums/options'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -41,6 +48,7 @@ import { metersOnNetwork } from './capacity'
 import { useCreateNetwork, useUpdateNetwork } from './hooks'
 import { default485, Params485 } from './params-485'
 import { defaultEthernet, ParamsEthernet } from './params-ethernet'
+import { defaultLora, ParamsLora } from './params-lora'
 
 type NetworkFormProps = {
   open: boolean
@@ -55,6 +63,15 @@ type NetworkFormProps = {
 const NET_TYPE_LABEL: Record<NetType, string> = {
   '485': 'RS-485 (serial)',
   ethernet: 'Ethernet (TCP)',
+  lora: 'LoRaWAN (radio)',
+}
+
+// The protocol a transport carries: a LoRa radio speaks LoRaWAN, the field buses
+// speak Modbus. Switching net_type re-pins protocol so the two never disagree.
+const PROTOCOL_FOR: Record<NetType, Protocol> = {
+  '485': 'modbus',
+  ethernet: 'modbus',
+  lora: 'lora',
 }
 
 export function NetworkForm({
@@ -80,6 +97,15 @@ export function NetworkForm({
       ? (start.params as NetEthernetParams)
       : defaultEthernet()
   )
+  const [pLora, setPLora] = useState<NetLoraParams>(
+    start?.net_type === 'lora' ? (start.params as NetLoraParams) : defaultLora()
+  )
+
+  // Switching transport re-pins the protocol (a LoRa bus can't speak Modbus).
+  const onNetType = (v: NetType) => {
+    setNetType(v)
+    setProtocol(PROTOCOL_FOR[v])
+  }
 
   const create = useCreateNetwork()
   const update = useUpdateNetwork()
@@ -94,7 +120,8 @@ export function NetworkForm({
     key.trim() !== '' && Number.isFinite(maxDevices) && maxDevices > 0 && !capTooLow
 
   const save = () => {
-    const params: NetParams = netType === '485' ? p485 : pEth
+    const params: NetParams =
+      netType === '485' ? p485 : netType === 'lora' ? pLora : pEth
     const base: Network = {
       kind: 'network',
       key,
@@ -155,7 +182,7 @@ export function NetworkForm({
               <Label htmlFor='net-type'>Type</Label>
               <Select
                 value={netType}
-                onValueChange={(v) => setNetType(v as NetType)}
+                onValueChange={(v) => onNetType(v as NetType)}
               >
                 <SelectTrigger id='net-type'>
                   <SelectValue />
@@ -202,6 +229,8 @@ export function NetworkForm({
           {/* net_type switches the params sub-form (DOMAIN-MODEL §network). */}
           {netType === '485' ? (
             <Params485 value={p485} onChange={setP485} />
+          ) : netType === 'lora' ? (
+            <ParamsLora value={pLora} onChange={setPLora} />
           ) : (
             <ParamsEthernet value={pEth} onChange={setPEth} />
           )}

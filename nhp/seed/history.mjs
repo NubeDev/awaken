@@ -33,6 +33,29 @@ function profile(register) {
     case 'power_factor':
       // A bounded 0..1 ratio — sit near unity (0.93..0.97) like a healthy load.
       return { base: 0.95, swing: 0.02, cumulative: false };
+    // --- LoRa sensor / Modbus-IO quantities (device-types.mjs) ---
+    case 'temperature':
+      // A room/switch-room ambient — sit ~22 °C ±3 (well under the 35 °C warn).
+      return { base: 22, swing: 3, cumulative: false };
+    case 'co2':
+      // Indoor air ~600 ppm ±150 (under the 1000 ppm warn).
+      return { base: 600, swing: 150, cumulative: false };
+    case 'co':
+      // Clean air a few ppm (under the 35 ppm warn).
+      return { base: 4, swing: 3, cumulative: false };
+    case 'battery':
+      // A healthy state-of-charge — sit high (~88% ±4) so it does NOT trip the
+      // low-battery ramp unless a seeded device is biased down (spike < 0).
+      return { base: 88, swing: 4, cumulative: false };
+    case 'volume':
+      // A water total — cumulative like energy, slower ramp (~0.3 m³/hour).
+      return { base: 500, swing: 0.3, cumulative: true };
+    case 'pulse':
+      // A raw pulse count — cumulative.
+      return { base: 0, swing: 5, cumulative: true };
+    case 'state':
+      // An on/off coil readback — flips around 0/1 (the wave crosses 0.5).
+      return { base: 0.5, swing: 0.5, cumulative: false };
     default:
       return { base: 1, swing: 0.2, cumulative: false };
   }
@@ -72,12 +95,16 @@ const round2 = (n) => Math.round(n * 100) / 100;
 // Factor renders a number instead of an em-dash. So this returns the full window
 // for history=true and exactly one point for history=false.
 //
-// `opts.spikeVolts` biases a voltage series upward by that many volts so a chosen
-// meter crosses its alarm ramp — how the seed produces a few active alarms without
-// a rule engine (the dashboards evaluate the latest value against the ramp).
+// `opts.spike` biases THIS register's wave by an additive amount so a chosen
+// device crosses its alarm ramp — how the seed produces a few active alarms
+// without a rule engine (the dashboards evaluate the latest value against the
+// ramp). The amount is signed: positive lifts the wave over an 'above' ramp
+// (voltage/CO/temperature), negative drops it under a 'below' ramp (low battery).
+// The caller decides which device gets a spike and by how much (portfolio.mjs);
+// this just applies it.
 export function historySamples(register, now = new Date(), opts = {}) {
-  const { spikeVolts = 0 } = opts;
-  const bias = register.quantity === 'voltage' ? spikeVolts : 0;
+  const { spike = 0 } = opts;
+  const bias = spike;
   const p = profile(register);
   if (!register.history) {
     // One latest reading so the live tile has a value; no trend persisted.

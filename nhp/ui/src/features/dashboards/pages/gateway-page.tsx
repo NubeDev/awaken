@@ -30,6 +30,7 @@ import {
   type NetworkRow,
 } from '../auto-build/gateway-board'
 import { formatValue } from '../_shared/format-value'
+import { SEVERITY_COLORS } from '../_shared/palette'
 import { KpiTile } from '../widgets/kpi-tile'
 import { StatusPill } from '../widgets/status-tile'
 import { Empty } from '../widgets/empty'
@@ -64,8 +65,6 @@ export function GatewayPage({
     window
   )
   if (!board) return <Empty message='Gateway not found' />
-
-  const energyUnit = board.meters.find((m) => m.energy.unit)?.energy.unit
 
   const { kpis } = board
 
@@ -129,7 +128,9 @@ export function GatewayPage({
         )}
       </Card>
 
-      {/* Meters — status + energy (kWh) sparkline; drill into a meter page. */}
+      {/* Meters — status + the device's headline reading (value + unit) + a
+          protocol tag; drill into a meter page. The reading column is
+          device-agnostic: energy for a power meter, °C for a temp sensor, etc. */}
       <Card className='gap-0 overflow-hidden p-0'>
         <div className='border-b px-4 py-3 text-sm font-medium'>Meters</div>
         {board.meters.length === 0 ? (
@@ -139,7 +140,8 @@ export function GatewayPage({
             <TableHeader>
               <TableRow className='hover:bg-transparent'>
                 <TableHead>Meter</TableHead>
-                <TableHead className='w-48'>Energy ({energyUnit ?? 'kWh'})</TableHead>
+                <TableHead className='w-24'>Protocol</TableHead>
+                <TableHead className='w-56'>Reading</TableHead>
                 <TableHead className='text-right'>Status</TableHead>
                 <TableHead className='w-8' />
               </TableRow>
@@ -157,6 +159,10 @@ export function GatewayPage({
 }
 
 function MeterRowItem({ meter, onOpen }: { meter: MeterRow; onOpen: () => void }) {
+  const { metric } = meter
+  // Colour the value when it's in alarm; otherwise leave it the default ink.
+  const valueColor =
+    metric.severity !== 'ok' ? SEVERITY_COLORS[metric.severity] : undefined
   return (
     <TableRow className='group cursor-pointer' onClick={onOpen}>
       <TableCell>
@@ -168,16 +174,29 @@ function MeterRowItem({ meter, onOpen }: { meter: MeterRow; onOpen: () => void }
         </div>
       </TableCell>
       <TableCell>
+        {meter.protocol ? (
+          <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px] uppercase'>
+            {meter.protocol}
+          </span>
+        ) : (
+          <span className='text-muted-foreground text-xs'>—</span>
+        )}
+      </TableCell>
+      <TableCell>
         <div className='flex items-center gap-3'>
-          <span className='w-20 text-sm font-medium tabular-nums'>
-            {formatValue(meter.energy.latest, { precision: 0 })}
+          <span
+            className='w-24 text-sm font-medium tabular-nums'
+            style={valueColor ? { color: valueColor } : undefined}
+          >
+            {formatValue(metric.latest, {
+              precision: metric.precision,
+              unit: metric.unit,
+            })}
           </span>
           <div className='h-8 flex-1'>
-            {meter.energy.points.length > 1 ? (
-              <Sparkline points={meter.energy.points} color='var(--chart-5)' height={32} />
-            ) : (
-              <span className='text-muted-foreground text-xs'>—</span>
-            )}
+            {metric.points.length > 1 ? (
+              <Sparkline points={metric.points} color='var(--chart-5)' height={32} />
+            ) : null}
           </div>
         </div>
       </TableCell>

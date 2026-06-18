@@ -19,7 +19,10 @@ export function AlarmSummaryReport({
   filter: ScopeFilter
 }) {
   const registers = useMemo(
-    () => selectRegisters(index, filter, { alarmsOnly: true }),
+    // includeNoHistory: a no-trend register (LoRa battery, a gauge) can still be
+    // in alarm on its latest value, so the printable summary must match the
+    // live console and consider them too.
+    () => selectRegisters(index, filter, { alarmsOnly: true, includeNoHistory: true }),
     [index, filter]
   )
   const { latest, isLoading } = useLatestReadings(

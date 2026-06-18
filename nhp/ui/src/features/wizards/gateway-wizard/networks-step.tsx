@@ -5,8 +5,13 @@
  * sub-forms from the admin gateways feature (no reinvention). A live preview of
  * the generated keys reassures the operator before the final preview/write.
  */
-import type { Net485Params, NetEthernetParams, NetParams } from '@/api/records'
-import { NET_TYPE, PROTOCOL, type NetType } from '@/enums/options'
+import type {
+  Net485Params,
+  NetEthernetParams,
+  NetLoraParams,
+  NetParams,
+} from '@/api/records'
+import { NET_TYPE, type NetType, type Protocol } from '@/enums/options'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -21,38 +26,50 @@ import {
   defaultEthernet,
   ParamsEthernet,
 } from '@/features/gateways/params-ethernet'
-import { networkKeys, type NetworksInput } from './plan'
+import { defaultLora, ParamsLora } from '@/features/gateways/params-lora'
+import { networkKeys } from './plan'
 
 export interface NetworksStepValue {
   count: number
   netType: NetType
-  protocol: NetworksInput['protocol']
+  protocol: Protocol
   maxDevices: number
   namePattern: string
   p485: Net485Params
   pEth: NetEthernetParams
+  pLora: NetLoraParams
 }
 
 export function defaultNetworksStep(gatewayKey: string): NetworksStepValue {
   return {
     count: 30,
     netType: '485',
-    protocol: PROTOCOL[0],
+    protocol: 'modbus',
     maxDevices: 16,
     namePattern: `${gatewayKey || 'gw-01'}-net-{n}`,
     p485: default485(),
     pEth: defaultEthernet(),
+    pLora: defaultLora(),
   }
 }
 
 /** Resolve the active params shape for the plan. */
 export function networksParams(v: NetworksStepValue): NetParams {
-  return v.netType === '485' ? v.p485 : v.pEth
+  return v.netType === '485' ? v.p485 : v.netType === 'lora' ? v.pLora : v.pEth
 }
 
 const NET_TYPE_LABEL: Record<NetType, string> = {
   '485': 'RS-485 (serial)',
   ethernet: 'Ethernet (TCP)',
+  lora: 'LoRaWAN (radio)',
+}
+
+// The protocol each transport carries (a LoRa radio speaks LoRaWAN, the field
+// buses speak Modbus) — re-pinned when net_type changes so they never disagree.
+const PROTOCOL_FOR: Record<NetType, Protocol> = {
+  '485': 'modbus',
+  ethernet: 'modbus',
+  lora: 'lora',
 }
 
 export function NetworksStep({
@@ -106,7 +123,13 @@ export function NetworksStep({
           <Label htmlFor='net-type'>Type</Label>
           <Select
             value={value.netType}
-            onValueChange={(v) => onChange({ ...value, netType: v as NetType })}
+            onValueChange={(v) =>
+              onChange({
+                ...value,
+                netType: v as NetType,
+                protocol: PROTOCOL_FOR[v as NetType],
+              })
+            }
           >
             <SelectTrigger id='net-type'>
               <SelectValue />
@@ -122,23 +145,9 @@ export function NetworksStep({
         </div>
         <div className='grid gap-1'>
           <Label htmlFor='net-protocol'>Protocol</Label>
-          <Select
-            value={value.protocol}
-            onValueChange={(v) =>
-              onChange({ ...value, protocol: v as typeof value.protocol })
-            }
-          >
-            <SelectTrigger id='net-protocol'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PROTOCOL.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Protocol follows the transport (Modbus on a bus, LoRaWAN on radio),
+              so it's shown read-only rather than chosen independently. */}
+          <Input id='net-protocol' value={value.protocol} readOnly disabled />
         </div>
         <div className='grid gap-1'>
           <Label htmlFor='net-max'>Max devices / network</Label>
@@ -158,6 +167,11 @@ export function NetworksStep({
         <Params485
           value={value.p485}
           onChange={(p485) => onChange({ ...value, p485 })}
+        />
+      ) : value.netType === 'lora' ? (
+        <ParamsLora
+          value={value.pLora}
+          onChange={(pLora) => onChange({ ...value, pLora })}
         />
       ) : (
         <ParamsEthernet

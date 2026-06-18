@@ -44,9 +44,33 @@ async function run() {
   const regCount = pm?.content?.registers?.length ?? 0;
   check(regCount === full.registers.length, `acme-pm5560 has full register set (${regCount})`);
 
-  // Networks mix 485 + ethernet (DOMAIN-MODEL: a gateway carries both link types).
+  // Networks mix 485 + ethernet + lora (a gateway carries Modbus buses AND a LoRa
+  // radio link for the battery sensors — DOMAIN-MODEL §network).
   const netTypes = new Set(networks.map((n) => n.content?.net_type));
   check(netTypes.has('485') && netTypes.has('ethernet'), `networks mix 485 + ethernet (${[...netTypes].join(', ')})`);
+  check(netTypes.has('lora'), `a lora network is present (${[...netTypes].join(', ')})`);
+
+  // The "extra devices" meter-types are registered (LoRa sensors + Modbus IO).
+  const mtKeys = new Set(meterTypes.map((r) => r.content?.key));
+  const expectedDeviceTypes = [
+    'nhp-lora-temp',
+    'nhp-lora-co',
+    'nhp-modbus-pulse',
+    'nhp-modbus-coil',
+  ];
+  check(
+    expectedDeviceTypes.every((k) => mtKeys.has(k)),
+    `device meter-types present (${expectedDeviceTypes.filter((k) => mtKeys.has(k)).length}/${expectedDeviceTypes.length})`,
+  );
+
+  // Every LoRa-stamped meter carries a `battery` register (low-battery alarm).
+  const batteryRegs = registers.filter((r) => r.content?.quantity === 'battery');
+  check(batteryRegs.length > 0, `LoRa devices carry a battery register (${batteryRegs.length})`);
+  // The battery alarm ramp is a 'below' ramp (fires as charge DROPS).
+  check(
+    batteryRegs.some((r) => r.content?.alarm?.direction === 'below'),
+    'a battery register has a low-battery (below) alarm ramp',
+  );
 
   // Meters are tagged with the standard hierarchy tags (content.tags — tags.mjs).
   const tagged = meters.filter((m) => {
@@ -80,6 +104,31 @@ async function run() {
   let noHistoryRegs = 0; // history=false registers (each should carry ONE point)
   let noHistoryWithValue = 0; // …and how many actually have their latest value
   let alarmingVoltages = 0; // voltage series whose LATEST reading crosses the ramp
+  let lowBatteries = 0; // battery series whose LATEST reading is in a low-batt alarm
+  let alarmingCo = 0; // CO series whose LATEST reading crosses its high ramp
+
+  // Mirror of the UI severityFor (field-config.ts) so the check evaluates an alarm
+  // exactly as the dashboard does, honouring the 'below' direction.
+  const latestOf = (rows) =>
+    rows.reduce((a, b) => (Date.parse(b.at) > Date.parse(a.at) ? b : a));
+  const severityFor = (value, alarm) => {
+    if (!alarm?.thresholds?.length) return 'ok';
+    const below = alarm.direction === 'below';
+    const steps = [...alarm.thresholds].sort((a, b) => {
+      if (a.value === null) return -1;
+      if (b.value === null) return 1;
+      return below ? b.value - a.value : a.value - b.value;
+    });
+    let current = 'ok';
+    for (const step of steps) {
+      const crossed =
+        step.value === null || (below ? value <= step.value : value >= step.value);
+      if (crossed) current = step.severity;
+      else break;
+    }
+    return current;
+  };
+
   for (const reg of registers) {
     const rows = await getReadings(reg.id, from, to);
     if (reg.content?.history) {
@@ -89,12 +138,15 @@ async function run() {
       noHistoryRegs += 1;
       if (rows.length >= 1) noHistoryWithValue += 1;
     }
+    if (!rows.length) continue;
     // Alarm check: the dashboards evaluate a register's LATEST value against its
-    // ramp; mirror that to confirm the seed produces active alarms (warn ≥250 V).
-    if (reg.content?.quantity === 'voltage' && rows.length) {
-      const latest = rows.reduce((a, b) => (Date.parse(b.at) > Date.parse(a.at) ? b : a));
-      if (latest.value >= 250) alarmingVoltages += 1;
-    }
+    // ramp; mirror that to confirm the seed produces active alarms.
+    const latest = latestOf(rows);
+    const sev = severityFor(latest.value, reg.content?.alarm);
+    const q = reg.content?.quantity;
+    if (q === 'voltage' && latest.value >= 250) alarmingVoltages += 1;
+    if (q === 'battery' && sev !== 'ok') lowBatteries += 1;
+    if (q === 'co' && sev !== 'ok') alarmingCo += 1;
   }
   check(historyCount > 0, `readings present for history=true registers (got ${historyCount})`);
   // A reading is lean: `at` (the measurement instant), `series`, `value`.
@@ -120,6 +172,16 @@ async function run() {
   check(
     alarmingVoltages > 0,
     `at least one voltage series is in alarm (got ${alarmingVoltages})`,
+  );
+  // The seed also biases a LoRa device to a low battery and a carpark CO sensor
+  // over its high ramp — so the alarm panel shows the new alarm types firing.
+  check(
+    lowBatteries > 0,
+    `at least one device is in low-battery alarm (got ${lowBatteries})`,
+  );
+  check(
+    alarmingCo > 0,
+    `at least one CO sensor is in alarm (got ${alarmingCo})`,
   );
 
   console.log(failures === 0 ? 'seed check: all passed' : `seed check: ${failures} failed`);

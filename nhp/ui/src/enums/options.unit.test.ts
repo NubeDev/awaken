@@ -16,6 +16,7 @@ const pairs: [readonly string[], string[]][] = [
   [ui.BYTE_ORDER, node.BYTE_ORDER],
   [ui.CHART_TYPE, node.CHART_TYPE],
   [ui.STATUS, node.STATUS],
+  [ui.QUANTITY, node.QUANTITY],
 ]
 
 describe('NHP enum options mirror nhp/collections/enums.mjs', () => {

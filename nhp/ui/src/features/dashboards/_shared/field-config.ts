@@ -36,6 +36,23 @@ export function severityFor(value: number, alarm: Alarm | undefined): AlarmSever
   return current
 }
 
+/**
+ * The threshold step a value has tripped — the numeric ramp value for the
+ * severity returned by {@link severityFor}, or null at baseline `ok`. Used by the
+ * alarm panel to show WHICH limit was crossed ("≥ 100 ppm").
+ */
+export function crossedThreshold(
+  value: number,
+  alarm: Alarm | undefined
+): { value: number; severity: Exclude<AlarmSeverity, 'ok'>; direction: 'above' | 'below' } | null {
+  const sev = severityFor(value, alarm)
+  if (sev === 'ok' || !alarm) return null
+  const direction = alarm.direction === 'below' ? 'below' : 'above'
+  const step = alarm.thresholds.find((t) => t.severity === sev && t.value !== null)
+  if (!step || step.value === null) return null
+  return { value: step.value, severity: sev, direction }
+}
+
 /** True when the ramp defines anything beyond the baseline `ok`. */
 export function hasAlarm(alarm: Alarm | undefined): boolean {
   return !!alarm?.thresholds?.some((t) => t.severity !== 'ok')

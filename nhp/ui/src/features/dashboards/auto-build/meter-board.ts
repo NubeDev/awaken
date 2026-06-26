@@ -15,7 +15,7 @@
  * x-axis and recency read the measurement instant `at`.
  */
 import type { Alarm, RegisterRec } from '@/api/records'
-import { severityFor } from '../_shared/field-config'
+import { crossedThreshold, severityFor } from '../_shared/field-config'
 import type { HistorySample } from '../query/batch'
 import { resolveWindow, withinWindow, type WindowToken } from '../query/time-window'
 import type { AlarmRow } from '../widgets/alarm-panel'
@@ -70,6 +70,7 @@ export function buildMeterBoard(
     if (last) {
       const sev = severityFor(last.value, c.alarm as Alarm | undefined)
       if (sev !== 'ok') {
+        const crossed = crossedThreshold(last.value, c.alarm as Alarm | undefined)
         alarms.push({
           register: c.key,
           name: c.name,
@@ -77,6 +78,10 @@ export function buildMeterBoard(
           unit: c.unit,
           precision: c.precision,
           severity: sev,
+          threshold: crossed
+            ? { value: crossed.value, direction: crossed.direction }
+            : undefined,
+          at: last.at,
         })
       }
     }
